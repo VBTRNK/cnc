@@ -7,7 +7,8 @@ Not live yet.
 
 ## What it is now
 
-A scaffold: the stack and backend are not decided yet (see the "Open setup
+A scaffold with a design: the game, its stack and its backend are decided in
+[`docs/design.md`](docs/design.md) but not applied yet (see the "Open setup
 decisions" issue), so there is no app code. Rewrite this paragraph as the
 tool changes; don't append history (that lives in the PRs).
 
@@ -19,5 +20,6 @@ No app code yet: the repo holds the safety and security layer only.
 ## More
 
 - [`AGENTS.md`](AGENTS.md): instructions for agents and contributors.
+- [`docs/design.md`](docs/design.md): what the game is and how it is built.
 - [`docs/decisions.md`](docs/decisions.md): the rules and why.
 - [`SECURITY.md`](SECURITY.md): reporting a problem.
