@@ -1,0 +1,173 @@
+# Mirror the routine command permissions in .claude/settings.json.
+# An allow only removes the approval prompt; it never authorizes publishing.
+
+prefix_rule(
+    pattern = ["git", "status"],
+    decision = "allow",
+    justification = "Inspecting working tree state is routine and read-only.",
+    match = [
+        "git status",
+        "git status --short",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "diff"],
+    decision = "allow",
+    justification = "Reviewing diffs is routine and read-only.",
+    match = [
+        "git diff",
+        "git diff --stat",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "log"],
+    decision = "allow",
+    justification = "Reviewing commit history is routine and read-only.",
+    match = [
+        "git log",
+        "git log --oneline -10",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "show"],
+    decision = "allow",
+    justification = "Inspecting a specific commit is routine and read-only.",
+    match = [
+        "git show HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "branch"],
+    decision = "allow",
+    justification = "Listing or inspecting branches is routine; the hook blocks forced deletion.",
+    match = [
+        "git branch",
+        "git branch --show-current",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "add"],
+    decision = "allow",
+    justification = "Staging files is routine and reversible (git restore --staged undoes it).",
+    match = [
+        "git add .",
+    ],
+)
+
+# `git commit` and `git push` are never auto-allowed. A standing permission is
+# not per-change authorization: each commit and push needs the owner to say so
+# for that change. A prompt routes to the configured reviewer (the owner, or
+# automatic review checking execution risk); it does not prove owner consent.
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "A commit records an authorization decision the owner makes per change.",
+    match = [
+        "git commit -m \"Fix typo\"",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Publishing a branch is outward-facing; the owner authorizes each push. Branch protection also rejects direct pushes to main.",
+    match = [
+        "git push",
+        "git push origin main",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npm", "install"],
+    decision = "allow",
+    justification = "Installing declared dependencies is routine and reversible (node_modules is disposable and gitignored).",
+    match = [
+        "npm install",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npm", "run"],
+    decision = "allow",
+    justification = "Project scripts (build, dev, test, lint) only read source and write to gitignored build output.",
+    match = [
+        "npm run build",
+        "npm run dev",
+    ],
+)
+
+prefix_rule(
+    pattern = ["ls"],
+    decision = "allow",
+    justification = "Listing directory contents is routine and read-only.",
+    match = [
+        "ls",
+        "ls src",
+    ],
+)
+
+prefix_rule(
+    pattern = ["cat"],
+    decision = "allow",
+    justification = "Reading a file's contents is routine and read-only.",
+    match = [
+        "cat package.json",
+    ],
+)
+
+# Only read-only `gh` subcommands are allowed. A whole `gh pr`, `gh run` or
+# `gh issue` prefix would also allow merge, close, comment, rerun, cancel and
+# delete. These mirror the gh allows in .claude/settings.json.
+prefix_rule(
+    pattern = ["gh", "pr", ["view", "list", "diff", "checks", "status"]],
+    decision = "allow",
+    justification = "Inspecting pull requests is routine and read-only.",
+    match = [
+        "gh pr list",
+        "gh pr view 1",
+        "gh pr diff 1",
+        "gh pr checks 1",
+        "gh pr status",
+    ],
+    not_match = [
+        "gh pr merge 1",
+        "gh pr close 1",
+        "gh pr comment 1",
+        "gh pr create",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "run", ["list", "view"]],
+    decision = "allow",
+    justification = "Inspecting GitHub Actions runs is routine and read-only.",
+    match = [
+        "gh run list",
+        "gh run view 123456789",
+    ],
+    not_match = [
+        "gh run rerun 123456789",
+        "gh run delete 123456789",
+        "gh run cancel 123456789",
+    ],
+)
+
+prefix_rule(
+    pattern = ["gh", "issue", ["view", "list"]],
+    decision = "allow",
+    justification = "Reading issues is routine and read-only.",
+    match = [
+        "gh issue list",
+        "gh issue view 1",
+    ],
+    not_match = [
+        "gh issue create",
+        "gh issue close 1",
+        "gh issue comment 1",
+    ],
+)
