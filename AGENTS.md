@@ -9,9 +9,11 @@ Crime & Crown ("Rule the streets. Claim the crown.") is a tool in the
 [VibeTrunk](https://vibetrunk.com) hub; add no coupling to `VBTRNK/home`
 beyond its tools-list entry.
 
-- Stack: not decided yet: no app code, only the safety layer.
+- Stack: decided, not applied yet: Vite, React and TypeScript as a static
+  single-page app (ADR-002). No app code, only the safety layer.
 - Hosting: Vercel project `cnc`, at `https://cnc.vibetrunk.com` once live.
-- Backend: not decided yet (see the "Open setup decisions" issue).
+- Backend: decided, not applied yet: the shared VibeTrunk Supabase project,
+  schema `cnc` (ADR-002; applying is in the "Open setup decisions" issue).
 - A hobby project and a deliberate learning project in production-grade
   practice: clear structure, decisions recorded in `docs/decisions.md`.
 
@@ -64,5 +66,5 @@ Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 
 ## Documentation map
 
-`README.md` is the current state, `docs/decisions.md` the rules and their
-reasons, GitHub issues the open work, and the PR description the narrative.
+`README.md` is the current state, `docs/design.md` the game's product and
+architecture contract, `docs/decisions.md` the rules and their reasons, GitHub issues the open work, and the PR description the narrative.
