@@ -67,4 +67,5 @@ Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 ## Documentation map
 
 `README.md` is the current state, `docs/design.md` the game's product and
-architecture contract, `docs/decisions.md` the rules and their reasons, GitHub issues the open work, and the PR description the narrative.
+architecture contract, `docs/decisions.md` the rules and their reasons,
+GitHub issues the open work, and the PR description the narrative.
