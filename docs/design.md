@@ -45,6 +45,38 @@ tracked as GitHub issues.
   sheet and restored after it, adequate touch targets, readable contrast, no colour-only
   cues, text zoom, reduced motion, and no essential message that dismisses itself.
 
+## Look and feel
+
+- The game looks like a comic crime tabloid on newsprint, kept light: flat paper, thin ink
+  rules and plenty of empty space. No screen may feel crowded or heavy.
+- **Colour.** One light theme. Newsprint `#E6E3DA` is the ground and sheet `#F7F5EE` the
+  raised surface (sheets, choice buttons). Ink `#16140F` is for text and rules, muted ink
+  `#4A463C` for secondary text. Red `#A3140D` marks warnings and scarcity. Highlighter
+  yellow `#FFD400` sits behind the latest result or a phrase in a headline. Manila
+  `#DCC48F`, with stamp red `#8E110B`, belongs to the dossier only.
+- **Type.** Anton, in capitals, for place names, headlines, large counts and the committing
+  button. Newsreader for names and running text. Courier Prime for money, time and status
+  chips. Running text is 16 to 18 px and nothing is smaller than 14 px. The font files are
+  served from this origin.
+- **Weight and spacing.** Side margins are 20 px. Rules are 1.5 px ink and dividers 1 px
+  muted ink. Corners are square. The only shadow is the dossier's hard offset. A screen has
+  at most one filled ink button, the action that commits. Controls are at least 48 px high.
+- **Status.** Every play screen starts with cash, slim chips for pockets and heat, and a bar
+  showing how much of the day is used, with the hours left beside it.
+- **Street.** Goods are a plain list: a large held count (blank when none), the name, the
+  price, and at most a one-word price hint, never a figure. A shortage shows as a short red
+  note. Tapping a good opens a sheet from the bottom with a buy or sell switch, a quantity
+  stepper with a maximum shortcut, and one button that names the trade and its total.
+- **Event card.** The character and the situation sit in a dossier: a manila folder with a
+  halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
+  carries its effects as chips: a solid chip is certain, a dashed chip with a die is a
+  chance, and a dashed chip with a question mark is unknown.
+- **Newspaper.** A masthead, one headline with a short story, a few one-line briefs, the
+  day's totals as chips, and one button that starts the next day.
+- **Portraits** are ink silhouettes or drawings on a halftone ground.
+- **Tone of voice.** Dry, punning tabloid. Text is scarce: a line stays only if it informs a
+  decision or adds character. No headings or labels that restate what the screen shows.
+
 ## Release steps
 
 1. **Local first playable:** the solo loop, upgrades and recovery, minimal news, a local
@@ -117,7 +149,6 @@ tracked as GitHub issues.
 
 ## Not decided here
 
-- The look and feel (#2).
 - The economy and its numbers, the action list and its time costs (#3).
 - The timing rules around midday and day end (#4).
 - The difficulty rules (#5).
