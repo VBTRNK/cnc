@@ -9,8 +9,8 @@ Crime & Crown ("Rule the streets. Claim the crown.") is a tool in the
 [VibeTrunk](https://vibetrunk.com) hub; add no coupling to `VBTRNK/home`
 beyond its tools-list entry.
 
-- Stack: decided, not applied yet: Vite, React and TypeScript as a static
-  single-page app (ADR-002). No app code, only the safety layer.
+- Stack: Vite, React and TypeScript as a static single-page app, plain CSS,
+  Vitest (ADR-002, applied in ADR-003). The app is a placeholder screen.
 - Hosting: Vercel project `cnc`, at `https://cnc.vibetrunk.com` once live.
 - Backend: decided, not applied yet: the shared VibeTrunk Supabase project,
   schema `cnc` (ADR-002; applying is in the "Open setup decisions" issue).
@@ -32,9 +32,12 @@ Changing a rule, invariant or public contract means recording it in
 
 ## Commands
 
-- Not decided yet: there are no install, dev, build or test commands until a
-  stack exists. `node --test tests/agent-hooks.test.cjs` tests the safety
-  hooks.
+- `npm install`, then `npm run verify`: typecheck, Vitest, the hook tests
+  and a production build, in one call. `npm run dev` for the dev server.
+- `npm run build` then `npm run preview` serves the production build under
+  the headers in `vercel.json`; check CSP changes there, never in dev.
+- Vitest runs with globals; test files never import `"vitest"` (see
+  `vite.config.ts`).
 
 ## Workspace and branches
 

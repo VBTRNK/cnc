@@ -7,15 +7,22 @@ Not live yet.
 
 ## What it is now
 
-A scaffold with a design: the game, its stack and its backend are decided in
-[`docs/design.md`](docs/design.md) but not applied yet (see the "Open setup
-decisions" issue), so there is no app code. Rewrite this paragraph as the
-tool changes; don't append history (that lives in the PRs).
+A designed game on an applied stack: Vite, React and TypeScript, serving a
+placeholder screen. The game itself is specified in
+[`docs/design.md`](docs/design.md) and not built yet; the backend is decided
+but not applied (see the "Open setup decisions" issue). Rewrite this
+paragraph as the tool changes; don't append history (that lives in the PRs).
 
 ## Local development
 
-No app code yet: the repo holds the safety and security layer only.
-`node --test tests/agent-hooks.test.cjs` tests the agent safety hooks.
+Node 24.
+
+```sh
+npm install
+npm run dev      # dev server
+npm run verify   # typecheck, tests, hook tests, production build
+npm run preview  # the production build under the real security headers
+```
 
 ## More
 

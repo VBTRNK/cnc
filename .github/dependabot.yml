@@ -12,18 +12,17 @@ updates:
     commit-message:
       prefix: ci
 
-  # Add once the repo has a package.json:
-  # - package-ecosystem: npm
-  #   directory: "/"
-  #   schedule:
-  #     interval: weekly
-  #   open-pull-requests-limit: 5
-  #   cooldown:
-  #     default-days: 5
-  #   groups:
-  #     minor-and-patch:
-  #       update-types:
-  #         - minor
-  #         - patch
-  #   commit-message:
-  #     prefix: chore
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
