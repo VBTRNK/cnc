@@ -75,3 +75,29 @@ Date: 2026-11-17
   loaded a second copy of Vitest and every suite failed.
 - Known advisory: GHSA-fc5q-39xc-vjpf (picomatch ReDoS, no patched version)
   reaches only build and test tooling; `npm audit --omit=dev` is clean.
+
+## ADR-005 — The simulation and its save
+
+Date: 2026-11-17
+
+- Context: the loop rules (design.md, "The loop") left a few details open;
+  building the simulation settled them. Numbers stay provisional.
+- Rounding: bribes and fines round up to whole dollars; heat is kept
+  unrounded and shown as its word. Sale hours and the most units that fit
+  use Patter's rate in exact tenths, so no floating-point drift.
+- Day 1 uses the authored prices with a drift of 1; day 2 rolls from there.
+- Ask around gives the day's rumour first, then price tips. A price tip's
+  good is the one held most, else the dearest, falling back to the next
+  good when no unseen place is left for it. Only Ask around earns Savvy
+  experience; the phone's midday line spends the rumour without it.
+- Reservations: a market event blocks another on the same place and good,
+  a sweep another sweep on the same place, over overlapping lifetimes.
+- An action that reaches 22:00 leaves the day's remaining activations to the
+  day end, so a midday item nobody saw leads the paper.
+- The generator is mulberry32: its whole position is one 32-bit integer in
+  the state. A refused action draws nothing.
+- Saves are `{ format, version, state }`, validated by a hand-written check
+  (no schema library in the bundle). Migrations run per version on a copy.
+- Scripts run with Node's own TypeScript support, so imports carry `.ts` and
+  the code uses erasable syntax only (`allowImportingTsExtensions`,
+  `erasableSyntaxOnly`).

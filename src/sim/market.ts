@@ -1,0 +1,253 @@
+// The market and the world-event schedule: daily rolls, reservations, activation, and the
+// values derived from them (prices, police). Everything here works on a state the caller
+// owns; `step` in sim.ts clones before calling in.
+
+import {
+  DAY1_DOCKS_STOCK as DAY1_DOCKS,
+  DAY1_PRICES as DAY1,
+  GOOD,
+  GOODS,
+  HARMLESS,
+  PLACE,
+  PLACES,
+  RULES,
+  isSource,
+  type GoodId,
+  type PlaceId,
+  type SkillId,
+} from "./content.ts";
+import type { Rng } from "./rng.ts";
+import type { Cell, GameState, MarketKind, PerGood, PerPlace, Rumour, WorldEvent } from "./state.ts";
+
+export const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
+const atLeast1 = (x: number): number => Math.max(1, Math.round(x));
+
+export const level = (xp: number): number => RULES.levels.filter((t) => xp >= t).length;
+export const skill = (s: GameState, id: SkillId): number => level(s.xp[id]);
+
+/** Absolute hour, for comparing times across days. */
+const at = (day: number, hour: number): number => day * 24 + hour;
+const startOf = (e: WorldEvent): number => at(e.startDay, e.startHour);
+const endOf = (e: WorldEvent): number => at(e.endDay, RULES.dayEnd);
+
+export const ringDistance = (a: PlaceId, b: PlaceId): number => {
+  const d = Math.abs(PLACES.indexOf(a) - PLACES.indexOf(b));
+  return Math.min(d, PLACES.length - d);
+};
+
+// ---- Derived values ----------------------------------------------------------------
+
+export const marketEventOn = (s: GameState, place: PlaceId, good: GoodId) =>
+  s.events.find(
+    (e): e is Extract<WorldEvent, { kind: MarketKind }> =>
+      e.activated && (e.kind === "shortage" || e.kind === "glut") && e.place === place && e.good === good,
+  );
+
+export const sweepOn = (s: GameState, place: PlaceId): boolean =>
+  s.events.some((e) => e.activated && e.kind === "sweep" && e.place === place);
+
+export function price(s: GameState, place: PlaceId, good: GoodId): number {
+  const cell = s.market[place][good];
+  const ev = marketEventOn(s, place, good);
+  if (!ev) return cell.baseline;
+  return atLeast1(cell.baseline * (ev.kind === "shortage" ? RULES.shortage.price : RULES.glut.price));
+}
+
+export const police = (s: GameState, place: PlaceId): number =>
+  PLACE[place].police * (sweepOn(s, place) ? RULES.sweepPolice : 1);
+
+/** The city's usual price for a good: base × the mean place factor. Hints compare against it. */
+export const usualPrice = (good: GoodId): number =>
+  (GOOD[good].base * PLACES.reduce((sum, p) => sum + PLACE[p].factor[good], 0)) / PLACES.length;
+
+export function priceHint(s: GameState, place: PlaceId, good: GoodId): "cheap" | "pricey" | null {
+  const ratio = price(s, place, good) / usualPrice(good);
+  if (ratio <= 0.8) return "cheap";
+  if (ratio >= 1.2) return "pricey";
+  return null;
+}
+
+export function heatWord(heat: number): "low" | "warm" | "hot" | "wanted" {
+  for (const [min, word] of RULES.heatWords) if (heat >= min) return word;
+  return "low";
+}
+
+export function riskWord(p: number): "slight" | "some" | "real" | "high" {
+  if (p < 0.05) return "slight";
+  if (p < 0.15) return "some";
+  if (p < 0.3) return "real";
+  return "high";
+}
+
+// ---- Market effects and rolls ------------------------------------------------------
+
+/** Applies a market event to a cell's remaining stock and demand (R and Rd in the design). */
+function applyEffect(cell: Cell, kind: MarketKind): void {
+  if (kind === "shortage") {
+    cell.stock = Math.floor(RULES.shortage.stock * cell.stock);
+    cell.demand = Math.round(RULES.shortage.demand * cell.demand);
+  } else {
+    cell.stock = cell.stock + cell.freshStock;
+  }
+}
+
+const baseStock = (place: PlaceId, good: GoodId): number =>
+  isSource(place, good) ? GOOD[good].stockAtSource : GOOD[good].stockElsewhere;
+const baseDemand = (place: PlaceId, good: GoodId): number =>
+  GOOD[good].rate * RULES.demandHours * PLACE[place].factor[good];
+
+function perPlace<T>(make: (p: PlaceId) => T): PerPlace<T> {
+  return Object.fromEntries(PLACES.map((p) => [p, make(p)])) as PerPlace<T>;
+}
+export function perGood<T>(make: (g: GoodId) => T): PerGood<T> {
+  return Object.fromEntries(GOODS.map((g) => [g, make(g)])) as PerGood<T>;
+}
+
+/** Day 1's authored market: fixture prices, base totals without noise. */
+export function fixtureMarket(): PerPlace<PerGood<Cell>> {
+  return perPlace((p) =>
+    perGood((g) => {
+      const freshStock = p === "docks" ? DAY1_DOCKS[g] : baseStock(p, g);
+      const freshDemand = atLeast1(baseDemand(p, g));
+      return { baseline: DAY1[p][g], freshStock, freshDemand, stock: freshStock, demand: freshDemand };
+    }),
+  );
+}
+
+export const flatDrift = (): PerPlace<PerGood<number>> => perPlace(() => perGood(() => 1));
+
+/** Rolls `day`'s baseline, stock and demand; events still running that day apply at once. */
+export function rollMarket(s: GameState, rng: Rng, day: number): void {
+  for (const p of PLACES) {
+    for (const g of GOODS) {
+      const drift = clamp(
+        1 + RULES.driftReversion * (s.drift[p][g] - 1) + rng.normal() * GOOD[g].vol,
+        RULES.driftMin,
+        RULES.driftMax,
+      );
+      s.drift[p][g] = drift;
+      const freshStock = Math.max(0, Math.round(baseStock(p, g) * rng.range(...RULES.stockNoise)));
+      const freshDemand = atLeast1(baseDemand(p, g) * rng.range(...RULES.demandNoise));
+      s.market[p][g] = {
+        baseline: atLeast1(GOOD[g].base * PLACE[p].factor[g] * drift),
+        freshStock,
+        freshDemand,
+        stock: freshStock,
+        demand: freshDemand,
+      };
+    }
+  }
+  for (const e of s.events) {
+    if (e.activated && e.endDay >= day && (e.kind === "shortage" || e.kind === "glut")) {
+      applyEffect(s.market[e.place][e.good], e.kind);
+    }
+  }
+}
+
+// ---- The schedule ------------------------------------------------------------------
+
+const overlaps = (e: WorldEvent, start: number, end: number): boolean =>
+  startOf(e) <= end && start <= endOf(e);
+
+function freePairs(s: GameState, start: number, end: number): { place: PlaceId; good: GoodId }[] {
+  const out: { place: PlaceId; good: GoodId }[] = [];
+  for (const place of PLACES) {
+    for (const good of GOODS) {
+      const taken = s.events.some(
+        (e) =>
+          (e.kind === "shortage" || e.kind === "glut") &&
+          e.place === place &&
+          e.good === good &&
+          overlaps(e, start, end),
+      );
+      if (!taken) out.push({ place, good });
+    }
+  }
+  return out;
+}
+
+function freePlaces(s: GameState, start: number, end: number): PlaceId[] {
+  return PLACES.filter(
+    (place) => !s.events.some((e) => e.kind === "sweep" && e.place === place && overlaps(e, start, end)),
+  );
+}
+
+const marketKind = (rng: Rng): MarketKind => (rng.chance(0.5) ? "shortage" : "glut");
+
+/** The midday item for `day`: hidden until 16:00, active until 22:00 the next day. */
+export function scheduleMidday(s: GameState, rng: Rng, day: number): void {
+  const base = { id: `d${day}-midday`, slot: "midday", startDay: day, startHour: RULES.midday, endDay: day + 1, activated: false } as const;
+  const start = at(day, RULES.midday);
+  const end = at(day + 1, RULES.dayEnd);
+  const r = rng.next();
+  if (r < RULES.middayMarketChance) {
+    const free = freePairs(s, start, end);
+    if (free.length > 0) {
+      const { place, good } = rng.pick(free);
+      s.events.push({ ...base, kind: marketKind(rng), place, good });
+      return;
+    }
+  } else if (r < RULES.middayMarketChance + RULES.middaySweepChance) {
+    const free = freePlaces(s, start, end);
+    if (free.length > 0) {
+      s.events.push({ ...base, kind: "sweep", place: rng.pick(free) });
+      return;
+    }
+  }
+  s.events.push({ ...base, kind: "harmless", line: rng.pick(HARMLESS) });
+}
+
+/** The morning event for `day`, on half of all days: active 10:00 that day through 22:00 the next. */
+export function scheduleMorning(s: GameState, rng: Rng, day: number): void {
+  if (!rng.chance(RULES.morningEventChance)) return;
+  const free = freePairs(s, at(day, RULES.dayStart), at(day + 1, RULES.dayEnd));
+  if (free.length === 0) return;
+  const { place, good } = rng.pick(free);
+  s.events.push({
+    id: `d${day}-morning`,
+    slot: "morning",
+    startDay: day,
+    startHour: RULES.dayStart,
+    endDay: day + 1,
+    activated: false,
+    kind: marketKind(rng),
+    place,
+    good,
+  });
+}
+
+/** Applies every activation scheduled today at or before `hour`, in time order. */
+export function activateUpTo(s: GameState, hour: number): WorldEvent[] {
+  const due = s.events
+    .filter((e) => !e.activated && e.startDay === s.day && e.startHour <= hour)
+    .sort((a, b) => a.startHour - b.startHour);
+  for (const e of due) {
+    e.activated = true;
+    if (e.kind === "shortage" || e.kind === "glut") applyEffect(s.market[e.place][e.good], e.kind);
+  }
+  return due;
+}
+
+export function expireToday(s: GameState): void {
+  s.events = s.events.filter((e) => e.endDay > s.day);
+}
+
+/** The morning event scheduled for tomorrow, if any. */
+export const tomorrowsMorning = (s: GameState) =>
+  s.events.find(
+    (e): e is Extract<WorldEvent, { kind: MarketKind }> =>
+      e.slot === "morning" && e.startDay === s.day + 1 && (e.kind === "shortage" || e.kind === "glut"),
+  );
+
+/** Draws the day's rumour about tomorrow. True with 70% + 5 points per Savvy level. */
+export function drawRumour(s: GameState, rng: Rng, via: Rumour["via"]): Rumour {
+  const truthChance = (RULES.rumourTruth + RULES.savvyRumour * skill(s, "savvy")) / 100;
+  const event = tomorrowsMorning(s);
+  if (rng.chance(truthChance)) {
+    return { claim: event ? { kind: event.kind, place: event.place, good: event.good } : null, truthful: true, via };
+  }
+  const tomorrow = s.day + 1;
+  const free = freePairs(s, at(tomorrow, RULES.dayStart), at(tomorrow, RULES.dayEnd));
+  const { place, good } = rng.pick(free.length > 0 ? free : [{ place: "docks" as PlaceId, good: "smokes" as GoodId }]);
+  return { claim: { kind: marketKind(rng), place, good }, truthful: false, via };
+}
