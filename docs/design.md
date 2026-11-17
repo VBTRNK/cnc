@@ -202,12 +202,13 @@ the same: what is the best use of my next few hours?
 - **Difficulty.** The first release (local first playable and persistent MVP) has one
   forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
   Hard mode comes after the persistent MVP, chosen at the start of a run and fixed for it.
-- **To verify.** The simulation (S4) checks realised route variety, heat strategies
-  (including handing over, ending early and split sales), the lock-up in a multi-day
-  glut-to-shortage case, jobs under these rules, cash after an arrest, and the timing edge
-  cases. Phone play (S5) checks the 2-4 minute day, whether stops feel explainable, whether
-  the first purchase is a real choice, and whether it is fun. After the third upgrade there
-  is nothing left to buy; the MVP's first-chapter goal is designed with the detective (#6).
+- **To verify.** The simulation's strategy runs (`npm run strategies`) measure these rules;
+  their results and proposed changes are in the tracking issue (#8). Open after them: the
+  lock-up as designed is barely used and doesn't pay for itself, so its effect needs a
+  decision. Phone play (S5) checks the 2-4 minute day, whether stops feel explainable,
+  whether the first purchase is a real choice, and whether it is fun. After the third
+  upgrade there is nothing left to buy; the MVP's first-chapter goal is designed with the
+  detective (#6).
 
 ## Look and feel
 
@@ -261,6 +262,11 @@ the same: what is the best use of my next few hours?
 - The simulation is a pure TypeScript module with no UI imports: state plus an action gives
   new state plus events. Randomness is seeded and its position is part of the state. It
   never reads the wall clock, and drawing a screen never advances the world.
+- The simulation lives in `src/sim`. `step(state, action)` validates the action; a refused
+  action changes nothing and draws no random number. Content (goods, places, upgrades,
+  skills, events) is referenced by stable IDs from `src/sim/content.ts`, which also holds
+  the loop's numbers. Strategy runs drive the same `step` over many seeds; no second
+  economy implementation exists.
 - Events are typed data with a small fixed set of conditions and effects. No scripting
   language.
 - The Content-Security-Policy keeps the scaffold's strict baseline. Scripts and styles load
@@ -283,6 +289,9 @@ the same: what is the best use of my next few hours?
 - Loading validates the data, migrates older formats while keeping the original, and
   refuses newer formats without overwriting them. Corrupt data falls back to the last valid
   snapshot, and that and any storage failure are shown to the player.
+- The snapshot is `{ format, version, state }` (`src/sim/save.ts`). The loader reports a
+  save as corrupt, from the future, without a migration path, or invalid, and migrates on
+  a copy; the local store (S5) keeps the original and the last valid snapshot.
 - Playing needs no account. Guests can export and import their save.
 - Saves are editable by the player. That is accepted; there are no leaderboards.
 
