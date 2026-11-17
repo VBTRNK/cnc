@@ -9,7 +9,7 @@ export type GoodId = (typeof GOODS)[number];
 export const PLACES = ["docks", "oldtown", "uptown", "strip"] as const;
 export type PlaceId = (typeof PLACES)[number];
 
-export const UPGRADES = ["coat", "phone", "lockup"] as const;
+export const UPGRADES = ["coat", "phone"] as const;
 export type UpgradeId = (typeof UPGRADES)[number];
 
 export const SKILLS = ["patter", "nerve", "savvy"] as const;
@@ -54,15 +54,13 @@ export const PLACE: Record<PlaceId, Place> = {
 export const isSource = (place: PlaceId, good: GoodId): boolean =>
   PLACE[place].factor[good] <= 0.75;
 
-export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200, lockup: 2500 };
+export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200 };
 
 export const RULES = {
   startCash: 250,
   startPlace: "docks" as PlaceId,
   pockets: 20,
   coatPockets: 35,
-  lockupCapacity: 50,
-  lockupPlace: "docks" as PlaceId,
   dayStart: 10,
   midday: 16,
   dayEnd: 22,

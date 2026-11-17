@@ -79,7 +79,6 @@ describe("refusals", () => {
     ["a job without the hours", at("docks", 19), { type: "pullJob" }],
     ["lying low at 21:00", at("docks", 21), { type: "lieLow" }],
     ["an upgrade without the cash", fresh(), { type: "buyUpgrade", upgrade: "coat" }],
-    ["the lock-up without owning it", fresh(), { type: "stash", good: "smokes", units: 1 }],
     ["resolving with no stop", fresh(), { type: "resolveStop", choice: "legIt" }],
     ["starting a day by day", fresh(), { type: "startDay" }],
   ];
@@ -379,7 +378,7 @@ describe("tips", () => {
   });
 });
 
-describe("upgrades and the lock-up", () => {
+describe("upgrades", () => {
   const rich = (edit?: (s: GameState) => void) =>
     at("docks", 10, noStop, (s) => {
       s.cash = 10_000;
@@ -392,24 +391,10 @@ describe("upgrades and the lock-up", () => {
     expect(s.cash).toBe(10_000 - 800 - 35 * 6);
   });
 
-  it("goods move in and out only at the Docks, up to 50 units, in no time", () => {
-    const s = play(rich((s) => (s.held.smokes = 20)), { type: "buyUpgrade", upgrade: "lockup" }, { type: "stash", good: "smokes", units: 20 }).state;
-    expect([s.held.smokes, s.lockup.smokes, s.hour]).toEqual([0, 20, 10]);
-    expect(step({ ...s, lockup: { ...s.lockup, tapes: 30 }, held: { ...s.held, tapes: 1 } }, { type: "stash", good: "tapes", units: 1 })).toEqual({ ok: false, reason: "lockupFull" });
-    const away = play(s, { type: "travel", to: "oldtown" }).state;
-    expect(step(away, { type: "unstash", good: "smokes", units: 1 })).toEqual({ ok: false, reason: "notHere" });
-  });
-
-  it("lock-up goods are never seized and never counted in a bribe", () => {
-    const s = at("docks", 10, rngWhere(below(0.003)), (s) => {
-      s.upgrades = ["lockup"];
-      s.lockup.watches = 40;
-      s.held.smokes = 10;
-    });
-    const stopped = play(s, { type: "sell", good: "smokes", units: 10 }).state;
-    expect(stopped.pending?.bribe).toBe(Math.ceil(40 + 0.25 * 10 * 6));
-    const seized = play(stopped, { type: "resolveStop", choice: "handOver" }).state;
-    expect([seized.held.smokes, seized.lockup.watches]).toEqual([0, 40]);
+  it("an upgrade is bought once", () => {
+    const s = play(rich(), { type: "buyUpgrade", upgrade: "phone" }).state;
+    expect(step(s, { type: "buyUpgrade", upgrade: "phone" })).toEqual({ ok: false, reason: "owned" });
+    expect(step(s, { type: "buyUpgrade", upgrade: "lockup" as "coat" })).toEqual({ ok: false, reason: "unknown" });
   });
 });
 

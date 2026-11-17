@@ -112,7 +112,6 @@ export interface GameState {
   place: PlaceId;
   cash: number;
   held: PerGood<number>;
-  lockup: PerGood<number>;
   /** Heat 0-100, kept unrounded. */
   heat: number;
   xp: Record<SkillId, number>;

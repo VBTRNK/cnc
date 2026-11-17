@@ -1,10 +1,10 @@
 // Seeded random play over many runs: every reachable state must keep the rules'
 // invariants, conserve cash and goods, honour the event schedule and survive a save.
 
-import { GOODS, PLACES, RULES, UPGRADES } from "./content.ts";
+import { GOODS, PLACES, UPGRADES } from "./content.ts";
 import { Rng } from "./rng.ts";
 import { loadSave, toSave, validateState } from "./save.ts";
-import { carried, check, maxBuy, maxSale, newGame, pockets, step, stored, type Action, type DomainEvent } from "./sim.ts";
+import { carried, check, maxBuy, maxSale, newGame, pockets, step, type Action, type DomainEvent } from "./sim.ts";
 import type { GameState, WorldEvent } from "./state.ts";
 
 const SEEDS = 150;
@@ -24,8 +24,6 @@ function randomAction(s: GameState, r: Rng): Action {
     { type: "oddJob" },
     { type: "pullJob" },
     { type: "buyUpgrade", upgrade: r.pick(UPGRADES) },
-    { type: "stash", good, units: r.int(1, 10) },
-    { type: "unstash", good, units: r.int(1, 10) },
   ];
   if (r.chance(0.05)) return { type: "callItADay" };
   // Some invalid actions on purpose: they must change nothing.
@@ -71,7 +69,6 @@ function checkState(s: GameState): void {
   expect(validateState(s)).toBeNull();
   expect(Number.isInteger(s.cash) && s.cash >= 0).toBe(true);
   expect(carried(s)).toBeLessThanOrEqual(pockets(s));
-  expect(stored(s)).toBeLessThanOrEqual(RULES.lockupCapacity);
   expect(s.heat).toBeGreaterThanOrEqual(0);
   expect(s.heat).toBeLessThanOrEqual(100);
   for (const p of PLACES) {
@@ -92,7 +89,7 @@ const overlap = (a: WorldEvent, b: WorldEvent) => {
 function runOne(seed: number) {
   const policy = new Rng(seed * 31 + 7);
   let s = newGame(seed, `run-${seed}`);
-  // A third of the runs start rich, so the upgrades and the lock-up get used.
+  // A third of the runs start rich, so the upgrades get bought.
   if (seed % 3 === 0) s.cash = 6000;
   const ledger: Ledger = { cash: s.cash, goods: Object.fromEntries(GOODS.map((g) => [g, 0])) };
   const everyEvent = new Map<string, WorldEvent>();
@@ -117,7 +114,7 @@ function runOne(seed: number) {
     s = r.state;
     checkState(s);
     expect(s.cash).toBe(ledger.cash);
-    for (const g of GOODS) expect(s.held[g] + s.lockup[g]).toBe(ledger.goods[g]);
+    for (const g of GOODS) expect(s.held[g]).toBe(ledger.goods[g]);
   }
   return { final: s, events: [...everyEvent.values()], actions, seen };
 }
@@ -132,7 +129,7 @@ describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
   it("reaches every branch, the rare ones included", () => {
     const seen = new Set(runs.flatMap((r) => [...r.seen]));
     for (const branch of [
-      "stopped", "pattedDown", "bribed", "leggedIt", "handedOver", "arrested", "upgraded", "stashed", "unstashed",
+      "stopped", "pattedDown", "bribed", "leggedIt", "handedOver", "arrested", "upgraded",
       "levelUp", "tip", "job:success", "job:nothing", "job:hurt", "job:arrested",
       "end:clock", "end:called", "end:arrest", "end:hurt",
     ]) {

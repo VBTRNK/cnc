@@ -232,7 +232,6 @@ const gameState = shape({
   place: oneOf(PLACES),
   cash: int(0, MAX_CASH),
   held: goods,
-  lockup: goods,
   heat: num(0, RULES.heatMax),
   xp: keyed(SKILLS, int(0, 1_000_000)),
   upgrades: all(list(oneOf(UPGRADES), UPGRADES.length), (x, path) =>
@@ -268,9 +267,6 @@ function consistency(s: GameState): string | null {
   const carried = GOODS.reduce((n, g) => n + s.held[g], 0);
   const pocketSize = s.upgrades.includes("coat") ? RULES.coatPockets : RULES.pockets;
   if (carried > pocketSize) return "state.held: more than pockets";
-  const stored = GOODS.reduce((n, g) => n + s.lockup[g], 0);
-  if (stored > 0 && !s.upgrades.includes("lockup")) return "state.lockup: no lock-up";
-  if (stored > RULES.lockupCapacity) return "state.lockup: over capacity";
   if (s.phase === "day" && s.hour >= RULES.dayEnd) return "state.hour: day over";
   if (s.phase === "night" && (s.paper === null || s.pending !== null)) return "state.phase: night without a paper";
   if (s.phase === "day" && s.paper !== null) return "state.paper: paper by day";
