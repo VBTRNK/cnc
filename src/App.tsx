@@ -1,9 +1,161 @@
-// Placeholder until the first playable (S5) replaces it.
-export function App() {
+import { useEffect, useState, useSyncExternalStore } from "react";
+import type { GameSession } from "./game/session.ts";
+import type { Action } from "./sim/index.ts";
+import { City } from "./ui/City.tsx";
+import { download, saveFileName } from "./ui/files.ts";
+import { Me } from "./ui/Me.tsx";
+import type { Overlay } from "./ui/overlay.ts";
+import { PaperScreen } from "./ui/PaperScreen.tsx";
+import { CallDaySheet, JobSheet, TradeSheet, UpgradeSheet } from "./ui/Sheets.tsx";
+import { SaveSheet } from "./ui/SaveSheet.tsx";
+import { Status } from "./ui/Status.tsx";
+import { StopCard } from "./ui/StopCard.tsx";
+import { Street } from "./ui/Street.tsx";
+import { t } from "./ui/text.ts";
+
+type Tab = "street" | "city" | "me";
+const TABS: readonly Tab[] = ["street", "city", "me"];
+
+export function App({ session }: { session: GameSession }) {
+  const snap = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const [tab, setTab] = useState<Tab>("street");
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
+  const { state, mode } = snap;
+  const readOnly = mode !== "play";
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
+
+  if (mode === "future" || !state) return <FutureScreen onExport={() => exportSave(session, null)} />;
+
+  const close = () => setOverlay(null);
+  const commit = (action: Action) => {
+    setOverlay(null);
+    session.dispatch(action);
+  };
+  const travel = (action: Action) => {
+    if (session.dispatch(action)) setTab("street");
+  };
+
+  const banners = (
+    <>
+      {mode === "watch" && <p className="banner">{t("watch.banner")}</p>}
+      {(snap.save === "full" || snap.save === "failed" || snap.save === "off") && (
+        <div className="banner banner-warn" role="alert">
+          <p>{t(`save.${snap.save}`)}</p>
+          <button type="button" className="choice" onClick={() => exportSave(session, state.day)}>
+            {t("save.export")}
+          </button>
+        </div>
+      )}
+      {snap.notice && (
+        <div className="banner">
+          <p>{t(`notice.${snap.notice}`)}</p>
+          {snap.notice === "lost" && session.keptText() && (
+            <button type="button" className="choice" onClick={() => downloadKept(session)}>
+              {t("save.exportKept")}
+            </button>
+          )}
+          <button type="button" className="icon-button" aria-label={t("dismiss")} onClick={session.dismissNotice}>
+            ×
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  if (state.phase === "night" && state.paper) {
+    return (
+      <main className="night">
+        {banners}
+        <PaperScreen paper={state.paper} readOnly={readOnly} onStart={() => session.dispatch({ type: "startDay" })} />
+      </main>
+    );
+  }
+
   return (
-    <main className="placeholder">
-      <h1>Crime &amp; Crown</h1>
-      <p>Rule the streets. Claim the crown.</p>
+    <div className="app">
+      <div className="rail">
+        <Status state={state} />
+        <nav className="tabs" aria-label={t("nav.label")}>
+          {TABS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-current={tab === id ? "page" : undefined}
+              onClick={() => setTab(id)}
+            >
+              {t(`nav.${id}`)}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <main className="screen">
+        {banners}
+        <fieldset className="plain" disabled={readOnly}>
+          {tab === "street" && (
+            <Street
+              state={state}
+              events={snap.events}
+              refusal={snap.refusal}
+              dismissed={dismissed}
+              onDismiss={(id) => setDismissed(new Set([...dismissed, id]))}
+              onOpen={setOverlay}
+              dispatch={session.dispatch}
+            />
+          )}
+          {tab === "city" && <City state={state} dispatch={travel} />}
+          {tab === "me" && <Me state={state} save={snap.save} onOpen={setOverlay} />}
+        </fieldset>
+      </main>
+
+      {state.pending ? (
+        <StopCard state={state} stop={state.pending} dispatch={session.dispatch} readOnly={readOnly} />
+      ) : (
+        !readOnly &&
+        overlay && (
+          <>
+            {overlay.kind === "trade" && <TradeSheet state={state} good={overlay.good} onClose={close} commit={commit} />}
+            {overlay.kind === "job" && <JobSheet state={state} onClose={close} commit={commit} />}
+            {overlay.kind === "callDay" && <CallDaySheet state={state} onClose={close} commit={commit} />}
+            {overlay.kind === "upgrade" && (
+              <UpgradeSheet state={state} upgrade={overlay.upgrade} onClose={close} commit={commit} />
+            )}
+            {overlay.kind === "save" && <SaveSheet session={session} state={state} save={snap.save} onClose={close} />}
+          </>
+        )
+      )}
+    </div>
+  );
+}
+
+function FutureScreen({ onExport }: { onExport: () => void }) {
+  return (
+    <main className="night">
+      <article className="paper">
+        <h1 className="headline">{t("future.title")}</h1>
+        <p className="story">{t("future.story")}</p>
+        <div className="stack">
+          <button type="button" className="commit" onClick={() => window.location.reload()}>
+            {t("future.reload")}
+          </button>
+          <button type="button" className="choice" onClick={onExport}>
+            {t("future.export")}
+          </button>
+        </div>
+      </article>
     </main>
   );
+}
+
+function exportSave(session: GameSession, day: number | null) {
+  const text = session.exportText();
+  if (text) download(text, saveFileName(day));
+}
+
+function downloadKept(session: GameSession) {
+  const text = session.keptText();
+  if (text) download(text, "crime-and-crown-damaged-save.json");
 }

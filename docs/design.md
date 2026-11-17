@@ -266,6 +266,10 @@ the same: what is the best use of my next few hours?
   economy implementation exists.
 - Events are typed data with a small fixed set of conditions and effects. No scripting
   language.
+- The interface (`src/ui`) renders snapshots from a session (`src/game/session.ts`) and
+  sends it actions; it never advances the world itself. Every line of text is a keyed
+  template in `src/ui/text.ts`. The fonts come from pinned Fontsource packages and are
+  bundled as same-origin files.
 - The Content-Security-Policy keeps the scaffold's strict baseline. Scripts and styles load
   from this origin only; the one added connection is the Supabase project's HTTPS origin.
   Allowances are per origin, never a wildcard. Motion uses CSS classes; nothing may inject
@@ -288,8 +292,13 @@ the same: what is the best use of my next few hours?
   snapshot, and that and any storage failure are shown to the player.
 - The snapshot is `{ format, version, state }` (`src/sim/save.ts`). The loader reports a
   save as corrupt, from the future, without a migration path, or invalid, and migrates on
-  a copy; the local store (S5) keeps the original and the last valid snapshot.
-- Playing needs no account. Guests can export and import their save.
+  a copy.
+- The local store (`src/game/store.ts`) writes each snapshot to `localStorage` twice, as
+  the save and its backup copy. It keeps the text of a save it migrated or couldn't read,
+  keeps the save that an import or a new run replaced, and never writes over a save from
+  a newer version. The first open tab holds a Web Lock and writes; another tab follows it
+  read-only and takes over when the first closes.
+- Playing needs no account. Guests can export and import their save, and start a new run.
 - Saves are editable by the player. That is accepted; there are no leaderboards.
 
 ## Accounts and cloud saves
