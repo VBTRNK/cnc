@@ -10,7 +10,7 @@ Crime & Crown ("Rule the streets. Claim the crown.") is a tool in the
 beyond its tools-list entry.
 
 - Stack: Vite, React and TypeScript as a static single-page app, plain CSS,
-  Vitest (ADR-002, applied in ADR-003). The app is a placeholder screen.
+  Vitest (ADR-002, applied in ADR-003). The app is the local first playable.
 - Hosting: Vercel project `cnc`, at `https://cnc.vibetrunk.com` once live.
 - Backend: decided, not applied yet: the shared VibeTrunk Supabase project,
   schema `cnc` (ADR-002; applying is in the "Open setup decisions" issue).
@@ -36,6 +36,7 @@ Changing a rule, invariant or public contract means recording it in
   and a production build, in one call. `npm run dev` for the dev server.
 - `npm run build` then `npm run preview` serves the production build under
   the headers in `vercel.json`; check CSP changes there, never in dev.
+  `npm run browser-check` then drives it headlessly (flows, saves, CSP).
 - Vitest runs with globals; test files never import `"vitest"` (see
   `vite.config.ts`).
 

@@ -123,3 +123,22 @@ Date: 2026-11-17
   `lockup` is free. A future storage upgrade should first show a gain in
   the strategy runs.
 
+## ADR-007 — The local first playable
+
+Date: 2026-11-17
+
+- Context: S5 puts the simulation in front of a player on a phone, with a
+  save on the device and no account (design.md, "Saves").
+- Store: `localStorage` behind a `SaveStore` interface, so a cloud layer can
+  wrap it. Each write stores the snapshot twice (save and backup), so a
+  damaged save falls back without losing a move. A state the loader would
+  refuse is never written. IndexedDB waits for a measured need.
+- One writer: the first tab holds a Web Lock for its lifetime; others
+  follow the `storage` event read-only and take over when the lock frees.
+  Without the Locks API every tab writes.
+- Text: keyed templates in one module with named values; no i18n library.
+- Fonts: Fontsource packages (Anton, Newsreader, Courier Prime, Latin
+  subsets), pinned and bundled, so `font-src 'self'` holds. The CSP is
+  unchanged; the production build runs under it with no violation.
+- Effects use block bodies: Chromium's `scrollTo` returns a promise, which
+  React would call as a cleanup.
