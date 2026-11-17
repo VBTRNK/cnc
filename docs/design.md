@@ -16,9 +16,8 @@ tracked as GitHub issues.
   a dynasty strategy game. The first release is solo, with no employees.
 - The signature character is a recurring comic detective. He watches the player's habits,
   forms theories, some of them wrong, and runs investigations that change the game.
-- Two difficulty directions exist, forgiving and hard. Their rules, recovery consequences
-  and tuning are still to be designed; forgiving comes first, and the first release does not
-  promise two separately balanced rule sets.
+- The first release has one mode, forgiving, in which a run never ends. A hard mode comes
+  after the persistent MVP (see "Difficulty" below).
 - Other games are inspiration for mechanics only: no names, characters, art or text from
   them.
 
@@ -26,8 +25,7 @@ tracked as GitHub issues.
 
 - Time is discrete. The player picks an action, it resolves against a shared in-game clock,
   and the player picks again. The world advances only when the player acts; closing the
-  game pauses it. Individual time costs and the rules at midday and day end are decided in
-  loop design.
+  game pauses it. The rules are in "The loop" below.
 - Phone first: portrait, one hand, touch only, short sessions that can stop at any point. A
   desktop browser gets the same screens in a wider layout, usable by keyboard.
 - Screens: Street (where you are, stock, prices, actions), City (neighbourhoods and travel)
@@ -44,6 +42,172 @@ tracked as GitHub issues.
 - Accessibility is part of done: semantic controls, visible focus, focus kept inside an open
   sheet and restored after it, adequate touch targets, readable contrast, no colour-only
   cues, text zoom, reduced motion, and no essential message that dismisses itself.
+
+## The loop
+
+Every number in this section is provisional: the simulation's strategy runs and play on a
+phone tune them. Goods and places are placeholder names. The player's question is always
+the same: what is the best use of my next few hours?
+
+- **Start.** Day 1 begins at 10:00 at the Docks with $250, nothing held, 20 pockets, heat 0,
+  no skills, no upgrades and no debt. Day 1 is a fixed market (below); seeded markets start
+  on day 2.
+- **The day** runs 10:00-22:00 in whole hours; midday is 16:00. A timed action is offered
+  only if it fits in the hours left, and shows its hours before the player commits. Call it
+  a day is always available. The day ends where the player is; the next starts there.
+- **Actions:**
+
+  | Action | Time | Effect |
+  | --- | --- | --- |
+  | Buy | 0 h | At the current price, up to stock, cash and pockets |
+  | Sell | 1 h or more | Hours = units ÷ selling rate, rounded up; up to the demand left |
+  | Travel | 1 or 2 h | Along a ring: the Docks, Old Town, Uptown, the Strip. Neighbours 1 h, opposites 2 h; free |
+  | Ask around | 1 h | One new tip (see "What the player sees"); offered only when one is left |
+  | Lie low | 2 h | Heat −12 |
+  | Odd job | 3 h | $30, certain, heat −3; never checked by the police |
+  | Pull a job | 4 h | Once a day; see "Jobs" |
+
+  Buying, buying an upgrade and moving goods in or out of the lock-up take 0 h. There is no
+  training action and no price-tier choice: experience comes from doing, and every sale is
+  at the current price.
+- **Goods** (base price, units sold per hour, heat per unit sold), one pocket each: untaxed
+  smokes $8, 10, 0.3 · bootleg tapes $15, 8, 0.3 · knock-off watches $50, 4, 0.6 · fireworks
+  $100, 2, 2.0. Stock never spoils and carries over.
+- **Neighbourhoods** set a price factor per good and a police factor:
+
+  | | Smokes | Tapes | Watches | Fireworks | Police |
+  | --- | --- | --- | --- | --- | --- |
+  | The Docks | 0.75 (source) | 1.0 | 0.75 (source) | 0.75 (source) | 0.7 |
+  | Old Town | 1.0 | 0.75 (source) | 1.0 | 1.2 | 1.0 |
+  | Uptown | 1.25 | 1.1 | 1.3 | 1.0 | 1.4 |
+  | The Strip | 1.15 | 1.3 | 1.05 | 1.3 | 1.0 |
+
+- **Prices.** Each place and good has one price at a time, used for buying and selling. The
+  day-end roll sets tomorrow's baseline: base × place factor × a local drift, which reverts
+  halfway to 1 each day plus roughly normal noise (standard deviation 12% for smokes, 18%
+  for tapes and watches, 30% for fireworks), clamped to 0.6-1.8. The current price is the
+  baseline × any active event's multiplier. Every price, total, bribe and fine is rounded to
+  whole dollars, at least $1.
+- **Stock and demand** per place and good per day. Stock: at a source smokes 40, tapes 30,
+  watches 12, fireworks 5; elsewhere 12, 8, 4, 1; each × 0.7-1.3, rounded. Demand: selling
+  rate × 4 × place factor × 0.8-1.2, rounded, at least 1. Trades use them up until the next
+  day's roll. A sale's maximum is the least of units held, demand left and what fits in the
+  hours left.
+- **Events.** A shortage multiplies price by 1.7; a glut by 0.55. When one starts, it changes
+  what is left today (R stock, Rd demand) and later days' fresh totals (B stock, D demand):
+
+  | | Stock when it starts | Stock later | Demand when it starts | Demand later |
+  | --- | --- | --- | --- | --- |
+  | Shortage | ⌊0.3 R⌋ | ⌊0.3 B⌋ | round(1.5 Rd) | round(1.5 D) |
+  | Glut | R + B | 2 B | Rd | D |
+
+  A police sweep doubles one place's police factor. Two slots per day:
+  - *Morning event*, a shortage or glut on half of all days. It is scheduled two days ahead,
+    can be rumoured the day before, is announced in that evening's paper, and is active from
+    10:00 for two full days.
+  - *Midday item*, rolled the evening before and hidden until 16:00: a shortage or glut, a
+    sweep, or a harmless line, a third each. Active from 16:00 until 22:00 the next day.
+
+  At most one event of each slot starts per day. A place and good (or, for a sweep, a place)
+  that an active or scheduled event covers can't get an overlapping one; with no free
+  candidate the slot stays empty or harmless. Effects end only at 22:00, so anything
+  announced can always be reached.
+- **No rerolling.** Baselines, stock, demand and the event schedule are rolled once from the
+  saved generator. Revisits and reloads see the same values and what is already used up.
+- **Upgrades**, on Me, any order, never lost: **big coat** $800 (pockets 20 → 35); **burner
+  phone** $1,200 (City shows every place's current prices and low-stock notes, not demand,
+  and the midday brief may carry the day's rumour); **lock-up at the Docks** $2,500 (50 units
+  across goods, moved in or out only at the Docks; never seized and never counted in a
+  bribe).
+- **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
+  level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
+  legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
+  points per level to rumour truth (+1 per new tip, +1 per Lie low that started above heat 0).
+  A new level applies from the next quote.
+- **Heat** 0-100, shown as low (0-24), warm (25-44), hot (45-69) or wanted (70+). A sale adds
+  units × the good's heat × police factor × Savvy factor. A successful job +8, a failed one +15,
+  a bribe +10, a successful run +10. Cooling: Lie low −12, an odd job −3, each voluntarily
+  unused hour −1.5, overnight −8. Hours lost to an arrest or injury don't cool.
+- **Stops.** Only when a sale or a job is committed, with p per hour = (0.5% + 0.1% × heat) ×
+  police factor, for the action 1 − (1 − p)^hours. A stop takes no time and is a saved card
+  holding the action and its quote:
+  - **Slip him something:** certain, $40 + a quarter of the carried goods' current value + 2 ×
+    heat, heat +10; not offered at wanted or when unaffordable. The action then runs.
+  - **Leg it:** 50% + 5 points per Nerve − 0.3 points per heat, clamped 10-90%. Success: heat
+    +10 and the action runs. Failure: arrest; the action is cancelled.
+  - **Hand it over:** certain, every carried good is taken. A sale is called off with no time
+    spent; a job still runs.
+
+  The action that follows a stop is never checked again. With empty pockets (only possible
+  before a job) there is no card, just "Patted down. Nothing on you."
+- **Jobs.** Success chance s = 60% + 5 points per Nerve − 0.3 points per heat, clamped
+  10-90%. Every outcome takes the job's 4 h and gives Nerve +2.
+
+  | Outcome | Chance | Effect |
+  | --- | --- | --- |
+  | Success | s | $175-$325, heat +8 |
+  | Nothing doing | ½ (1 − s) | Heat +15 |
+  | Hurt | ¼ (1 − s) | Heat +15; the day ends when the job does |
+  | Arrested | ¼ (1 − s) | Heat +15; arrest when the job ends |
+
+- **Arrest:** carried goods are seized; a fine of 15% of cash, at least $50 but never more
+  than the player has; heat set to 25; the day ends. The next day starts at 14:00. Lock-up
+  goods, upgrades and skills are kept. **Hurt** ends the day with nothing else lost. There is
+  no debt, cash never goes below $0, and odd jobs are always a way back.
+- **What the player sees.** Facts are exact: cash, held counts, pockets, hours, prices and
+  stock where the player stands, each action's hours, a trade's total. Hints are words: a
+  price is cheap at 80% or less of the city's usual and pricey at 120% or more; heat as its
+  word; a place's police mood in its flavour line; odds as words. Every sale and job quote
+  carries a stop-risk chip: slight (under 5%), some (5-15%), real (15-30%), high (30%+). City
+  shows the prices last seen in each place with their age. Outcomes are one line that names
+  the cause ("Sold 12 tapes for $228. The Strip's had its fill.").
+- **Tips.** Ask around gives at most two per place per day, and only new ones. Without the
+  phone: today's price of one good at a place not seen today (the good held most, else the
+  dearest), each once. Each day also has one rumour about tomorrow, shared with the phone's
+  midday line and used once: true with 70% + 5 points per Savvy level, it describes tomorrow's scheduled event
+  or says "Nothing big expected tomorrow"; otherwise it names a place and good with no event.
+  The evening paper's line about tomorrow is always true.
+- **Timing.**
+  - Committing freezes the quote: hours and stop chance; for a sale its units and proceeds;
+    for a job its success chance and payout range; and the odds in any stop. Then: the stop
+    check, any card, the action as quoted, the clock moves to its end, any scheduled change
+    up to that time applies, and any brief shows before the next decision. Nothing
+    interrupts an action, and later changes never touch a committed one.
+  - The midday brief shows after the action that reaches or passes 16:00. An action ending
+    exactly at 16:00 already shows it.
+  - A pending card blocks every action, zero-hour ones included, and stops the clock. It is
+    saved with its action and quote; its outcome is drawn when the player chooses.
+  - Plain news never blocks; stops and dilemmas do.
+  - **Day end**, however it comes (22:00, Call it a day, an arrest, an injury): the last
+    action and its consequences; the clock runs on to 22:00 and applies anything still
+    scheduled today, so ending early skips nothing and an unseen midday item leads the
+    paper; heat cooling, then overnight cooling (after an arrest 25 becomes 17); events
+    ending today expire; the roll (tomorrow's baseline, stock, demand and midday item, and
+    the morning event after that); the detective (persistent MVP); the newspaper from
+    committed results and scheduled facts; save; "Start day N". Tomorrow's morning event
+    activates at 10:00 before any card or action, even when an arrest makes 14:00 the first
+    playable hour.
+- **Day 1 fixture.** Stock is the base totals without noise, except at the Docks: smokes 40,
+  tapes 8, watches 6, fireworks sold out. The morning line is "Smokes going cheap at the
+  Docks. The Strip's gasping." Day 1's midday item is a sweep on the Strip; the evening paper
+  announces a fireworks shortage in Old Town for day 2.
+
+  | | Smokes | Tapes | Watches | Fireworks |
+  | --- | --- | --- | --- | --- |
+  | The Docks | $6 | $15 | $38 | sold out |
+  | Old Town | $8 | $11 | $50 | $120 |
+  | Uptown | $10 | $16 | $65 | $100 |
+  | The Strip | $10 | $20 | $53 | $130 |
+
+- **Difficulty.** The first release (local first playable and persistent MVP) has one
+  forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
+  Hard mode comes after the persistent MVP, chosen at the start of a run and fixed for it.
+- **To verify.** The simulation (S4) checks realised route variety, heat strategies
+  (including handing over, ending early and split sales), the lock-up in a multi-day
+  glut-to-shortage case, jobs under these rules, cash after an arrest, and the timing edge
+  cases. Phone play (S5) checks the 2-4 minute day, whether stops feel explainable, whether
+  the first purchase is a real choice, and whether it is fun. After the third upgrade there
+  is nothing left to buy; the MVP's first-chapter goal is designed with the detective (#6).
 
 ## Look and feel
 
@@ -66,7 +230,8 @@ tracked as GitHub issues.
 - **Street.** Goods are a plain list: a large held count (blank when none), the name, the
   price, and at most a one-word price hint, never a figure. A shortage shows as a short red
   note. Tapping a good opens a sheet from the bottom with a buy or sell switch, a quantity
-  stepper with a maximum shortcut, and one button that names the trade and its total.
+  stepper with a maximum shortcut, and one button that names the trade and its total; for a
+  sale also its hours, with the stop-risk chip ("Sell 6 for $288 · 2 h").
 - **Event card.** The character and the situation sit in a dossier: a manila folder with a
   halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
   carries its effects as chips: a solid chip is certain, a dashed chip with a die is a
@@ -149,8 +314,5 @@ tracked as GitHub issues.
 
 ## Not decided here
 
-- The economy and its numbers, the action list and its time costs (#3).
-- The timing rules around midday and day end (#4).
-- The difficulty rules (#5).
-- The detective's events and the cast (#6).
+- The detective's events, the cast and the first-chapter goal (#6).
 - The later layers, and whether the territory phase gets a map (#7).
