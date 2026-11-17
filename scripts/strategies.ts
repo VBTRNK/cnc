@@ -21,7 +21,6 @@ import {
   quoteJob,
   ringDistance,
   step,
-  stored,
   type Action,
   type DomainEvent,
   type GameState,
@@ -42,12 +41,10 @@ interface Policy {
   stop: "bribeElseRun" | "handOver" | "run";
   jobs: "floor" | "daily" | "never";
   split: boolean;
-  /** Use the lock-up: hoard source goods when cheap (≤ 80% of the usual Docks price) or only in a glut. */
-  lockup: "cheap" | "glut" | null;
   shuttle: boolean;
 }
 
-const BASE: Policy = { order: ["coat", "phone"], lieLowAt: 45, endAt: null, stop: "bribeElseRun", jobs: "floor", split: false, lockup: null, shuttle: false };
+const BASE: Policy = { order: ["coat", "phone"], lieLowAt: 45, endAt: null, stop: "bribeElseRun", jobs: "floor", split: false, shuttle: false };
 const POLICIES: Record<string, Policy> = {
   trader: BASE,
   phoneFirst: { ...BASE, order: ["phone", "coat"] },
@@ -57,9 +54,6 @@ const POLICIES: Record<string, Policy> = {
   alwaysRun: { ...BASE, stop: "run" },
   splitSales: { ...BASE, split: true },
   dailyJob: { ...BASE, jobs: "daily" },
-  lockup: { ...BASE, order: ["coat", "phone", "lockup"], lockup: "cheap" },
-  lockupGlut: { ...BASE, order: ["coat", "phone", "lockup"], lockup: "glut" },
-  noLockup3rd: { ...BASE, order: ["coat", "phone"] },
   shuttle: { ...BASE, shuttle: true },
   oddJobsOnly: { ...BASE, order: [], jobs: "never" },
   jobsAndOddJobs: { ...BASE, order: [], jobs: "daily" },
@@ -180,7 +174,7 @@ function plan(s: GameState, book: Book): Plan | null {
 
 // ---- A policy as a function from state to the next action -----------------------------
 
-function decide(s: GameState, p: Policy, book: Book, queue: Action[], memo: { stashed: string; hoarded: string }): Action {
+function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
   if (s.phase === "night") return { type: "startDay" };
   if (s.pending) {
     if (p.stop === "handOver") return { type: "resolveStop", choice: "handOver" };
@@ -204,39 +198,6 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[], memo: { st
     if (p.jobs === "floor" && s.cash < 150 && carried(s) === 0) return { type: "pullJob" };
   }
   if (p.order.length === 0) return hoursLeft(s) >= RULES.oddJobHours ? { type: "oddJob" } : { type: "callItADay" };
-
-  // The lock-up: at the Docks, take stock out; leave what won't sell; hoard goods going cheap.
-  const visit = `${s.day}:${s.hour}`;
-  if (p.lockup && has(s, "lockup") && s.place === "docks" && memo.stashed !== visit) {
-    for (const g of GOODS) {
-      const room = pockets(s) - carried(s);
-      if (s.lockup[g] > 0 && room > 0) return { type: "unstash", good: g, units: Math.min(room, s.lockup[g]) };
-    }
-  }
-
-  // Hoard goods going cheap at the Docks, with up to half the cash above $300.
-  if (p.lockup && has(s, "lockup") && s.place === "docks" && memo.hoarded !== visit) {
-    memo.hoarded = visit;
-    let budget = Math.floor((s.cash - 300) / 2);
-    let space = RULES.lockupCapacity - stored(s);
-    const room = pockets(s) - carried(s);
-    for (const g of GOODS) {
-      const here = price(s, "docks", g);
-      const cheap = p.lockup === "glut" ? here < 0.7 * s.market.docks[g].baseline : here <= 0.8 * GOOD[g].base * PLACE.docks.factor[g];
-      let n = cheap ? Math.min(space, s.market.docks[g].stock, Math.floor(budget / here)) : 0;
-      while (n > 0 && room > 0) {
-        const chunk = Math.min(n, room);
-        queue.push({ type: "buy", good: g, units: chunk }, { type: "stash", good: g, units: chunk });
-        n -= chunk;
-        space -= chunk;
-        budget -= chunk * here;
-      }
-    }
-    if (queue.length > 0) {
-      memo.stashed = visit;
-      return queue.shift() as Action;
-    }
-  }
 
   // Sell what pays here.
   for (const g of GOODS) {
@@ -269,15 +230,6 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[], memo: { st
     const first = queue.shift();
     if (first) return first;
   }
-  if (p.lockup && has(s, "lockup") && s.place === "docks") {
-    for (const g of GOODS) {
-      const room = RULES.lockupCapacity - stored(s);
-      if (s.held[g] > 0 && room > 0) {
-        memo.stashed = visit;
-        return { type: "stash", good: g, units: Math.min(room, s.held[g]) };
-      }
-    }
-  }
   if (carried(s) === 0 && hoursLeft(s) >= RULES.oddJobHours) return { type: "oddJob" };
   if (best && best.to !== s.place && carried(s) > 0) return { type: "travel", to: best.to };
   return { type: "callItADay" };
@@ -296,22 +248,20 @@ interface Run {
   timed: number;
   jobs: Record<string, number>;
   afterArrest: { cash: number; back: number | null }[];
-  stashed: number;
 }
 
 function runOne(name: string, p: Policy, seed: number): Run {
   let s = newGame(seed, `${name}-${seed}`);
   const book = new Book();
   const queue: Action[] = [];
-  const memo = { stashed: "", hoarded: "" };
-  const out: Run = { wealth: [], arrests: 0, stops: 0, upgradeDay: {}, topRoute: 0, earned: book.earned, actions: 0, timed: 0, jobs: {}, afterArrest: [], stashed: 0 };
+  const out: Run = { wealth: [], arrests: 0, stops: 0, upgradeDay: {}, topRoute: 0, earned: book.earned, actions: 0, timed: 0, jobs: {}, afterArrest: [] };
   const wealth = () => s.cash + book.atCost() + s.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
   let lastGood = wealth();
   let open: { day: number; before: number; i: number } | null = null;
   let guard = 0;
   let refusals = 0;
   while (s.day <= DAYS && guard++ < DAYS * 200) {
-    const action = decide(s, p, book, queue, memo);
+    const action = decide(s, p, book, queue);
     const before = s;
     const r = step(s, action);
     if (!r.ok) {
@@ -330,7 +280,6 @@ function runOne(name: string, p: Policy, seed: number): Run {
       book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
       if (e.type === "stopped") out.stops += 1;
       if (e.type === "arrested") out.arrests += 1;
-      if (e.type === "stashed") out.stashed += e.units;
       if (e.type === "job") out.jobs[e.outcome] = (out.jobs[e.outcome] ?? 0) + 1;
       if (e.type === "upgraded") out.upgradeDay[e.upgrade] = s.day;
       if (e.type === "dayEnded") {
@@ -364,7 +313,7 @@ const k = (n: number) => (Number.isNaN(n) ? "-" : n >= 10_000 ? `${(n / 1000).to
 
 console.log(`days=${DAYS} seeds=${SEEDS}; wealth = cash + goods at cost + upgrades at cost; medians unless noted`);
 console.log(
-  ["policy".padEnd(15), "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "lockup", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
+  ["policy".padEnd(15), "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
 );
 for (const [name, p] of Object.entries(POLICIES)) {
   if (process.env.ONLY && !process.env.ONLY.split(",").includes(name)) continue;
@@ -388,7 +337,6 @@ for (const [name, p] of Object.entries(POLICIES)) {
       (runs.reduce((a, r) => a + r.stops, 0) / SEEDS).toFixed(1).padStart(5),
       upDay("coat").padStart(4),
       upDay("phone").padStart(5),
-      upDay("lockup").padStart(6),
       `${(100 * pct(route, 0.5)).toFixed(0)}%/${(100 * pct(route, 0.9)).toFixed(0)}%`.padStart(16),
       `${((100 * e.trade) / all).toFixed(0)}/${((100 * e.job) / all).toFixed(0)}/${((100 * e.odd) / all).toFixed(0)}`.padStart(14),
       (runs.reduce((a, r) => a + r.actions, 0) / (SEEDS * DAYS)).toFixed(1).padStart(8),
@@ -407,6 +355,5 @@ for (const [name, p] of Object.entries(POLICIES)) {
       );
     }
     if (Object.keys(jobs).length) console.log(`   jobs: ${JSON.stringify(jobs)}`);
-    if (p.lockup) console.log(`   units into the lock-up per run: med ${pct(runs.map((r) => r.stashed), 0.5)} p90 ${pct(runs.map((r) => r.stashed), 0.9)}`);
   }
 }

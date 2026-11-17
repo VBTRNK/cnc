@@ -101,3 +101,25 @@ Date: 2026-11-17
 - Scripts run with Node's own TypeScript support, so imports carry `.ts` and
   the code uses erasable syntax only (`allowImportingTsExtensions`,
   `erasableSyntaxOnly`).
+
+## ADR-006 — No lock-up in the first playable
+
+Date: 2026-11-17
+
+- Context: the loop rules made a lock-up at the Docks ($2,500, 50 units) the
+  third upgrade. The strategy runs (PR #14 and its follow-up) found that a
+  trader runs short of hours and buyers, never of stock or pocket space, so
+  storage adds little.
+- Measured (400 seeds × 30 days, bought around day 15, wealth with the
+  upgrade at cost): Docks-only, $10.8k against $10.9k without it, with a
+  median of 6 units stored. Stash where you stand (50 units across the
+  city, collected where left): $10.5k when hoarding anything cheap, $10.6k
+  in gluts only, and $11.0k when hoarded goods were sold only where pricey,
+  with more arrests in every variant.
+- Decision: the first playable ships two upgrades, the coat and the phone.
+  The later purchase is designed with the first-chapter goal (#6, S7), where
+  what money is for after day 8 is already open.
+- Consequences: no lock-up state, actions or save fields; the content ID
+  `lockup` is free. A future storage upgrade should first show a gain in
+  the strategy runs.
+

@@ -54,8 +54,6 @@ export type Action =
   | { type: "oddJob" }
   | { type: "pullJob" }
   | { type: "buyUpgrade"; upgrade: UpgradeId }
-  | { type: "stash"; good: GoodId; units: number }
-  | { type: "unstash"; good: GoodId; units: number }
   | { type: "callItADay" }
   | { type: "resolveStop"; choice: "bribe" | "legIt" | "handOver" }
   | { type: "startDay" };
@@ -77,9 +75,6 @@ export type Refusal =
   | "jobDone"
   | "noTips"
   | "owned"
-  | "notHere"
-  | "noLockup"
-  | "lockupFull"
   | "bribeRefused";
 
 export interface PriceTip {
@@ -104,8 +99,6 @@ export type DomainEvent =
   | { type: "handedOver"; seized: PerGood<number>; saleOff: boolean }
   | { type: "arrested"; seized: PerGood<number>; fine: number }
   | { type: "upgraded"; upgrade: UpgradeId; cost: number }
-  | { type: "stashed"; good: GoodId; units: number }
-  | { type: "unstashed"; good: GoodId; units: number }
   | { type: "eventStarted"; event: WorldEvent }
   | { type: "levelUp"; skill: SkillId; level: number }
   | { type: "dayEnded"; cause: DayEndCause; paper: Paper }
@@ -144,7 +137,6 @@ export function newGame(seed: number, runId: string): GameState {
     place: RULES.startPlace,
     cash: RULES.startCash,
     held: zeroGoods(),
-    lockup: zeroGoods(),
     heat: 0,
     xp: { patter: 0, nerve: 0, savvy: 0 },
     upgrades: [],
@@ -174,7 +166,6 @@ export function newGame(seed: number, runId: string): GameState {
 export const has = (s: GameState, u: UpgradeId): boolean => s.upgrades.includes(u);
 export const pockets = (s: GameState): number => (has(s, "coat") ? RULES.coatPockets : RULES.pockets);
 export const carried = (s: GameState): number => GOODS.reduce((n, g) => n + s.held[g], 0);
-export const stored = (s: GameState): number => GOODS.reduce((n, g) => n + s.lockup[g], 0);
 export const hoursLeft = (s: GameState): number => RULES.dayEnd - s.hour;
 
 /** Patter's selling rate as tenths of units per hour, so the rounding is exact. */
@@ -303,19 +294,6 @@ export function check(s: GameState, a: Action): Refusal | null {
       if (!UPGRADES.includes(a.upgrade)) return "unknown";
       if (has(s, a.upgrade)) return "owned";
       return s.cash < UPGRADE_COST[a.upgrade] ? "noCash" : null;
-    case "stash":
-    case "unstash": {
-      if (!isGood(a.good)) return "unknown";
-      if (!isUnits(a.units)) return "badUnits";
-      if (!has(s, "lockup")) return "noLockup";
-      if (s.place !== RULES.lockupPlace) return "notHere";
-      if (a.type === "stash") {
-        if (s.held[a.good] < a.units) return "noGoods";
-        return stored(s) + a.units > RULES.lockupCapacity ? "lockupFull" : null;
-      }
-      if (s.lockup[a.good] < a.units) return "noGoods";
-      return carried(s) + a.units > pockets(s) ? "noPockets" : null;
-    }
     case "callItADay":
       return null;
     default:
@@ -403,16 +381,6 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
       out.push({ type: "upgraded", upgrade: a.upgrade, cost });
       return;
     }
-    case "stash":
-      s.held[a.good] -= a.units;
-      s.lockup[a.good] += a.units;
-      out.push({ type: "stashed", good: a.good, units: a.units });
-      return;
-    case "unstash":
-      s.lockup[a.good] -= a.units;
-      s.held[a.good] += a.units;
-      out.push({ type: "unstashed", good: a.good, units: a.units });
-      return;
     case "callItADay":
       return endDay(s, rng, "called", out);
     case "resolveStop":

@@ -62,7 +62,6 @@ describe("loading refuses", () => {
     ["a missing field", (s: Record<string, unknown>) => delete s.market],
     ["an unknown upgrade", (s: Record<string, unknown>) => (s.upgrades = ["jetpack"])],
     ["more goods than pockets", (s: Record<string, unknown>) => ((s.held as Record<string, number>).smokes = 99)],
-    ["lock-up goods without the lock-up", (s: Record<string, unknown>) => ((s.lockup as Record<string, number>).tapes = 1)],
     ["an unknown event kind", (s: Record<string, unknown>) => ((s.events as Record<string, unknown>[])[0]!.kind = "meteor")],
     ["a day phase at 22:00", (s: Record<string, unknown>) => (s.hour = 22)],
   ])("invalid data: %s", (_, edit) => {

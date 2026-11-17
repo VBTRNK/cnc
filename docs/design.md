@@ -67,7 +67,7 @@ the same: what is the best use of my next few hours?
   | Odd job | 3 h | $30, certain, heat −3; never checked by the police |
   | Pull a job | 4 h | Once a day; see "Jobs" |
 
-  Buying, buying an upgrade and moving goods in or out of the lock-up take 0 h. There is no
+  Buying and buying an upgrade take 0 h. There is no
   training action and no price-tier choice: experience comes from doing, and every sale is
   at the current price.
 - **Goods** (base price, units sold per hour, heat per unit sold), one pocket each: untaxed
@@ -114,11 +114,10 @@ the same: what is the best use of my next few hours?
   announced can always be reached.
 - **No rerolling.** Baselines, stock, demand and the event schedule are rolled once from the
   saved generator. Revisits and reloads see the same values and what is already used up.
-- **Upgrades**, on Me, any order, never lost: **big coat** $800 (pockets 20 → 35); **burner
-  phone** $1,200 (City shows every place's current prices and low-stock notes, not demand,
-  and the midday brief may carry the day's rumour); **lock-up at the Docks** $2,500 (50 units
-  across goods, moved in or out only at the Docks; never seized and never counted in a
-  bribe).
+- **Upgrades**, on Me, either order, never lost: **big coat** $800 (pockets 20 → 35) and
+  **burner phone** $1,200 (City shows every place's current prices and low-stock notes, not
+  demand, and the midday brief may carry the day's rumour). The first playable has no third
+  upgrade: the later purchase is designed with the first-chapter goal (#6).
 - **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
   level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
   legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
@@ -151,8 +150,8 @@ the same: what is the best use of my next few hours?
   | Arrested | ¼ (1 − s) | Heat +15; arrest when the job ends |
 
 - **Arrest:** carried goods are seized; a fine of 15% of cash, at least $50 but never more
-  than the player has; heat set to 25; the day ends. The next day starts at 14:00. Lock-up
-  goods, upgrades and skills are kept. **Hurt** ends the day with nothing else lost. There is
+  than the player has; heat set to 25; the day ends. The next day starts at 14:00. Upgrades
+  and skills are kept. **Hurt** ends the day with nothing else lost. There is
   no debt, cash never goes below $0, and odd jobs are always a way back.
 - **What the player sees.** Facts are exact: cash, held counts, pockets, hours, prices and
   stock where the player stands, each action's hours, a trade's total. Hints are words: a
@@ -203,12 +202,10 @@ the same: what is the best use of my next few hours?
   forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
   Hard mode comes after the persistent MVP, chosen at the start of a run and fixed for it.
 - **To verify.** The simulation's strategy runs (`npm run strategies`) measure these rules;
-  their results and proposed changes are in the tracking issue (#8). Open after them: the
-  lock-up as designed is barely used and doesn't pay for itself, so its effect needs a
-  decision. Phone play (S5) checks the 2-4 minute day, whether stops feel explainable,
-  whether the first purchase is a real choice, and whether it is fun. After the third
-  upgrade there is nothing left to buy; the MVP's first-chapter goal is designed with the
-  detective (#6).
+  their results are in the tracking issue (#8). Phone play (S5) checks the 2-4 minute day,
+  whether stops feel explainable, whether the first purchase is a real choice, and whether
+  it is fun. After the phone (about day 8) there is nothing left to buy; the MVP's
+  first-chapter goal and what money is for later are designed with the detective (#6).
 
 ## Look and feel
 
