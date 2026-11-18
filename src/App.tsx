@@ -1,8 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
+import type { CloudSaves } from "./game/cloudSaves.ts";
 import type { GameSession } from "./game/session.ts";
+import type { Conflict } from "./game/sync.ts";
 import type { Action } from "./sim/index.ts";
 import { CellsScreen } from "./ui/CellsScreen.tsx";
 import { City } from "./ui/City.tsx";
+import { CloudChoice } from "./ui/Cloud.tsx";
 import { download, saveFileName } from "./ui/files.ts";
 import { Me } from "./ui/Me.tsx";
 import type { Overlay } from "./ui/overlay.ts";
@@ -18,13 +21,17 @@ import { resultLines } from "./ui/words.ts";
 type Tab = "street" | "city" | "me";
 const TABS: readonly Tab[] = ["street", "city", "me"];
 
-export function App({ session }: { session: GameSession }) {
+export function App({ saves }: { saves: CloudSaves }) {
+  const cloud = useSyncExternalStore(saves.subscribe, saves.getSnapshot);
+  const session = cloud.session;
   const snap = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [tab, setTab] = useState<Tab>("street");
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
   /** The night whose cells screen was left, as "run:day"; the paper follows it. */
   const [leftCells, setLeftCells] = useState<string | null>(null);
+  /** A conflict the player put off; it comes back from the save sheet or the next check. */
+  const [later, setLater] = useState<Conflict | null>(null);
   const { state, mode } = snap;
   const readOnly = mode !== "play";
 
@@ -33,6 +40,20 @@ export function App({ session }: { session: GameSession }) {
   }, [tab]);
 
   if (mode === "future" || !state) return <FutureScreen onExport={() => exportSave(session, null)} />;
+
+  // Two runs to choose between: this card comes before anything else, unless put off.
+  const conflict = cloud.conflict !== later ? cloud.conflict : null;
+  const choice =
+    conflict || cloud.link.kind === "choose" ? (
+      <CloudChoice
+        // The device's side is the run in play now, which is what keeping it uploads.
+        conflict={conflict && { ...conflict, device: state }}
+        link={cloud.link}
+        cloud={saves}
+        session={session}
+        onLater={() => (conflict ? setLater(conflict) : saves.dismiss())}
+      />
+    ) : null;
 
   const close = () => setOverlay(null);
   const commit = (action: Action) => {
@@ -88,6 +109,7 @@ export function App({ session }: { session: GameSession }) {
             onStart={() => session.dispatch({ type: "startDay" })}
           />
         )}
+        {choice}
       </main>
     );
   }
@@ -131,11 +153,11 @@ export function App({ session }: { session: GameSession }) {
               onRing={() => session.dispatch({ type: "ringRound" })}
             />
           )}
-          {tab === "me" && <Me state={state} save={snap.save} onOpen={setOverlay} />}
+          {tab === "me" && <Me state={state} save={snap.save} sync={cloud.sync} onOpen={setOverlay} />}
         </fieldset>
       </main>
 
-      {state.pending ? (
+      {choice ?? (state.pending ? (
         <StopCard state={state} stop={state.pending} dispatch={session.dispatch} readOnly={readOnly} />
       ) : (
         !readOnly &&
@@ -147,10 +169,23 @@ export function App({ session }: { session: GameSession }) {
             {overlay.kind === "upgrade" && (
               <UpgradeSheet state={state} upgrade={overlay.upgrade} onClose={close} commit={commit} />
             )}
-            {overlay.kind === "save" && <SaveSheet session={session} state={state} save={snap.save} onClose={close} />}
+            {overlay.kind === "save" && (
+              <SaveSheet
+                session={session}
+                state={state}
+                save={snap.save}
+                cloud={cloud}
+                saves={saves}
+                onClose={close}
+                onChoose={() => {
+                  setLater(null);
+                  close();
+                }}
+              />
+            )}
           </>
         )
-      )}
+      ))}
     </div>
   );
 }

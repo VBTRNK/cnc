@@ -199,12 +199,71 @@ const TEXT = {
   "save.import.tooBig": "That file is too big to be a save.",
   "save.import.unreadable": "That file couldn't be read.",
   "save.cancel": "Keep playing",
+  "save.exportRecovery": "Export the recovery copy",
+  "save.replaceFailed": "This device couldn't keep the current run aside, so nothing changed.",
+
+  // Cloud save (docs/design.md, "Cloud saves")
+  "cloud.guest": "Keep this run in the cloud to play it on another device too.",
+  "cloud.keep": "Keep in the cloud",
+  "cloud.use": "Use a cloud code",
+  "cloud.code": "Cloud code",
+  "cloud.codeHelp": "Enter it on another device to play this run there. Anyone with the code can play it, and a lost code can't be recovered: write it down.",
+  "cloud.copy": "Copy code",
+  "cloud.copied": "Copied",
+  "cloud.useCommit": "Use this code",
+  "cloud.checking": "Checking the code…",
+  "cloud.forget": "Stop syncing here",
+  "cloud.forget.confirm": "Stop syncing and return to your guest game. Your device keeps its save unless you remove it.",
+  "cloud.forget.remove": "Remove from this device",
+  "cloud.forget.removeHint": "Removing deletes the save and recovery copies on this device. Any cloud copy is left alone. Export first if you want to keep a copy.",
+  "cloud.forget.stopping": "Stopping…",
+  "cloud.removeRetry": "Try removing it again",
+  "cloud.removeLeave": "Leave it",
+  "cloud.error.stop": "This device couldn't record that it stopped syncing, so it still does. Try again.",
+  "cloud.error.restore": "This device is out of room, so the run couldn't be put back. Export your save to keep it, then try again.",
+  "cloud.error.notRemoved": "This device stopped syncing, but couldn't delete the run's copy here.",
+  "cloud.restore": "Put it back in the cloud",
+  "cloud.error.badCode": "That isn't a cloud code. It has 16 letters and digits.",
+  "cloud.error.unknown": "No cloud save has that code.",
+  "cloud.error.network": "Couldn't reach the cloud. Check your connection and try again.",
+  "cloud.error.future": "That run is from a newer version of the game. Reload the game, then try again.",
+  "cloud.error.unreadable": "The run under that code can't be read.",
+  "cloud.error.full": "This device is out of room, so the run couldn't move to the cloud.",
+  "sync.synced": "Saved on this device and in the cloud, {when}.",
+  "sync.pending": "Saved on this device. Sending it to the cloud.",
+  "sync.failed.offline": "Saved on this device. The cloud can't be reached; it catches up when you're back online.",
+  "sync.failed.busy": "Saved on this device. The cloud is busy; it tries again with your next move.",
+  "sync.failed.gone": "Saved on this device, but the cloud no longer has a run under this code.",
+  "sync.failed.storage": "This device is out of room, so the cloud can't be kept up to date. Export your save to keep it.",
+  "sync.failed.refused": "Saved on this device. The cloud refused this save.",
+  "sync.failed.future": "Your cloud save is from a newer version of the game. Reload to get it; nothing is sent until then.",
+  "sync.conflict": "Your run changed on another device too. Choose which one to keep.",
+  "sync.last": "Last in the cloud {when}.",
+  "choice.title": "Two runs",
+  "choice.conflict": "This device and the cloud both have moves the other hasn't. Keep one; the other stays on this device as a recovery copy.",
+  "choice.guest": "That code already has a run. Play that one, or put this guest run in its place.",
+  "choice.device": "This device",
+  "choice.guestRun": "This guest run",
+  "choice.cloud": "The cloud",
+  "choice.day": "Day {day} · {hours} h left · {cash}",
+  "choice.night": "Day {day} · night · {cash}",
+  "choice.otherRun": "Another run",
+  "choice.unreadable": "This version of the game can't read it.",
+  "choice.saved": "Saved {when}",
+  "choice.keepDevice": "Keep this device's run",
+  "choice.keepGuest": "Use the guest run",
+  "choice.keepCloud": "Keep the cloud run",
+  "choice.playCloud": "Play the cloud run",
+  "choice.failed": "This device is out of room, so the choice couldn't be stored and nothing changed. Try again, or export this device's run first.",
+  "choice.later": "Not now",
+  "choice.open": "Choose a run",
 
   // Notices and tabs
   "notice.recovered": "Your save was damaged, so the game picked up from its backup copy.",
   "notice.lost": "Your save couldn't be read, so a new run started. The damaged save is kept.",
   "notice.imported": "Save imported.",
   "notice.newRun": "A new run. Day 1 at the Docks.",
+  "notice.fromCloud": "Picked up your run from the cloud.",
   "watch.banner": "The game is open in another tab. This one only watches.",
   "future.title": "A newer save",
   "future.story": "This save comes from a newer version of the game. Reload to get it; the save is untouched.",
@@ -284,6 +343,10 @@ export function t(key: TextKey, values: Values = {}): string {
     return v === undefined ? `{${name}}` : String(v);
   });
 }
+
+/** A server time as the player reads it: "18 Nov, 19:02". */
+export const when = (iso: string): string =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 // ---- Names ---------------------------------------------------------------------------
 

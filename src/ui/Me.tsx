@@ -1,5 +1,7 @@
 import { RULES, SKILLS, UPGRADES, UPGRADE_COST, has, level, type GameState } from "../sim/index.ts";
 import type { SaveStatus } from "../game/session.ts";
+import type { SyncStatus } from "../game/sync.ts";
+import { saveLine } from "./Cloud.tsx";
 import { Marks } from "./bits.tsx";
 import type { Overlay } from "./overlay.ts";
 import { money, skillName, t, upgradeName } from "./text.ts";
@@ -7,11 +9,12 @@ import { money, skillName, t, upgradeName } from "./text.ts";
 interface MeProps {
   state: GameState;
   save: SaveStatus;
+  sync: SyncStatus | null;
   onOpen: (overlay: Overlay) => void;
 }
 
 /** The character: skills earned by doing, upgrades bought once, and the save. */
-export function Me({ state, save, onOpen }: MeProps) {
+export function Me({ state, save, sync, onOpen }: MeProps) {
   return (
     <>
       <ul className="skills">
@@ -55,7 +58,7 @@ export function Me({ state, save, onOpen }: MeProps) {
       </ul>
 
       <div className="save-line">
-        <p>{t(`save.${save}`)}</p>
+        <p>{saveLine(save, sync)}</p>
         <button type="button" className="choice" onClick={() => onOpen({ kind: "save" })}>
           {t("me.saveOptions")}
         </button>

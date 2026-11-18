@@ -12,8 +12,10 @@ beyond its tools-list entry.
 - Stack: Vite, React and TypeScript as a static single-page app, plain CSS,
   Vitest (ADR-002, applied in ADR-003). The app is the local first playable.
 - Hosting: Vercel project `cnc`, at `https://cnc.vibetrunk.com` once live.
-- Backend: decided, not applied yet: the shared VibeTrunk Supabase project,
-  schema `cnc` (ADR-002; applying is in the "Open setup decisions" issue).
+- Backend: the shared VibeTrunk Supabase project, schema `cnc` (not `public`),
+  for cloud saves by code; no accounts, nothing shared with other tools'
+  users (ADR-009). Row-level security is on for every table; the browser
+  only calls the `cnc.get_save` and `cnc.put_save` database functions.
 - A hobby project and a deliberate learning project in production-grade
   practice: clear structure, decisions recorded in `docs/decisions.md`.
 
@@ -26,6 +28,11 @@ convenience.
   documents the shape only.
 - The Content-Security-Policy stays as strict as the app allows; loosen it
   per origin, never with a wildcard.
+- Every table has row-level security. Only the publishable key reaches the
+  browser; this game has no server and uses no secret key.
+- Cloud saves change only through `cnc.put_save`, never by direct client
+  writes, and the database stores only a hash of each code. The local save
+  comes first; nothing uploads over a code's save without the player's choice.
 
 Changing a rule, invariant or public contract means recording it in
 `docs/decisions.md`.
@@ -54,6 +61,16 @@ A merge to `main` deploys to production through Vercel's Git integration. The
 merge authorizes that deploy only; other hosted changes need their own yes.
 Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 
+## Database
+
+- Migrations live in `supabase/migrations/`, each byte-identical to its entry
+  in the `VBTRNK/supabase` catalogue. Only the owner applies them, by a
+  terminal `db push` from that repo; never push from this repo. That repo's
+  `apply-migrations` workflow refuses non-KUT migrations, so a cnc catalogue
+  PR merges just before the owner's push.
+- New code degrades gracefully against the old schema until its migration is
+  live. `tests/saves-sql.test.ts` runs each migration in PGlite.
+
 ## Agent safety
 
 - Hooks in `.claude/hooks/` and `.codex/hooks/` block destructive commands
@@ -64,7 +81,8 @@ Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 - After changing `.codex/rules/project.rules`, run `codex execpolicy check` on
   it: one failing `match` example makes Codex drop the whole file.
 - Never auto-allowed: `git commit`, `git push`, state-changing `gh` commands
-  (merge, close, comment, rerun, cancel, delete).
+  (merge, close, comment, rerun, cancel, delete), `supabase functions
+  deploy`, real `db push`, `db reset`, `migration repair` and `secrets set`.
 - Dependabot waits 5 days after a release; review any manual install in its
   PR diff.
 

@@ -255,7 +255,7 @@ the same: what is the best use of my next few hours?
    save, the install manifest. No account. A prototype, not a release.
 2. **Persistent MVP:** adds the detective's chain (habit, theory, warned operation,
    consequence, resolution), a modest pool of authored events, a small cast with authored
-   personalities, the newspaper as the story of the run, and sign-in with a cloud save. It
+   personalities, the newspaper as the story of the run, and cloud saves by code. It
    has no general scheme system, no general opinion system and no earned-trait system.
 3. **After the MVP:** the relationship and trait layer, which is planned. A timed scheme
    slot for the player is the first candidate. Starting the game without a network.
@@ -284,7 +284,7 @@ the same: what is the best use of my next few hours?
   Allowances are per origin, never a wildcard. Motion uses CSS classes; nothing may inject
   styles at runtime.
 - Tests run the simulation without a browser. Focused checks cover what those cannot: save
-  handling, sign-in and sync, browser flows, and the production build under its real
+  handling, cloud sync, browser flows, and the production build under its real
   headers.
 - The game ships a web app manifest and icons, so supporting browsers can install it.
   Installing does not by itself make the game start without a network.
@@ -306,35 +306,68 @@ the same: what is the best use of my next few hours?
   the save and its backup copy. It keeps the text of a save it migrated or couldn't read,
   keeps the save that an import or a new run replaced, and never writes over a save from
   a newer version. The first open tab holds a Web Lock and writes; another tab follows it
-  read-only and takes over when the first closes.
+  read-only and takes over when the first closes. A browser that can't hold that lock
+  plays only the guest game: cloud codes need a single writing tab.
 - Playing needs no account. Guests can export and import their save, and start a new run.
 - Saves are editable by the player. That is accepted; there are no leaderboards.
 
-## Accounts and cloud saves
+## Cloud saves
 
-- The backend is the shared VibeTrunk Supabase project: sign-in, and one save row per
-  player in schema `cnc` under row-level security. The browser talks to Supabase directly
-  with the public key. A narrowly scoped database function is allowed if atomic saves need
-  one.
-- Sign-in is a username and password for an existing VibeTrunk account; the same account
-  works across VibeTrunk tools. The game has no sign-up and no password reset.
+- There are no accounts. A player keeps a run in the cloud under a cloud code the game
+  makes up (16 letters and digits, shown as four groups of four) and enters that code on
+  another device to continue it there. Anyone with the code can play the run; a lost code
+  can't be recovered, and the run on the device and export and import still work. Nothing
+  is shared with other VibeTrunk tools' accounts.
+- The backend is the shared VibeTrunk Supabase project, schema `cnc`: one save row per
+  code, under row-level security with no client access to the table. The browser calls two
+  database functions with the publishable key, one to read the save under a code and one to
+  write it. The database stores only a hash of the code.
 - **Writing.** Every local candidate save remembers the cloud revision it descends from and
   presents it on upload. Fetching a newer cloud save never changes that. The database
   accepts the write and advances the revision in one atomic operation, only if that base is
-  still current. A first save cannot overwrite an existing one. The database enforces the
-  revision order and a size cap.
-- **When.** The device save comes first. While signed in, uploads follow committed actions,
-  coalesced and one at a time, with a retry on reconnect and on return to the foreground.
-  The unsent save is kept until the server confirms it. After an unclear result the game
-  fetches and compares; it never overwrites blindly, and it recognises a retry that was
-  already accepted.
-- **Conflicts.** There is no merging. On a conflict, or when a guest save meets an existing
-  cloud save, the player chooses, comparing run, day, progress within the day and a short
-  summary. The displaced save is kept as a recovery copy. A fresh default world is never
-  uploaded before the account's cloud save has been checked. Signing out or switching
-  accounts never attaches one account's save to another. A reset starts a new run identity.
+  still current. A first save cannot overwrite an existing one. Revision numbers are never
+  reused, not even when a code's save is created again after it was deleted, so an old base
+  matches nothing. The database enforces the revision order, a size cap, and a limit on how
+  many new codes appear.
+- **When.** The device save comes first. While a code is in use, uploads follow committed
+  actions, coalesced and one at a time, with a retry on reconnect and on return to the
+  foreground. An upload is recorded before it is sent and stays pending until the server
+  answers; a pending upload is sent again exactly as it was (same id, base and save), which
+  the database answers as saved if it had already landed, so a retry never overwrites
+  blindly or counts twice.
+- **Storage.** What the device knows of the cloud never understates its save: a move is
+  marked unsent before it is saved, and isn't saved when that mark can't be stored; the
+  base moves only after the run it belongs to is stored. A save counts as written once
+  the save itself is; its backup copy follows, best effort, and a failed write leaves the
+  previous save and backup in place. A code's slot that opens from its backup copy, or
+  without a save, waits for the cloud's run like any stand-in. A step that can't be stored
+  changes nothing and says so where the player acted.
+- **Conflicts.** There is no merging. On a conflict, or when a guest run meets the run
+  under a code, the player chooses, comparing run, day, progress within the day and a short
+  summary, or puts the choice off ("Not now"; uploads wait, and the save sheet brings the
+  choice back). The displaced save is kept as a recovery copy. A fresh default world is never
+  uploaded over a code's save: a code's slot that opens without a playable save waits for
+  the cloud's run, takes it if the stand-in is untouched, and asks if not. One code's run
+  never lands under another. A new run starts a new run identity under the same code.
 - **Status.** The game shows whether the save is local only, synced, pending or failed, and
   never claims cloud protection before the server has confirmed a write.
+- **Slots.** A build without cloud settings plays the guest game and leaves the device's
+  code and its slot untouched. The guest game and each code used on the device have a
+  local slot of their own; only the open code's slot syncs, and only under that code.
+  Keeping a run in the cloud moves the guest run under a new code. Using a code resumes
+  its slot if the device has one; otherwise the cloud is read first: no save under the
+  code, and nothing changes; an untouched guest game, and the code's run is stored with
+  its revision and played; a guest run in progress, and the player chooses. A code whose
+  save is from a newer game, or can't be read, changes nothing. Stopping on a device
+  attempts a final sync and returns to the guest game. The code's slot stays and
+  catches up if the code is used there again. The removal option clears the device's
+  save and recovery copies without starting another upload. The confirmation warns
+  about that loss and offers export. A removal that fails can be retried. A synced
+  code whose cloud save disappeared says so and offers to put the run back.
+- The table `cnc.saves` and the functions `cnc.get_save` and `cnc.put_save` are in
+  `supabase/migrations/`. The cloud layer is `src/game/cloudSaves.ts` (slots, codes,
+  linking) and `src/game/sync.ts` (base revision, uploads, conflicts), over the `CloudApi`
+  in `src/game/cloud.ts`, which calls the functions with plain `fetch`.
 
 ## Not decided here
 

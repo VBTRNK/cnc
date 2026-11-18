@@ -74,7 +74,15 @@
       "PowerShell(git branch -D *)",
       "PowerShell(Remove-Item * -Recurse -Force*)",
       "PowerShell(Remove-Item * -Force -Recurse*)",
-      "PowerShell(sudo *)"
+      "PowerShell(sudo *)",
+      "Bash(npx supabase db push)",
+      "Bash(npx supabase db reset*)",
+      "Bash(npx supabase secrets set*)",
+      "Bash(npx supabase migration repair*)",
+      "PowerShell(npx supabase db push)",
+      "PowerShell(npx supabase db reset*)",
+      "PowerShell(npx supabase secrets set*)",
+      "PowerShell(npx supabase migration repair*)"
     ]
   },
 

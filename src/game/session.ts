@@ -6,7 +6,7 @@ import { loadSave, newGame, step, toSave, type Action, type DomainEvent, type Ga
 import type { Opened, SaveStore, WriteResult } from "./store.ts";
 
 export type SaveStatus = "saved" | "full" | "failed" | "off";
-export type Notice = "recovered" | "lost" | "imported" | "newRun";
+export type Notice = "recovered" | "lost" | "imported" | "newRun" | "fromCloud";
 export type ImportError = "notSave" | "future" | "damaged" | "tooBig";
 
 export interface Snapshot {
@@ -78,6 +78,9 @@ export class GameSession {
   /** The damaged or pre-migration save kept aside, if any. */
   keptText = (): string | null => this.store.kept();
 
+  /** The run that an import, a new run or a cloud save last displaced, if any. */
+  recoveryText = (): string | null => this.store.replaced();
+
   /** Reads an imported file. Nothing changes until `replace`. */
   readImport(text: string): { ok: true; state: GameState } | { ok: false; error: ImportError } {
     if (text.length > MAX_IMPORT) return { ok: false, error: "tooBig" };
@@ -86,14 +89,37 @@ export class GameSession {
     return { ok: false, error: r.error === "corrupt" ? "notSave" : r.error === "future" ? "future" : "damaged" };
   }
 
-  /** Replaces the run, keeping the displaced save as the recovery copy. */
-  replace(state: GameState, notice: Notice): void {
-    if (this.snap.mode !== "play") return;
-    this.store.keepForRecovery();
-    this.set({ state, events: [], refusal: null, notice, save: this.persist(state) });
+  /**
+   * Replaces the run, keeping the run in play (even moves whose save failed) as the
+   * recovery copy. All or nothing: if that copy can't be kept or the new run can't be
+   * saved, the current run stays in play (with the save status showing the failure) and
+   * the result is false.
+   */
+  replace(state: GameState, notice: Notice): boolean {
+    if (this.snap.mode !== "play") return false;
+    const off = this.snap.save === "off";
+    const current = this.snap.state;
+    if (!off && !(current ? this.store.keep(toSave(current)) : this.store.keepForRecovery()).ok) return false;
+    const save = this.persist(state);
+    if (!off && save !== "saved") {
+      this.set({ save });
+      return false;
+    }
+    this.set({ state, events: [], refusal: null, notice, save });
+    return true;
   }
 
-  newRun = (): void => this.replace(this.fresh(), "newRun");
+  newRun = (): boolean => this.replace(this.fresh(), "newRun");
+
+  /** Stores the run in play again if its last write failed. True once it is stored. */
+  saveNow = (): boolean => {
+    const { mode, state, save } = this.snap;
+    if (mode !== "play" || !state || save === "off") return false;
+    if (save === "saved") return true;
+    const again = this.persist(state);
+    this.set({ save: again });
+    return again === "saved";
+  };
 
   // ---- Tabs ----------------------------------------------------------------------
 

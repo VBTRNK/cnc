@@ -7,8 +7,8 @@ import "@fontsource/courier-prime/latin-700.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { GameSession } from "./game/session.ts";
-import { KEYS, webStore } from "./game/store.ts";
+import { CODE_KEY, CloudSaves } from "./game/cloudSaves.ts";
+import { configuredCloud } from "./game/cloud.ts";
 import { claimWriter } from "./game/tabs.ts";
 import "./styles.css";
 
@@ -20,23 +20,43 @@ async function boot(): Promise<void> {
   const root = document.getElementById("root");
   if (!root) throw new Error("Missing #root element");
 
-  let session: GameSession | null = null;
-  const writer = await claimWriter(() => session?.takeOver());
-  session = new GameSession(
-    webStore(() => window.localStorage),
-    { writer, makeSeed: randomWord, makeId: randomId },
-  );
-  const s = session;
-  // A watching tab follows the writing tab's saves.
-  window.addEventListener("storage", (e) => {
-    if (e.key === KEYS.save) s.follow();
+  // Without these settings the build is guest-only and offers no cloud save.
+  const configured = configuredCloud({
+    url: import.meta.env.VITE_SUPABASE_URL as string | undefined,
+    key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined,
   });
+  let saves: CloudSaves | null = null;
+  const claim = await claimWriter(() => saves?.takeOver());
+  saves = new CloudSaves({
+    storage: () => window.localStorage,
+    // A cloud code's sync needs a single writing tab; without a held lock, guest play only.
+    cloud: claim.coordinated ? configured : null,
+    writer: claim.writer,
+    makeSeed: randomWord,
+    makeId: randomId,
+    makeUuid: () => crypto.randomUUID(),
+    random: (count) => crypto.getRandomValues(new Uint8Array(count)),
+  });
+  const a = saves;
+
+  window.addEventListener("storage", (e) => {
+    // Another tab switched cloud codes: this one opens the slot it switched to.
+    if (e.key === CODE_KEY) window.location.reload();
+    // A watching tab follows the writing tab's saves.
+    else if (e.key === a.getSnapshot().saveKey) a.getSnapshot().session.follow();
+  });
+  // Uploads catch up on return to the foreground and on reconnect; hiding the page sends
+  // what is unsent, best effort.
+  document.addEventListener("visibilitychange", () => (document.visibilityState === "hidden" ? a.flush() : a.wake()));
+  window.addEventListener("pagehide", a.flush);
+  window.addEventListener("online", a.wake);
 
   createRoot(root).render(
     <StrictMode>
-      <App session={s} />
+      <App saves={a} />
     </StrictMode>,
   );
+  void a.start();
 }
 
 void boot();
