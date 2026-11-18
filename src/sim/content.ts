@@ -113,6 +113,8 @@ export const RULES = {
   bribePerHeat: 2,
   bribeHeat: 10,
   bribeMaxHeat: 70,
+  /** The copper takes the money at these odds (the usual odds formula); otherwise he takes the goods. */
+  bribeOddsBase: 80,
   legItBase: 50,
   legItHeat: 10,
   oddsPerNerve: 5,
@@ -129,6 +131,9 @@ export const RULES = {
   savvyRumour: 5,
   xpNervePerJob: 2,
   xpNervePerStop: 2,
+
+  /** Ringing round with the phone: heat + this × the call's number today (5, 10, 15, ...). */
+  phoneHeat: 5,
 
   newsCap: 30,
 } as const;

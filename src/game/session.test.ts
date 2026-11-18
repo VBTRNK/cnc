@@ -1,7 +1,7 @@
 // The S5 gates for the local save: resume without rerolls, resume of a pending choice,
 // old, future and corrupt saves, local write failure, and the read-only second tab.
 
-import { SAVE_FORMAT, newGame, step, toSave, type GameState } from "../sim/index.ts";
+import { SAVE_FORMAT, SAVE_VERSION, newGame, step, toSave, type GameState } from "../sim/index.ts";
 import { below, play, rngWhere } from "../sim/testing.ts";
 import { GameSession } from "./session.ts";
 import { KEYS, memoryStorage, webStore, type StorageLike, type StoreOptions } from "./store.ts";
@@ -79,8 +79,8 @@ describe("the local save", () => {
     const storage = memoryStorage();
     const original = toSave(newGame(3, "old"));
     storage.setItem(KEYS.save, original);
-    const migrations = { 1: (doc: Record<string, unknown>) => ({ ...doc }) };
-    const session = open(storage, true, { migrations, current: 2 });
+    const migrations = { [SAVE_VERSION]: (doc: Record<string, unknown>) => ({ ...doc }) };
+    const session = open(storage, true, { migrations, current: SAVE_VERSION + 1 });
     expect(stateOf(session).runId).toBe("old");
     expect(storage.getItem(KEYS.kept)).toBe(original);
   });

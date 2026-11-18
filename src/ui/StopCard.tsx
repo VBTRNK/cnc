@@ -44,6 +44,7 @@ export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
             <>
               <span className="choice-after">{t(`stop.bribe.after.${kind}`)}</span>
               <span className="action-chips">
+                <Chip kind="chance">{oddsText(stop.bribeOdds)}</Chip>
                 <Chip>{t("chip.cost", { amount: money(stop.bribe) })}</Chip>
                 <Chip>{t("chip.heat", { heat: RULES.bribeHeat })}</Chip>
               </span>

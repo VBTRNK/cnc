@@ -1,7 +1,7 @@
 // Strategy runs over many seeds, on the real simulation (docs/design.md, "To verify").
 // Usage: node scripts/strategies.ts [days=20] [seeds=400]   ONLY=name,name to pick policies.
 // The planner is greedy and one trip deep and knows only what a player could see: prices
-// where it stands, prices last seen elsewhere, every price with the phone. A person can beat it.
+// where it stands, prices last seen elsewhere (tips, ringing round with the phone). A person can beat it.
 
 import {
   GOOD,
@@ -42,12 +42,17 @@ interface Policy {
   jobs: "floor" | "daily" | "never";
   split: boolean;
   shuttle: boolean;
+  /** With the phone: ring round at the day's start, also after midday, or before every move. */
+  ring: "once" | "twice" | "everyMove";
 }
 
-const BASE: Policy = { order: ["coat", "phone"], lieLowAt: 45, endAt: null, stop: "bribeElseRun", jobs: "floor", split: false, shuttle: false };
+const BASE: Policy = { order: ["coat", "phone"], lieLowAt: 45, endAt: null, stop: "bribeElseRun", jobs: "floor", split: false, shuttle: false, ring: "once" };
 const POLICIES: Record<string, Policy> = {
   trader: BASE,
   phoneFirst: { ...BASE, order: ["phone", "coat"] },
+  ringTwice: { ...BASE, ring: "twice" },
+  ringEveryMove: { ...BASE, ring: "everyMove" },
+  noPhone: { ...BASE, order: ["coat"] },
   neverLieLow: { ...BASE, lieLowAt: null },
   endEarly: { ...BASE, lieLowAt: null, endAt: 45 },
   handOver: { ...BASE, stop: "handOver" },
@@ -62,7 +67,7 @@ const POLICIES: Record<string, Policy> = {
 // ---- What the player knows ----------------------------------------------------------
 
 function known(s: GameState, place: PlaceId, good: GoodId): number {
-  if (place === s.place || has(s, "phone")) return price(s, place, good);
+  if (place === s.place) return price(s, place, good);
   return s.memory[place][good]?.price ?? Math.round(GOOD[good].base * PLACE[place].factor[good]);
 }
 const expectedDemand = (s: GameState, place: PlaceId, good: GoodId): number =>
@@ -110,7 +115,7 @@ class Book {
         const key = `${lot.from}>${at}:${e.good}`;
         this.routes.set(key, (this.routes.get(key) ?? 0) + profit);
       });
-    } else if (e.type === "arrested" || e.type === "handedOver") {
+    } else if (e.type === "arrested" || e.type === "handedOver" || e.type === "bribeRefused") {
       // Seizure takes carried goods; the lots don't know pockets from the lock-up, so take the oldest.
       for (const g of GOODS) if (e.seized[g] > 0) this.take(g, e.seized[g], () => {});
     } else if (e.type === "job") this.earned.job += e.pay;
@@ -218,6 +223,14 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
     }
     if (carried(s) > 0 && hoursLeft(s) > 1 && s.place !== "strip") return { type: "travel", to: "strip" };
     return hoursLeft(s) > 2 ? { type: "travel", to: "docks" } : { type: "callItADay" };
+  }
+
+  if (has(s, "phone")) {
+    const other = PLACES.find((q) => q !== s.place) as PlaceId;
+    const fresh = GOODS.every((g) => s.memory[other][g]?.day === s.day && s.memory[other][g]?.hour === s.hour);
+    const due =
+      p.ring === "everyMove" ? !fresh : s.calls === 0 || (p.ring === "twice" && s.calls === 1 && s.hour >= RULES.midday);
+    if (due) return { type: "ringRound" };
   }
 
   const best = plan(s, book);

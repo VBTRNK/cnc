@@ -163,6 +163,7 @@ try {
   const sellLabel = await text("dialog .commit");
   check("sell commit shows total and hours", /^Sell \d+ for \$\d+ · \d+ h$/.test(sellLabel), sellLabel);
   check("sale shows a risk chip", /Risk (slight|some|real|high)/.test(await text("dialog .chips-line")));
+  check("sale shows its profit", /(Profit|Loss) \$\d+/.test(await text("dialog .chips-line")), await text("dialog .chips-line"));
   await tap("dialog .commit");
   await sleep(300);
   if (await evaluate(`!!document.querySelector("dialog.card")`)) await tap("dialog.card .choice-card", "Hand it over");
@@ -210,6 +211,32 @@ try {
   check("stop card survives Escape", await evaluate(`document.querySelector("dialog.card")?.open === true`));
   await tap("dialog.card .choice-card", "Hand it over");
   check("stop resolved", await evaluate(`!document.querySelector("dialog.card")`), await text(".result"));
+
+  // ---- An arrest: the cells, then the paper -----------------------------------------------
+  const caught = sim.step({ ...start, rng: testing.rngWhere(testing.below(0.01), testing.atLeast(0.9)) }, { type: "pullJob" });
+  const nicked = sim.step(caught.state, { type: "resolveStop", choice: "legIt" });
+  const nickedText = sim.toSave(nicked.state);
+  await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(nickedText)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(nickedText)})`);
+  await reload();
+  await sleep(600);
+  await snap("cells");
+  check("an arrest shows the cells first", (await text(".cells .headline")) === "Nicked!", await text(".cells .headline"));
+  check("the cells name the fine", /Fine \$\d+/.test(await text(".cells-chips") ?? ""), await text(".cells-chips"));
+  check("focus on the cells headline", await evaluate(`document.activeElement?.closest(".cells") !== null`), await focused());
+  await tap(".cells .commit", "Spend the night");
+  check("then the paper", /Fined \$\d+/.test(await text(".paper .story") ?? ""), await text(".paper .story"));
+
+  // ---- The phone: ring round from City ------------------------------------------------------
+  const phoned = sim.toSave({ ...sim.newGame(2, "phonecheck"), upgrades: ["phone"] });
+  await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(phoned)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(phoned)})`);
+  await reload();
+  await tap(".tabs button", "City");
+  await tap(".ring .action", "Ring round");
+  await snap("city-rang");
+  check("ringing round gives a result line", /^Rang round/.test(await text(".ring .result") ?? ""), await text(".ring .result"));
+  check("ringing round notes every price", await evaluate(`[...document.querySelectorAll(".price-unknown")].length === 0`));
+  check("the next call costs more heat", /Heat \+10/.test(await text(".ring .action-chips") ?? ""), await text(".ring .action-chips"));
+  await tap(".tabs button", "Street");
 
   // ---- Export -------------------------------------------------------------------------
   await tap(".tabs button", "Me");

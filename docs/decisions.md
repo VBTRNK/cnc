@@ -142,3 +142,30 @@ Date: 2026-11-17
   unchanged; the production build runs under it with no violation.
 - Effects use block bodies: Chromium's `scrollTo` returns a promise, which
   React would call as a cleanup.
+
+## ADR-008 — Phone-play feedback: the phone, bribes and costs
+
+Date: 2026-11-18
+
+- Context: the first phone play of the local playable found the burner phone
+  too strong (every price, live, for free), the bribe a sure thing, and
+  sales without their profit.
+- Phone: an active *Ring round* (0 h) that notes every place's price now,
+  for heat 5 × the call's number today. Measured (400 seeds × 20 days,
+  median wealth on day 20): no phone $5.8k; one call a day $6.5k; two
+  $6.0k; a call before every move $4.2k. The phone pays when used sparingly.
+  Its midday rumour is gone (supersedes that line of ADR-005); the rumour
+  stays with Ask around, which now gives price tips with the phone too.
+- Rejected for the phone, simplest first: losing it on arrest or ditching it
+  to cool off (candidates for hard mode), working only some days or for two
+  or three days (chance without a choice), interception arrests (a second
+  stop rule; heat already raises the stop chance).
+- Bribe: refused at the usual odds formula from 80%; refused, he takes the
+  goods. Heat +10 either way, so handing over stays the safe choice. It
+  costs the trader about 2.5%.
+- Costs: held goods carry what they cost (`paid`), so a sale names its
+  profit. Day logs record the fine and units seized, for the cells screen
+  and the paper.
+- Save format 2 adds `paid`, `calls`, the stop's `bribeOdds` and the log's
+  `fine` and `seized`; version 1 saves migrate (goods held then count at the
+  city's usual price).

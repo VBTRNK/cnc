@@ -74,6 +74,8 @@ export interface PendingStop {
   quote: Quote;
   /** null when not offered: at wanted, or unaffordable. */
   bribe: number | null;
+  /** Odds in percent that he takes the bribe, frozen with the stop. */
+  bribeOdds: number;
   bribeRefusal: "wanted" | "short" | null;
 }
 
@@ -87,6 +89,10 @@ export interface DayLog {
   arrested: boolean;
   hurt: boolean;
   jobPaid: number;
+  /** The arrest fine, 0 without an arrest. */
+  fine: number;
+  /** Units the police took today: handed over, refused bribes and arrests. */
+  seized: number;
 }
 
 /** The evening paper: committed results and scheduled facts only, so it is always true. */
@@ -112,6 +118,8 @@ export interface GameState {
   place: PlaceId;
   cash: number;
   held: PerGood<number>;
+  /** What the held units cost in total, for a sale's profit. */
+  paid: PerGood<number>;
   /** Heat 0-100, kept unrounded. */
   heat: number;
   xp: Record<SkillId, number>;
@@ -120,6 +128,8 @@ export interface GameState {
   market: PerPlace<PerGood<Cell>>;
   events: WorldEvent[];
   jobDone: boolean;
+  /** Phone calls made today; each costs more heat than the last. */
+  calls: number;
   /** Places stood in today. */
   seenToday: PlaceId[];
   /** Tips given per place today. */

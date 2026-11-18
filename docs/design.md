@@ -67,7 +67,7 @@ the same: what is the best use of my next few hours?
   | Odd job | 3 h | $30, certain, heat −3; never checked by the police |
   | Pull a job | 4 h | Once a day; see "Jobs" |
 
-  Buying and buying an upgrade take 0 h. There is no
+  Buying, buying an upgrade and ringing round with the phone take 0 h. There is no
   training action and no price-tier choice: experience comes from doing, and every sale is
   at the current price.
 - **Goods** (base price, units sold per hour, heat per unit sold), one pocket each: untaxed
@@ -115,9 +115,11 @@ the same: what is the best use of my next few hours?
 - **No rerolling.** Baselines, stock, demand and the event schedule are rolled once from the
   saved generator. Revisits and reloads see the same values and what is already used up.
 - **Upgrades**, on Me, either order, never lost: **big coat** $800 (pockets 20 → 35) and
-  **burner phone** $1,200 (City shows every place's current prices and low-stock notes, not
-  demand, and the midday brief may carry the day's rumour). The first playable has no third
-  upgrade: the later purchase is designed with the first-chapter goal (#6).
+  **burner phone** $1,200. The phone adds *Ring round* to City: it notes every place's
+  current price as seen now (not stock or demand) and adds heat, 5 × the call's number
+  today (+5, +10, +15, ...; the count restarts each morning). Coppers listen in on a phone
+  that is never thrown away. The first playable has no third upgrade: the later purchase
+  is designed with the first-chapter goal (#6).
 - **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
   level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
   legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
@@ -130,14 +132,17 @@ the same: what is the best use of my next few hours?
 - **Stops.** Only when a sale or a job is committed, with p per hour = (0.5% + 0.1% × heat) ×
   police factor, for the action 1 − (1 − p)^hours. A stop takes no time and is a saved card
   holding the action and its quote:
-  - **Slip him something:** certain, $40 + a quarter of the carried goods' current value + 2 ×
-    heat, heat +10; not offered at wanted or when unaffordable. The action then runs.
+  - **Slip him something:** $40 + a quarter of the carried goods' current value + 2 × heat;
+    not offered at wanted or when unaffordable. Heat +10 either way. He takes it at 80% + 5
+    points per Nerve − 0.3 points per heat, clamped 10-90%, and the action runs. Otherwise
+    he is honest: no money changes hands and every carried good is taken, as in *Hand it
+    over*.
   - **Leg it:** 50% + 5 points per Nerve − 0.3 points per heat, clamped 10-90%. Success: heat
     +10 and the action runs. Failure: arrest; the action is cancelled.
   - **Hand it over:** certain, every carried good is taken. A sale is called off with no time
     spent; a job still runs.
 
-  The action that follows a stop is never checked again. With empty pockets (only possible
+  The odds are frozen with the stop. The action that follows a stop is never checked again. With empty pockets (only possible
   before a job) there is no card, just "Patted down. Nothing on you."
 - **Jobs.** Success chance s = 60% + 5 points per Nerve − 0.3 points per heat, clamped
   10-90%. Every outcome takes the job's 4 h and gives Nerve +2.
@@ -151,20 +156,23 @@ the same: what is the best use of my next few hours?
 
 - **Arrest:** carried goods are seized; a fine of 15% of cash, at least $50 but never more
   than the player has; heat set to 25; the day ends. The next day starts at 14:00. Upgrades
-  and skills are kept. **Hurt** ends the day with nothing else lost. There is
+  and skills are kept. Before the paper, a cells screen (the bars come down) says what was
+  taken, the fine, the cash left, the heat and the late start; the paper repeats the fine. **Hurt** ends the day with nothing else lost. There is
   no debt, cash never goes below $0, and odd jobs are always a way back.
 - **What the player sees.** Facts are exact: cash, held counts, pockets, hours, prices and
   stock where the player stands, each action's hours, a trade's total. Hints are words: a
   price is cheap at 80% or less of the city's usual and pricey at 120% or more; heat as its
   word; a place's police mood in its flavour line; odds as words. Every sale and job quote
   carries a stop-risk chip: slight (under 5%), some (5-15%), real (15-30%), high (30%+). City
-  shows the prices last seen in each place with their age. Outcomes are one line that names
-  the cause ("Sold 12 tapes for $228. The Strip's had its fill.").
-- **Tips.** Ask around gives at most two per place per day, and only new ones. Without the
-  phone: today's price of one good at a place not seen today (the good held most, else the
-  dearest), each once. Each day also has one rumour about tomorrow, shared with the phone's
-  midday line and used once: true with 70% + 5 points per Savvy level, it describes tomorrow's scheduled event
-  or says "Nothing big expected tomorrow"; otherwise it names a place and good with no event.
+  shows the prices last seen in each place with their age. Held goods remember what they
+  cost, so a sale's quote and its result give the profit or loss, a fact
+  ("Sold 12 tapes for $228: $96 profit. The Strip's had its fill."). Outcomes are one line
+  that names the cause. The action that ends the day keeps its line above the paper.
+- **Tips.** Ask around gives at most two per place per day, and only new ones: today's
+  price of one good at a place not seen today (the good held most, else the dearest), each
+  once. Each day also has one rumour about tomorrow, used once: true with 70% + 5 points per
+  Savvy level, it describes tomorrow's scheduled event or says "Nothing big expected
+  tomorrow"; otherwise it names a place and good with no event.
   The evening paper's line about tomorrow is always true.
 - **Timing.**
   - Committing freezes the quote: hours and stop chance; for a sale its units and proceeds;
@@ -225,11 +233,12 @@ the same: what is the best use of my next few hours?
   at most one filled ink button, the action that commits. Controls are at least 48 px high.
 - **Status.** Every play screen starts with cash, slim chips for pockets and heat, and a bar
   showing how much of the day is used, with the hours left beside it.
-- **Street.** Goods are a plain list: a large held count (blank when none), the name, the
-  price, and at most a one-word price hint, never a figure. A shortage shows as a short red
-  note. Tapping a good opens a sheet from the bottom with a buy or sell switch, a quantity
-  stepper with a maximum shortcut, and one button that names the trade and its total; for a
-  sale also its hours, with the stop-risk chip ("Sell 6 for $288 · 2 h").
+- **Street.** Goods are a plain, compact list: a large held count (blank when none), the
+  name, the price in a large right-aligned column, and at most a one-word price hint, never
+  a figure. A shortage shows as a short red note. Tapping a good opens a sheet from the
+  bottom with a buy or sell switch, a quantity stepper with a maximum shortcut, and one
+  button that names the trade and its total; for a sale also its hours, with the profit and
+  stop-risk chips ("Sell 6 for $288 · 2 h").
 - **Event card.** The character and the situation sit in a dossier: a manila folder with a
   halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
   carries its effects as chips: a solid chip is certain, a dashed chip with a die is a

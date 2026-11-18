@@ -24,6 +24,7 @@ function randomAction(s: GameState, r: Rng): Action {
     { type: "oddJob" },
     { type: "pullJob" },
     { type: "buyUpgrade", upgrade: r.pick(UPGRADES) },
+    { type: "ringRound" },
   ];
   if (r.chance(0.05)) return { type: "callItADay" };
   // Some invalid actions on purpose: they must change nothing.
@@ -60,6 +61,7 @@ function account(ledger: Ledger, e: DomainEvent): void {
       for (const g of GOODS) ledger.goods[g]! -= e.seized[g];
       break;
     case "handedOver":
+    case "bribeRefused":
       for (const g of GOODS) ledger.goods[g]! -= e.seized[g];
       break;
   }
@@ -71,6 +73,10 @@ function checkState(s: GameState): void {
   expect(carried(s)).toBeLessThanOrEqual(pockets(s));
   expect(s.heat).toBeGreaterThanOrEqual(0);
   expect(s.heat).toBeLessThanOrEqual(100);
+  for (const g of GOODS) {
+    expect(s.paid[g]).toBeGreaterThanOrEqual(0);
+    if (s.held[g] === 0) expect(s.paid[g]).toBe(0);
+  }
   for (const p of PLACES) {
     for (const g of GOODS) {
       expect(s.market[p][g].stock).toBeGreaterThanOrEqual(0);
@@ -129,7 +135,7 @@ describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
   it("reaches every branch, the rare ones included", () => {
     const seen = new Set(runs.flatMap((r) => [...r.seen]));
     for (const branch of [
-      "stopped", "pattedDown", "bribed", "leggedIt", "handedOver", "arrested", "upgraded",
+      "stopped", "pattedDown", "bribed", "bribeRefused", "rangRound", "leggedIt", "handedOver", "arrested", "upgraded",
       "levelUp", "tip", "job:success", "job:nothing", "job:hurt", "job:arrested",
       "end:clock", "end:called", "end:arrest", "end:hurt",
     ]) {

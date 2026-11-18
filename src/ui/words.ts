@@ -2,8 +2,10 @@
 // Pure functions, so they are tested without a browser.
 
 import {
+  GOODS,
   RULES,
   heatWord,
+  type PerGood,
   type DomainEvent,
   type GameState,
   type GoodId,
@@ -30,6 +32,13 @@ export const heatText = (heat: number): string => t(`heat.${heatWord(heat)}`);
 
 const at = (place: PlaceId, good?: GoodId) => ({ ...placeValues(place), ...(good ? goodValues(good) : {}) });
 
+/** "12 tapes, 3 watches": the goods in a seizure, in catalogue order. */
+export function goodsList(goods: PerGood<number>): string {
+  return GOODS.filter((g) => goods[g] > 0)
+    .map((g) => goodCount(g, goods[g]))
+    .join(", ");
+}
+
 export function rumourLine(r: Rumour): string {
   if (!r.claim) return t("result.rumourNone");
   return t(r.claim.kind === "shortage" ? "result.rumourShortage" : "result.rumourGlut", at(r.claim.place, r.claim.good));
@@ -43,12 +52,17 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
       case "bought":
         out.push(t("result.bought", { count: goodCount(e.good, e.units), cost: money(e.cost) }));
         break;
-      case "sold":
-        out.push(t("result.sold", { count: goodCount(e.good, e.units), proceeds: money(e.proceeds) }));
+      case "sold": {
+        const values = { count: goodCount(e.good, e.units), proceeds: money(e.proceeds) };
+        const profit = e.proceeds - e.cost;
+        if (profit > 0) out.push(t("result.soldProfit", { ...values, profit: money(profit) }));
+        else if (profit < 0) out.push(t("result.soldLoss", { ...values, loss: money(-profit) }));
+        else out.push(t("result.sold", values));
         if (state.phase === "day" && state.market[state.place][e.good].demand === 0) {
           out.push(t("result.soldOut", goodValues(e.good)));
         }
         break;
+      }
       case "travelled":
         out.push(t("result.travelled", { ...placeValues(e.to), hours: e.hours }));
         break;
@@ -68,6 +82,7 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
       case "job":
         if (e.outcome === "success") out.push(t("result.job.success", { pay: money(e.pay) }));
         else if (e.outcome === "nothing") out.push(t("result.job.nothing"));
+        else out.push(t(e.outcome === "hurt" ? "result.job.hurt" : "result.job.arrested"));
         break;
       case "pattedDown":
         out.push(t("result.pattedDown"));
@@ -75,9 +90,21 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
       case "bribed":
         out.push(t("result.bribed", { amount: money(e.amount) }));
         break;
-      case "leggedIt":
-        if (e.success) out.push(t("result.leggedIt"));
+      case "bribeRefused":
+        out.push(t(e.saleOff ? "result.bribeRefusedSale" : "result.bribeRefused"));
         break;
+      case "rangRound":
+        out.push(t("result.rangRound", { word: heatText(state.heat) }));
+        break;
+      case "leggedIt":
+        out.push(t(e.success ? "result.leggedIt" : "result.legItFailed"));
+        break;
+      case "arrested": {
+        const goods = goodsList(e.seized);
+        const fine = money(e.fine);
+        out.push(goods ? t("result.arrested", { goods, fine }) : t("result.arrestedEmpty", { fine }));
+        break;
+      }
       case "handedOver":
         out.push(t(e.saleOff ? "result.handedOverSale" : "result.handedOver"));
         break;
@@ -183,7 +210,7 @@ export function paperView(p: Paper): PaperView {
   const freshMorning = p.tomorrow.find((e) => !e.activated && e.startDay === p.day + 1);
   if (log.arrested) {
     head = t("paper.arrested.head");
-    story = t("paper.arrested.story");
+    story = t("paper.arrested.story", { fine: money(log.fine), time: clock(RULES.arrestStart) });
   } else if (log.hurt) {
     head = t("paper.hurt.head");
     story = t("paper.hurt.story");
@@ -213,6 +240,8 @@ export function paperView(p: Paper): PaperView {
   if (log.spent > 0) chips.push(t("paper.chip.spent", { amount: money(log.spent) }));
   if (log.jobPaid > 0) chips.push(t("paper.chip.job", { amount: money(log.jobPaid) }));
   if (log.stops > 0) chips.push(t("paper.chip.stops", { n: log.stops }));
+  if (log.seized > 0) chips.push(t("paper.chip.seized", { n: log.seized }));
+  if (log.fine > 0) chips.push(t("paper.chip.fine", { amount: money(log.fine) }));
   chips.push(t("paper.chip.cash", { amount: money(p.cash) }));
   chips.push(t("paper.chip.heat", { word: heatText(p.heat) }));
 
