@@ -11,6 +11,7 @@ import {
   priceHint,
   quoteJob,
   quoteSale,
+  saleCost,
   type Action,
   type GameState,
   type GoodId,
@@ -119,6 +120,7 @@ export function TradeSheet({ state, good, onClose, commit }: CommitProps & { goo
           </div>
           {quote && typeof quote !== "string" && (
             <p className="chips-line">
+              <ProfitChip profit={quote.proceeds - saleCost(state, good, units)} />
               <RiskChip chance={quote.stopChance} />
             </p>
           )}
@@ -137,6 +139,11 @@ export function TradeSheet({ state, good, onClose, commit }: CommitProps & { goo
       )}
     </Sheet>
   );
+}
+
+function ProfitChip({ profit }: { profit: number }) {
+  if (profit < 0) return <Chip warn>{t("trade.loss", { amount: money(-profit) })}</Chip>;
+  return <Chip>{t("trade.profit", { amount: money(profit) })}</Chip>;
 }
 
 // ---- Job, day end, upgrade -----------------------------------------------------------

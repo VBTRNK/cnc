@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import type { GameSession } from "./game/session.ts";
 import type { Action } from "./sim/index.ts";
+import { CellsScreen } from "./ui/CellsScreen.tsx";
 import { City } from "./ui/City.tsx";
 import { download, saveFileName } from "./ui/files.ts";
 import { Me } from "./ui/Me.tsx";
@@ -12,6 +13,7 @@ import { Status } from "./ui/Status.tsx";
 import { StopCard } from "./ui/StopCard.tsx";
 import { Street } from "./ui/Street.tsx";
 import { t } from "./ui/text.ts";
+import { resultLines } from "./ui/words.ts";
 
 type Tab = "street" | "city" | "me";
 const TABS: readonly Tab[] = ["street", "city", "me"];
@@ -21,6 +23,8 @@ export function App({ session }: { session: GameSession }) {
   const [tab, setTab] = useState<Tab>("street");
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
+  /** The night whose cells screen was left, as "run:day"; the paper follows it. */
+  const [leftCells, setLeftCells] = useState<string | null>(null);
   const { state, mode } = snap;
   const readOnly = mode !== "play";
 
@@ -67,10 +71,23 @@ export function App({ session }: { session: GameSession }) {
   );
 
   if (state.phase === "night" && state.paper) {
+    const paper = state.paper;
+    // The action that ended the day still gets its line, before the paper takes over.
+    const last = snap.events.some((e) => e.type === "dayEnded") ? resultLines(snap.events, state) : [];
+    const night = `${state.runId}:${paper.day}`;
     return (
       <main className="night">
         {banners}
-        <PaperScreen paper={state.paper} readOnly={readOnly} onStart={() => session.dispatch({ type: "startDay" })} />
+        {paper.log.arrested && leftCells !== night ? (
+          <CellsScreen paper={paper} lines={last} onDone={() => setLeftCells(night)} />
+        ) : (
+          <PaperScreen
+            paper={paper}
+            last={paper.log.arrested ? [] : last}
+            readOnly={readOnly}
+            onStart={() => session.dispatch({ type: "startDay" })}
+          />
+        )}
       </main>
     );
   }
@@ -106,7 +123,14 @@ export function App({ session }: { session: GameSession }) {
               dispatch={session.dispatch}
             />
           )}
-          {tab === "city" && <City state={state} dispatch={travel} />}
+          {tab === "city" && (
+            <City
+              state={state}
+              events={snap.events}
+              dispatch={travel}
+              onRing={() => session.dispatch({ type: "ringRound" })}
+            />
+          )}
           {tab === "me" && <Me state={state} save={snap.save} onOpen={setOverlay} />}
         </fieldset>
       </main>

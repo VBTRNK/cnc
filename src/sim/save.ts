@@ -3,11 +3,11 @@
 // copy, and refuses newer ones so the caller never overwrites them. Keeping the original
 // and falling back to the last valid snapshot belong to the store that calls this.
 
-import { GOODS, HARMLESS, PLACES, RULES, SKILLS, UPGRADES } from "./content.ts";
+import { GOOD, GOODS, HARMLESS, PLACE, PLACES, RULES, SKILLS, UPGRADES } from "./content.ts";
 import type { GameState } from "./state.ts";
 
 export const SAVE_FORMAT = "crime-and-crown-save";
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SaveDocument {
   format: typeof SAVE_FORMAT;
@@ -19,7 +19,34 @@ export interface SaveDocument {
 export type Migration = (doc: Record<string, unknown>) => Record<string, unknown>;
 
 /** Migrations by the version they upgrade from. Version 1 is the first format. */
-export const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+export const MIGRATIONS: Readonly<Record<number, Migration>> = {
+  // 2: cost basis, phone calls, bribe odds, and the fine and seizures in the day log.
+  1: (doc) => {
+    const state = structuredClone(doc.state) as Record<string, any>;
+    const held = state.held as Record<string, number>;
+    // Goods held before costs were kept count at the city's usual price.
+    state.paid = Object.fromEntries(
+      GOODS.map((g) => {
+        const usual = (GOOD[g].base * PLACES.reduce((n, p) => n + PLACE[p].factor[g], 0)) / PLACES.length;
+        return [g, Math.round((held?.[g] ?? 0) * usual)];
+      }),
+    );
+    state.calls = 0;
+    if (isObject(state.pending)) {
+      const xp = Number((state.xp as Record<string, number>)?.nerve ?? 0);
+      const nerve = RULES.levels.filter((t) => xp >= t).length;
+      const odds = RULES.bribeOddsBase + RULES.oddsPerNerve * nerve - RULES.oddsPerHeat * Number(state.heat);
+      state.pending.bribeOdds = Math.min(RULES.oddsMax, Math.max(RULES.oddsMin, odds));
+    }
+    const log = (l: unknown) => {
+      if (isObject(l)) Object.assign(l, { fine: 0, seized: 0 });
+    };
+    log(state.today);
+    if (isObject(state.paper)) log(state.paper.log);
+    if (Array.isArray(state.news)) for (const p of state.news) if (isObject(p)) log(p.log);
+    return { ...doc, state };
+  },
+};
 
 export type LoadResult =
   | { ok: true; state: GameState; migratedFrom: number | null }
@@ -203,6 +230,8 @@ const dayLog = shape({
   arrested: bool,
   hurt: bool,
   jobPaid: int(0, MAX_CASH),
+  fine: int(0, MAX_CASH),
+  seized: int(0),
 });
 
 const paper = shape({
@@ -232,6 +261,7 @@ const gameState = shape({
   place: oneOf(PLACES),
   cash: int(0, MAX_CASH),
   held: goods,
+  paid: keyed(GOODS, int(0, MAX_CASH)),
   heat: num(0, RULES.heatMax),
   xp: keyed(SKILLS, int(0, 1_000_000)),
   upgrades: all(list(oneOf(UPGRADES), UPGRADES.length), (x, path) =>
@@ -241,6 +271,7 @@ const gameState = shape({
   market: keyed(PLACES, keyed(GOODS, cell)),
   events: list(worldEvent, 20),
   jobDone: bool,
+  calls: int(0, 1000),
   seenToday: list(oneOf(PLACES), PLACES.length),
   tipsGiven: keyed(PLACES, int(0, RULES.tipsPerPlace), true),
   priceTips: list(
@@ -254,6 +285,7 @@ const gameState = shape({
       kind: oneOf(["stop"]),
       quote,
       bribe: nullable(int(1, MAX_CASH)),
+      bribeOdds: odds,
       bribeRefusal: nullable(oneOf(["wanted", "short"])),
     }),
   ),

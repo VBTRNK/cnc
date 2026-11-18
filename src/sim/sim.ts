@@ -54,6 +54,7 @@ export type Action =
   | { type: "oddJob" }
   | { type: "pullJob" }
   | { type: "buyUpgrade"; upgrade: UpgradeId }
+  | { type: "ringRound" }
   | { type: "callItADay" }
   | { type: "resolveStop"; choice: "bribe" | "legIt" | "handOver" }
   | { type: "startDay" };
@@ -75,6 +76,7 @@ export type Refusal =
   | "jobDone"
   | "noTips"
   | "owned"
+  | "noPhone"
   | "bribeRefused";
 
 export interface PriceTip {
@@ -86,7 +88,7 @@ export interface PriceTip {
 
 export type DomainEvent =
   | { type: "bought"; good: GoodId; units: number; cost: number }
-  | { type: "sold"; good: GoodId; units: number; proceeds: number; hours: number }
+  | { type: "sold"; good: GoodId; units: number; proceeds: number; cost: number; hours: number }
   | { type: "travelled"; from: PlaceId; to: PlaceId; hours: number }
   | { type: "tip"; tip: PriceTip | ({ kind: "rumour" } & Rumour) }
   | { type: "laidLow"; heat: number }
@@ -95,6 +97,8 @@ export type DomainEvent =
   | { type: "stopped"; stop: PendingStop }
   | { type: "pattedDown" }
   | { type: "bribed"; amount: number }
+  | { type: "bribeRefused"; seized: PerGood<number>; saleOff: boolean }
+  | { type: "rangRound"; heat: number }
   | { type: "leggedIt"; success: boolean }
   | { type: "handedOver"; seized: PerGood<number>; saleOff: boolean }
   | { type: "arrested"; seized: PerGood<number>; fine: number }
@@ -123,6 +127,8 @@ const emptyLog = (cash: number): DayLog => ({
   arrested: false,
   hurt: false,
   jobPaid: 0,
+  fine: 0,
+  seized: 0,
 });
 
 /** A fresh run on the day-1 fixture. The caller supplies the seed and run identity. */
@@ -137,6 +143,7 @@ export function newGame(seed: number, runId: string): GameState {
     place: RULES.startPlace,
     cash: RULES.startCash,
     held: zeroGoods(),
+    paid: zeroGoods(),
     heat: 0,
     xp: { patter: 0, nerve: 0, savvy: 0 },
     upgrades: [],
@@ -147,6 +154,7 @@ export function newGame(seed: number, runId: string): GameState {
       { id: "d2-morning", slot: "morning", startDay: 2, startHour: RULES.dayStart, endDay: 3, activated: false, kind: "shortage", place: "oldtown", good: "fireworks" },
     ],
     jobDone: false,
+    calls: 0,
     seenToday: [RULES.startPlace],
     tipsGiven: {},
     priceTips: [],
@@ -182,6 +190,16 @@ export function stopChance(s: GameState, hours: number): number {
 
 const odds = (s: GameState, base: number): number =>
   clamp(base + RULES.oddsPerNerve * skill(s, "nerve") - RULES.oddsPerHeat * s.heat, RULES.oddsMin, RULES.oddsMax);
+
+/** What the units would cost of what was paid for the held ones: their share, rounded. */
+export function saleCost(s: GameState, good: GoodId, units: number): number {
+  const held = s.held[good];
+  if (held <= 0) return 0;
+  return units >= held ? s.paid[good] : Math.round((s.paid[good] * units) / held);
+}
+
+/** The heat the next phone call adds. */
+export const callHeat = (s: GameState): number => RULES.phoneHeat * (s.calls + 1);
 
 export function maxSale(s: GameState, good: GoodId): number {
   return Math.min(s.held[good], s.market[s.place][good].demand, unitsIn(s, good, hoursLeft(s)));
@@ -232,7 +250,6 @@ function tipGoods(s: GameState): GoodId[] {
 }
 
 function nextPriceTip(s: GameState): { place: PlaceId; good: GoodId } | null {
-  if (has(s, "phone")) return null;
   const places = PLACES.filter((p) => !s.seenToday.includes(p)).sort(
     (a, b) => ringDistance(s.place, a) - ringDistance(s.place, b) || PLACES.indexOf(a) - PLACES.indexOf(b),
   );
@@ -294,6 +311,8 @@ export function check(s: GameState, a: Action): Refusal | null {
       if (!UPGRADES.includes(a.upgrade)) return "unknown";
       if (has(s, a.upgrade)) return "owned";
       return s.cash < UPGRADE_COST[a.upgrade] ? "noCash" : null;
+    case "ringRound":
+      return has(s, "phone") ? null : "noPhone";
     case "callItADay":
       return null;
     default:
@@ -329,6 +348,7 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
       s.cash -= cost;
       s.market[s.place][a.good].stock -= a.units;
       s.held[a.good] += a.units;
+      s.paid[a.good] += cost;
       s.today.bought += a.units;
       s.today.spent += cost;
       out.push({ type: "bought", good: a.good, units: a.units, cost });
@@ -381,6 +401,15 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
       out.push({ type: "upgraded", upgrade: a.upgrade, cost });
       return;
     }
+    case "ringRound": {
+      // A snapshot of every place's prices, at a price in heat that grows with each call today.
+      const heat = callHeat(s);
+      s.calls += 1;
+      addHeat(s, heat);
+      for (const p of PLACES) for (const g of GOODS) s.memory[p][g] = { price: price(s, p, g), day: s.day, hour: s.hour };
+      out.push({ type: "rangRound", heat });
+      return;
+    }
     case "callItADay":
       return endDay(s, rng, "called", out);
     case "resolveStop":
@@ -401,7 +430,13 @@ function commitChecked(s: GameState, rng: Rng, quote: Quote, out: DomainEvent[])
   const value = GOODS.reduce((sum, g) => sum + s.held[g] * price(s, s.place, g), 0);
   const bribe = Math.ceil(RULES.bribeBase + RULES.bribeShare * value + RULES.bribePerHeat * s.heat);
   const refusal = s.heat >= RULES.bribeMaxHeat ? "wanted" : s.cash < bribe ? "short" : null;
-  s.pending = { kind: "stop", quote, bribe: refusal ? null : bribe, bribeRefusal: refusal };
+  s.pending = {
+    kind: "stop",
+    quote,
+    bribe: refusal ? null : bribe,
+    bribeOdds: odds(s, RULES.bribeOddsBase),
+    bribeRefusal: refusal,
+  };
   out.push({ type: "stopped", stop: s.pending });
 }
 
@@ -410,9 +445,15 @@ function resolveStop(s: GameState, rng: Rng, choice: "bribe" | "legIt" | "handOv
   s.pending = null;
   s.xp.nerve += RULES.xpNervePerStop;
   if (choice === "bribe") {
+    addHeat(s, RULES.bribeHeat);
+    if (!rng.chance(stop.bribeOdds / 100)) {
+      // An honest copper: he keeps his hands clean and takes the goods instead.
+      out.push({ type: "bribeRefused", seized: seize(s), saleOff: stop.quote.type === "sell" });
+      if (stop.quote.type === "job") run(s, rng, stop.quote, out);
+      return;
+    }
     const amount = stop.bribe as number;
     s.cash -= amount;
-    addHeat(s, RULES.bribeHeat);
     out.push({ type: "bribed", amount });
     return run(s, rng, stop.quote, out);
   }
@@ -423,15 +464,24 @@ function resolveStop(s: GameState, rng: Rng, choice: "bribe" | "legIt" | "handOv
     addHeat(s, RULES.legItHeat);
     return run(s, rng, stop.quote, out);
   }
-  const seized = { ...s.held };
-  s.held = zeroGoods();
-  out.push({ type: "handedOver", seized, saleOff: stop.quote.type === "sell" });
+  out.push({ type: "handedOver", seized: seize(s), saleOff: stop.quote.type === "sell" });
   if (stop.quote.type === "job") run(s, rng, stop.quote, out);
+}
+
+/** The police take every carried good. Returns what they took. */
+function seize(s: GameState): PerGood<number> {
+  const seized = { ...s.held };
+  s.today.seized += carried(s);
+  s.held = zeroGoods();
+  s.paid = zeroGoods();
+  return seized;
 }
 
 /** Runs a committed action exactly as quoted. Never checked again. */
 function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
   if (q.type === "sell") {
+    const cost = saleCost(s, q.good, q.units);
+    s.paid[q.good] -= cost;
     s.held[q.good] -= q.units;
     s.market[s.place][q.good].demand -= q.units;
     s.cash += q.proceeds;
@@ -439,7 +489,7 @@ function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
     s.xp.patter += q.hours;
     s.today.sold += q.units;
     s.today.proceeds += q.proceeds;
-    out.push({ type: "sold", good: q.good, units: q.units, proceeds: q.proceeds, hours: q.hours });
+    out.push({ type: "sold", good: q.good, units: q.units, proceeds: q.proceeds, cost, hours: q.hours });
     return pass(s, rng, q.hours, out);
   }
   s.xp.nerve += RULES.xpNervePerJob;
@@ -447,7 +497,7 @@ function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
   const r = rng.next();
   const outcome = r < success ? "success" : (r - success) / (1 - success) < 0.5 ? "nothing" : (r - success) / (1 - success) < 0.75 ? "hurt" : "arrested";
   const pay = outcome === "success" ? rng.int(q.pay[0], q.pay[1]) : 0;
-  moveClock(s, rng, s.hour + q.hours, out);
+  moveClock(s, s.hour + q.hours, out);
   if (outcome === "success") {
     s.cash += pay;
     s.today.jobPaid += pay;
@@ -470,7 +520,7 @@ const addHeat = (s: GameState, h: number): void => {
 
 /** Moves the clock after an action and applies what was scheduled; 22:00 ends the day. */
 function pass(s: GameState, rng: Rng, hours: number, out: DomainEvent[]): void {
-  moveClock(s, rng, s.hour + hours, out);
+  moveClock(s, s.hour + hours, out);
   if (s.hour >= RULES.dayEnd) endDay(s, rng, "clock", out);
 }
 
@@ -478,29 +528,22 @@ function pass(s: GameState, rng: Rng, hours: number, out: DomainEvent[]): void {
  * The clock after an action. An action that reaches 22:00 leaves today's remaining
  * activations to the day end, so a midday item nobody saw leads the paper.
  */
-function moveClock(s: GameState, rng: Rng, hour: number, out: DomainEvent[]): void {
+function moveClock(s: GameState, hour: number, out: DomainEvent[]): void {
   if (hour >= RULES.dayEnd) s.hour = hour;
-  else clockTo(s, hour, out, rng);
+  else clockTo(s, hour, out);
 }
 
-/** Applies activations up to `hour`. With a generator, the phone's midday line can fire. */
-function clockTo(s: GameState, hour: number, out: DomainEvent[], rng?: Rng): void {
+/** Applies activations up to `hour`. */
+function clockTo(s: GameState, hour: number, out: DomainEvent[]): void {
   s.hour = hour;
-  for (const event of activateUpTo(s, hour)) {
-    out.push({ type: "eventStarted", event });
-    // The phone's midday line spends the day's rumour if nobody has used it yet.
-    if (rng && event.slot === "midday" && has(s, "phone") && s.rumour === null) {
-      s.rumour = drawRumour(s, rng, "phone");
-      out.push({ type: "tip", tip: { kind: "rumour", ...s.rumour } });
-    }
-  }
+  for (const event of activateUpTo(s, hour)) out.push({ type: "eventStarted", event });
 }
 
 function arrest(s: GameState, rng: Rng, out: DomainEvent[]): void {
-  const seized = { ...s.held };
-  s.held = zeroGoods();
+  const seized = seize(s);
   const fine = Math.min(s.cash, Math.max(RULES.fineMin, Math.ceil(RULES.fineShare * s.cash)));
   s.cash -= fine;
+  s.today.fine = fine;
   s.heat = RULES.arrestHeat;
   s.today.arrested = true;
   s.nextStart = RULES.arrestStart;
@@ -550,6 +593,7 @@ function startDay(s: GameState, out: DomainEvent[]): void {
   s.phase = "day";
   s.paper = null;
   s.jobDone = false;
+  s.calls = 0;
   s.seenToday = [s.place];
   s.tipsGiven = {};
   s.priceTips = [];

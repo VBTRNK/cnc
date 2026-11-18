@@ -1,8 +1,7 @@
 // What the player knows about the city: active events (announced in the paper or the
-// midday brief), and prices as seen, remembered or, with the phone, live.
+// midday brief), and prices live where you stand, else as last seen, tipped or rung round.
 
 import {
-  has,
   price,
   priceHint,
   usualPrice,
@@ -38,7 +37,7 @@ export function hintFor(good: GoodId, p: number): Hint {
 export interface PriceView {
   price: number | null;
   hint: Hint;
-  /** When the price was seen; null when live (here, or by phone). */
+  /** When the price was seen; null when live (where you stand). */
   seen: { day: number; hour: number } | null;
   low: boolean;
   soldOut: boolean;
@@ -46,8 +45,7 @@ export interface PriceView {
 
 /** A place's price for a good as the player knows it. */
 export function knownPrice(s: GameState, place: PlaceId, good: GoodId): PriceView {
-  const live = place === s.place || has(s, "phone");
-  if (live) {
+  if (place === s.place) {
     const cell = s.market[place][good];
     return {
       price: price(s, place, good),

@@ -443,14 +443,15 @@ fieldset.choices {
   border-bottom: var(--divider);
 }
 
+/* Prices sit in one right-aligned column, large enough to scan down the list. */
 .good {
   display: grid;
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto 4.75rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 5.5rem 4.25rem;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  min-height: 3.5rem;
-  padding: 0.25rem 0;
+  min-height: var(--control);
+  padding: 0.125rem 0;
   border: 0;
   background: none;
   text-align: left;
@@ -463,7 +464,10 @@ fieldset.choices {
 }
 
 .good-price {
-  font-size: 1.0625rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .good-hint {
@@ -762,6 +766,10 @@ fieldset.choices {
 
 /* ---- City ------------------------------------------------------------------------ */
 
+.ring {
+  margin-top: 1.25rem;
+}
+
 .rumour {
   margin-top: 1.25rem;
   font-style: italic;
@@ -820,6 +828,8 @@ fieldset.choices {
 
 .prices .money {
   display: block;
+  font-size: 1.125rem;
+  font-weight: 700;
 }
 
 .price-unknown .money {
@@ -1000,6 +1010,62 @@ fieldset.choices {
 
 .paper-chips {
   margin-top: 1rem;
+}
+
+.paper-last {
+  margin-top: var(--gutter);
+}
+
+.paper-last + .paper {
+  margin-top: 0.75rem;
+}
+
+/* ---- The cells ------------------------------------------------------------------- */
+
+.cells {
+  margin: var(--gutter) 0;
+  padding: 0 var(--gutter) var(--gutter);
+  border: var(--rule);
+  background: var(--sheet);
+  overflow: hidden;
+}
+
+/* Cell bars: ink uprights under a crossbar, dropping into place. Decorative. */
+.bars {
+  position: relative;
+  height: 8rem;
+  margin: 0 calc(-1 * var(--gutter));
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 1.1rem,
+    var(--ink) 1.1rem 1.6rem
+  );
+  animation: bars-drop 420ms cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+.bars-rail {
+  position: absolute;
+  inset: 2.5rem 0 auto;
+  height: 0.6rem;
+  background: var(--ink);
+}
+
+@keyframes bars-drop {
+  from {
+    transform: translateY(-100%);
+  }
+  85% {
+    transform: translateY(0.4rem);
+  }
+}
+
+.cells .headline {
+  color: var(--red);
+  font-size: 3rem;
+}
+
+.cells-chips {
+  margin: 1rem 0;
 }
 
 /* ---- Motion ---------------------------------------------------------------------- */

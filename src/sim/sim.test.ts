@@ -228,13 +228,31 @@ describe("police stops", () => {
   });
 
   it("slipping him something pays, adds heat and runs the sale as quoted, unchecked", () => {
-    const s = play(carrying(stopped), { type: "sell", good: "smokes", units: 17 }).state;
+    const s = play(carrying(rngWhere(below(0.005), below(0.8))), { type: "sell", good: "smokes", units: 17 }).state;
+    expect(s.pending?.bribeOdds).toBe(80);
     const { state, events } = play(s, { type: "resolveStop", choice: "bribe" });
     expect(types(events)).toEqual(["bribed", "sold"]);
     expect(state.cash).toBe(250 - 83 + 170);
     expect(state.heat).toBeCloseTo(10 + 17 * 0.3);
     expect(state.xp.nerve).toBe(2);
     expect(state.hour).toBe(13);
+  });
+
+  it("an honest copper refuses the bribe: no money changes hands, he takes the goods, heat +10", () => {
+    const s = carrying(rngWhere(below(0.005), atLeast(0.8)), (s) => (s.paid.smokes = 102));
+    const { state, events } = play(s, { type: "sell", good: "smokes", units: 17 }, { type: "resolveStop", choice: "bribe" });
+    expect(types(events)).toEqual(["stopped", "bribeRefused"]);
+    expect(find(events, "bribeRefused")).toMatchObject({ saleOff: true, seized: { smokes: 17 } });
+    expect([state.cash, state.held.smokes, state.paid.smokes, state.hour, state.today.seized]).toEqual([250, 0, 0, 11, 17]);
+    expect(state.heat).toBeCloseTo(10);
+  });
+
+  it("bribe odds follow the usual formula: Nerve helps, heat hurts", () => {
+    const s = play(carrying(stopped, (s) => {
+      s.heat = 40;
+      s.xp.nerve = 25;
+    }), { type: "sell", good: "smokes", units: 17 }).state;
+    expect(s.pending?.bribeOdds).toBeCloseTo(80 + 10 - 12);
   });
 
   it("legging it: success runs the sale; failure is an arrest and no sale", () => {
@@ -248,6 +266,7 @@ describe("police stops", () => {
     expect(caught.state.held.smokes).toBe(0);
     expect(caught.state.cash).toBe(200);
     expect(caught.state.nextStart).toBe(14);
+    expect(caught.state.paper?.log).toMatchObject({ arrested: true, fine: 50, seized: 17 });
   });
 
   it("handing it over before a sale seizes the goods, calls the sale off and spends no time", () => {
@@ -361,13 +380,12 @@ describe("tips", () => {
     expect(tip).toMatchObject({ kind: "price", good: "tapes", place: "oldtown" });
   });
 
-  it("with the phone only the rumour is left, and its midday line spends it", () => {
+  it("the phone gives no midday rumour of its own: it stays with asking around", () => {
     const owner = at("docks", 15, noStop, (s) => (s.upgrades = ["phone"]));
-    const asked = play(owner, { type: "askAround" });
-    expect(step(asked.state, { type: "askAround" })).toEqual({ ok: false, reason: "noTips" });
     const { state, events } = play(owner, { type: "lieLow" });
-    expect(find(events, "tip")?.tip).toMatchObject({ kind: "rumour", via: "phone" });
-    expect(step(state, { type: "askAround" })).toEqual({ ok: false, reason: "noTips" });
+    expect(find(events, "tip")).toBeUndefined();
+    expect(state.rumour).toBeNull();
+    expect(find(play(state, { type: "askAround" }).events, "tip")?.tip).toMatchObject({ kind: "rumour", via: "ask" });
   });
 
   it("a false rumour names a pair with no event tomorrow", () => {
@@ -375,6 +393,48 @@ describe("tips", () => {
     const tip = find(events, "tip")?.tip as { truthful: boolean; claim: { place: string; good: string } };
     expect(tip.truthful).toBe(false);
     expect(`${tip.claim.place}:${tip.claim.good}`).not.toBe("oldtown:fireworks");
+  });
+});
+
+describe("the burner phone", () => {
+  const owner = () => at("docks", 12, noStop, (s) => (s.upgrades = ["phone"]));
+
+  it("ringing round needs the phone", () => {
+    expect(step(at("docks", 12), { type: "ringRound" })).toEqual({ ok: false, reason: "noPhone" });
+  });
+
+  it("takes no time, notes every place's price now, and each call today costs more heat", () => {
+    const one = play(owner(), { type: "ringRound" });
+    expect(find(one.events, "rangRound")).toEqual({ type: "rangRound", heat: 5 });
+    expect([one.state.hour, one.state.heat, one.state.calls]).toEqual([12, 5, 1]);
+    for (const p of PLACES) {
+      for (const g of GOODS) expect(one.state.memory[p][g]).toEqual({ price: price(one.state, p, g), day: 1, hour: 12 });
+    }
+    const two = play(one.state, { type: "ringRound" }, { type: "ringRound" });
+    expect([two.state.heat, two.state.calls]).toEqual([30, 3]);
+  });
+
+  it("the count starts again each day", () => {
+    const s = play(owner(), { type: "ringRound" }, { type: "callItADay" }, { type: "startDay" }).state;
+    expect(s.calls).toBe(0);
+    expect(find(play(s, { type: "ringRound" }).events, "rangRound")?.heat).toBe(5);
+  });
+});
+
+describe("cost and profit", () => {
+  it("a sale's cost is its share of what the held units cost", () => {
+    const bought = play(at("docks", 10), { type: "buy", good: "smokes", units: 10 }).state;
+    expect(bought.paid.smokes).toBe(60);
+    const s = at("strip", 11, noStop, (s) => {
+      s.held = bought.held;
+      s.paid = bought.paid;
+    });
+    const half = play(s, { type: "sell", good: "smokes", units: 4 });
+    expect(find(half.events, "sold")).toMatchObject({ proceeds: 40, cost: 24 });
+    expect(half.state.paid.smokes).toBe(36);
+    const rest = play({ ...half.state, rng: noStop }, { type: "sell", good: "smokes", units: 6 });
+    expect(find(rest.events, "sold")).toMatchObject({ proceeds: 60, cost: 36 });
+    expect(rest.state.paid.smokes).toBe(0);
   });
 });
 

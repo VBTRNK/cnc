@@ -1,17 +1,51 @@
-import { GOODS, PLACES, has, hoursLeft, ringDistance, type Action, type GameState, type PlaceId } from "../sim/index.ts";
+import {
+  GOODS,
+  PLACES,
+  callHeat,
+  has,
+  hoursLeft,
+  ringDistance,
+  type Action,
+  type DomainEvent,
+  type GameState,
+  type PlaceId,
+} from "../sim/index.ts";
+import { Chip } from "./bits.tsx";
 import { eventAt, knownPrice, sweepAt, type PriceView } from "./known.ts";
 import { goodValues, money, placeName, t } from "./text.ts";
-import { rumourLine, seenText } from "./words.ts";
+import { resultLines, rumourLine, seenText } from "./words.ts";
 
 interface CityProps {
   state: GameState;
+  events: readonly DomainEvent[];
+  /** Travel: the screen moves on to Street. */
   dispatch: (action: Action) => void;
+  onRing: () => void;
 }
 
 /** The four neighbourhoods: travel, and what you know of each. Unknown looks unknown. */
-export function City({ state, dispatch }: CityProps) {
+export function City({ state, events, dispatch, onRing }: CityProps) {
+  const rang = events.some((e) => e.type === "rangRound");
   return (
     <>
+      {has(state, "phone") && (
+        <div className="ring">
+          <button type="button" className="action action-wide" onClick={onRing}>
+            <span className="action-label">{t("city.ring")}</span>
+            <span className="action-chips">
+              <Chip warn>{t("chip.heat", { heat: callHeat(state) })}</Chip>
+            </span>
+            <span className="action-detail">{t("city.ring.detail")}</span>
+          </button>
+          <div className="result-slot" role="status">
+            {rang && (
+              <p className="result">
+                <mark>{resultLines(events, state).join(" ")}</mark>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       {state.rumour && <p className="rumour">{rumourLine(state.rumour)}</p>}
       <ul className="places">
         {PLACES.map((p) => (
@@ -28,7 +62,6 @@ function PlaceCard({ state, place, onGo }: { state: GameState; place: PlaceId; o
   const here = place === state.place;
   const hours = ringDistance(state.place, place);
   const views = GOODS.map((g) => ({ good: g, view: knownPrice(state, place, g) }));
-  const live = here || has(state, "phone");
   const newest = views
     .map((v) => v.view.seen)
     .filter((x): x is NonNullable<PriceView["seen"]> => x !== null)
@@ -64,7 +97,7 @@ function PlaceCard({ state, place, onGo }: { state: GameState; place: PlaceId; o
           ))}
         </p>
       )}
-      {(live || newest) && (
+      {(here || newest) && (
         <dl className="prices">
           {views.map(({ good, view }) => (
             <div key={good} className={view.price === null ? "price price-unknown" : "price"}>
@@ -81,7 +114,7 @@ function PlaceCard({ state, place, onGo }: { state: GameState; place: PlaceId; o
       )}
       {!here && (
         <p className="seen">
-          {live ? t("city.live") : newest ? seenText(state, newest.day, newest.hour) : t("city.unseen")}
+          {newest ? seenText(state, newest.day, newest.hour) : t("city.unseen")}
         </p>
       )}
     </article>

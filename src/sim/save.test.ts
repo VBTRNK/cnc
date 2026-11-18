@@ -99,3 +99,49 @@ describe("migrations", () => {
     expect(loadSave(oldText, { migrations: { 1: broken }, current: 2 })).toMatchObject({ ok: false, error: "invalid" });
   });
 });
+
+describe("version 1 saves", () => {
+  /** A current state written back as version 1: without the fields version 2 added. */
+  const asVersion1 = (s: GameState): string => {
+    const state = structuredClone(s) as unknown as Record<string, any>;
+    delete state.paid;
+    delete state.calls;
+    if (state.pending) delete state.pending.bribeOdds;
+    const strip = (log: Record<string, unknown>) => {
+      delete log.fine;
+      delete log.seized;
+    };
+    strip(state.today);
+    if (state.paper) strip(state.paper.log);
+    for (const p of state.news) strip(p.log);
+    return JSON.stringify({ format: SAVE_FORMAT, version: 1, state });
+  };
+
+  it("load with costs at the usual price, no calls, empty logs and the stop's frozen odds", () => {
+    const night = play(midRun(), { type: "callItADay" }).state;
+    const loaded = loadSave(asVersion1(night));
+    expect(loaded).toMatchObject({ ok: true, migratedFrom: 1 });
+    if (!loaded.ok) return;
+    // 20 smokes at the usual $8.30 (base $8 × the mean place factor).
+    expect(loaded.state.paid).toEqual({ smokes: 166, tapes: 0, watches: 0, fireworks: 0 });
+    expect(loaded.state.calls).toBe(0);
+    expect(loaded.state.paper?.log).toMatchObject({ fine: 0, seized: 0 });
+    expect(loaded.state.news.every((p) => p.log.fine === 0 && p.log.seized === 0)).toBe(true);
+  });
+
+  it("keep a pending stop playable", () => {
+    const s = midRun();
+    s.heat = 20;
+    s.xp.nerve = 10;
+    s.pending = {
+      kind: "stop",
+      quote: { type: "job", hours: 4, stopChance: 0.1, success: 60, pay: [175, 325], legIt: 50 },
+      bribe: 60,
+      bribeOdds: 0,
+      bribeRefusal: null,
+    };
+    const loaded = loadSave(asVersion1(s));
+    if (!loaded.ok) throw new Error(loaded.detail);
+    expect(loaded.state.pending?.bribeOdds).toBeCloseTo(80 + 5 - 6);
+  });
+});
