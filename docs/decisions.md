@@ -46,7 +46,8 @@ Date: 2026-11-16
   account holders; everyone else plays as a guest with a local save.
 - Hosted migration route: a catalogued migration in `VBTRNK/supabase` with a
   byte-identical copy here, applied by an owner-run push from that repo. Its
-  automated workflow serves another tool only.
+  automated workflow serves another tool only. (Replaced by ADR-010: the
+  workflow applies cnc migrations too.)
 - Consequences: applying these is separate work, tracked in the "Open setup
   decisions" issue: the stack before any app code, the backend addon with the
   cloud-save work. The CSP then moves from `script-src 'none'` to
@@ -250,8 +251,32 @@ Date: 2026-11-18
   loopback test server only for the dev server or with `CNC_LOCAL_CLOUD=1`.
   A build without `VITE_SUPABASE_*` is guest-only. CSP: `connect-src` gains
   the project's HTTPS origin only.
-- Migration route: catalogued in `VBTRNK/supabase`, applied by the owner's
-  terminal push from there; its workflow refuses non-KUT migrations.
+- Migration route: catalogued in `VBTRNK/supabase` and applied by its
+  workflow (ADR-010).
 - Agent rules: the backend addon's denies are merged for both agents. Its two
   read-only allows (`migration list`, `db push --dry-run`) are left for the
   owner to add: an agent does not grant itself permissions.
+
+## ADR-010 — Hosted migrations through the shared workflow
+
+Date: 2026-11-18. Replaces ADR-009's migration route; follows VBTRNK/kut
+ADR-144, because the database is shared.
+
+- cnc migrations reach the hosted project only through `apply-migrations` in
+  `VBTRNK/supabase`, like KUT's: a plan the owner approves, then an apply the
+  owner approves, which pushes only the approved list and checks nothing is
+  left pending. No terminal push; the database password stays in that repo's
+  `production` environment.
+- The workflow takes `cnc_ref`, the cnc commit holding the same files, and
+  refuses a pending migration without a byte-identical copy in its tool's
+  repo. Without `cnc_ref`, cnc migrations are refused, so KUT's dispatch is
+  unchanged.
+- Every apply needs a KUT backup under an hour old, cnc's included: it is the
+  shared project's only backup. It covers schema `kut` only, so a cnc
+  migration that changes or drops saves needs a cnc backup first; until one
+  exists, cnc migrations stay additive (KUT's risk tiers).
+- The `catalogue-parity` check here compares every migration with the
+  catalogue's main, so a migration PR stays red until its catalogue PR merges.
+  The owner makes it a required check.
+- Each approval of the apply job is the yes for that push; a merge authorizes
+  none.
