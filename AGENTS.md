@@ -64,10 +64,12 @@ Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 ## Database
 
 - Migrations live in `supabase/migrations/`, each byte-identical to its entry
-  in the `VBTRNK/supabase` catalogue. Only the owner applies them, by a
-  terminal `db push` from that repo; never push from this repo. That repo's
-  `apply-migrations` workflow refuses non-KUT migrations, so a cnc catalogue
-  PR merges just before the owner's push.
+  in the `VBTRNK/supabase` catalogue. They reach the hosted project only
+  through that repo's `apply-migrations` workflow, approved by the owner
+  (ADR-010); never push from this repo. Order: the migration PR here (its
+  `catalogue-parity` check stays red), the catalogue PR merged, a fresh KUT
+  backup, the workflow dispatched with `cnc_ref` = this PR's head SHA, then
+  this PR merged. The commands are in that repo's README.
 - New code degrades gracefully against the old schema until its migration is
   live. `tests/saves-sql.test.ts` runs each migration in PGlite.
 

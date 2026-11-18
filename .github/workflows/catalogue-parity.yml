@@ -1,0 +1,32 @@
+name: catalogue-parity
+
+# Every migration here must have a byte-identical copy in the VBTRNK/supabase
+# catalogue's main, from where the `apply-migrations` workflow applies it
+# (ADR-010). A migration PR stays red here until its catalogue PR merges.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  catalogue-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: VBTRNK/supabase
+          ref: main
+          path: .catalogue
+          sparse-checkout: supabase/migrations
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node scripts/catalogue-parity.ts --catalogue .catalogue
