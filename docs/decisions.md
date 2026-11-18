@@ -270,8 +270,9 @@ ADR-144, because the database is shared.
 - The workflow takes `cnc_ref`, the cnc commit holding the same files
   (`main` by default; this repo's PR head SHA before it merges), and refuses
   a pending migration without a byte-identical copy in its tool's repo. The
-  plan names each file's tool, so a KUT dispatch that also carries a cnc
-  migration shows it before the approval.
+  plan names each file's tool and holds one tool's migrations only
+  (VBTRNK/supabase#107): a cnc migration never shares an apply with KUT's,
+  so a failing one can't stop a KUT apply partway.
 - The agent drives the steps (merges, dispatches, checks); the owner's part
   is the approvals.
 - Every apply needs a KUT backup under an hour old, cnc's included: it is the
