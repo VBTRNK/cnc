@@ -267,10 +267,13 @@ ADR-144, because the database is shared.
   owner approves, which pushes only the approved list and checks nothing is
   left pending. No terminal push; the database password stays in that repo's
   `production` environment.
-- The workflow takes `cnc_ref`, the cnc commit holding the same files, and
-  refuses a pending migration without a byte-identical copy in its tool's
-  repo. Without `cnc_ref`, cnc migrations are refused, so KUT's dispatch is
-  unchanged.
+- The workflow takes `cnc_ref`, the cnc commit holding the same files
+  (`main` by default; this repo's PR head SHA before it merges), and refuses
+  a pending migration without a byte-identical copy in its tool's repo. The
+  plan names each file's tool, so a KUT dispatch that also carries a cnc
+  migration shows it before the approval.
+- The agent drives the steps (merges, dispatches, checks); the owner's part
+  is the approvals.
 - Every apply needs a KUT backup under an hour old, cnc's included: it is the
   shared project's only backup. It covers schema `kut` only, so a cnc
   migration that changes or drops saves needs a cnc backup first; until one
