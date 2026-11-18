@@ -333,7 +333,7 @@ export class CloudSaves {
       adopt: (state) => session !== null && session.getSnapshot().save !== "off" && session.replace(state, "fromCloud"),
       keep: (text) => inner.keep(text).ok,
       persist: () => session?.saveNow() ?? false,
-      same: (state) => session !== null && session.getSnapshot().save === "saved" && inner.peek() === toSave(state),
+      same: (state) => session !== null && session.getSnapshot().save === "saved" && sameRun(inner.peek(), toSave(state)),
     };
     const sync =
       code && cloud && this.writer
@@ -430,6 +430,32 @@ export class CloudSaves {
  * goes up over the cloud's run unasked. If even that can't be recorded, the sync stops and
  * the slot opens as unavailable: the stand-in is played, exportable, and never saved.
  */
+/**
+ * Whether two save texts hold the same run. Key order doesn't count: the hosted database
+ * keeps a save as jsonb, which returns its keys in an order of its own.
+ */
+export function sameRun(a: string | null, b: string): boolean {
+  if (a === null) return false;
+  if (a === b) return true;
+  try {
+    return canonical(JSON.parse(a)) === canonical(JSON.parse(b));
+  } catch {
+    return false;
+  }
+}
+
+const canonical = (value: unknown): string => JSON.stringify(sortKeys(value));
+const sortKeys = (value: unknown): unknown =>
+  Array.isArray(value)
+    ? value.map(sortKeys)
+    : value !== null && typeof value === "object"
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((k) => [k, sortKeys((value as Record<string, unknown>)[k])]),
+        )
+      : value;
+
 function blankAware(store: SaveStore, sync: CloudSync): SaveStore {
   return {
     ...store,

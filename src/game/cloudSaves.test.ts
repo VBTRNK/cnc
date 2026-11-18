@@ -5,11 +5,26 @@
 
 import { SAVE_VERSION, toSave, type Action, type GameState } from "../sim/index.ts";
 import type { CloudApi, CloudRow, FetchResult, PutResult } from "./cloud.ts";
-import { CODE_KEY, CloudSaves } from "./cloudSaves.ts";
+import { CODE_KEY, CloudSaves, sameRun } from "./cloudSaves.ts";
 import { GUEST, codeSlot, keysFor, memoryStorage, type StorageLike } from "./store.ts";
 import { metaKey, readMeta } from "./sync.ts";
 
 // ---- A fake backend --------------------------------------------------------------
+
+/** A save as `jsonb` stores it: keys ordered by length, then bytewise, at every level. */
+function asJsonb(text: string): string {
+  const order = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(order)
+      : v !== null && typeof v === "object"
+        ? Object.fromEntries(
+            Object.keys(v)
+              .sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0))
+              .map((k) => [k, order((v as Record<string, unknown>)[k])]),
+          )
+        : v;
+  return JSON.stringify(order(JSON.parse(text)));
+}
 
 /**
  * The database: one row per code, written as `cnc.put_save` writes. Revisions come from
@@ -23,8 +38,10 @@ class Server {
   private clock = 0;
   private seq = 0;
 
-  put(code: string, base: number | null, upload: string, text: string): PutResult {
-    this.writes.push({ code, base, upload, text });
+  put(code: string, base: number | null, upload: string, sent: string): PutResult {
+    this.writes.push({ code, base, upload, text: sent });
+    // The hosted database keeps the save as jsonb and returns it in jsonb's key order.
+    const text = asJsonb(sent);
     const cur = this.rows.get(code);
     const at = `2026-11-18T12:${String(Math.floor(++this.clock / 60)).padStart(2, "0")}:${String(this.clock % 60).padStart(2, "0")}Z`;
     const version = (JSON.parse(text) as { version: number }).version;
@@ -344,7 +361,7 @@ describe("switching codes", () => {
     expect(d.snap()).toMatchObject({ code: null, sync: null });
     expect(d.storage.getItem(keysFor(codeSlot(code)).save)).toBe(savedRun);
     expect(d.storage.getItem(keysFor(codeSlot(code)).backup)).toBe(savedRun);
-    expect(server.rows.get(code)?.text).toBe(savedRun);
+    expect(server.rows.get(code)?.text).toBe(asJsonb(savedRun));
     expect(d.state().day).toBe(1);
     d.act(...NEXT_DAY);
     await d.settle();
@@ -1388,6 +1405,57 @@ describe("a record that missed taking the cloud's run (J3)", () => {
     expect(again.state()).toEqual(server.state(code));
     expect(again.snap().session.recoveryText()).toBe(displaced);
     expect(meta(again, code)).toMatchObject({ base: server.rows.get(code)!.revision, dirty: false });
+  });
+});
+
+describe("the hosted key order (jsonb)", () => {
+  it("counts a run as the same whatever order its keys come in", () => {
+    const text = toSave(device(new Server()).state());
+    expect(sameRun(text, asJsonb(text))).toBe(true);
+    expect(sameRun(asJsonb(text), text)).toBe(true);
+    expect(sameRun(text, text.replace('"day":1', '"day":2'))).toBe(false);
+    expect(sameRun(null, text)).toBe(false);
+    expect(sameRun("{broken", text)).toBe(false);
+  });
+
+  it("catches up on the cloud's run without replacing it when the device's copy has another key order", async () => {
+    const server = new Server();
+    const storage = flakyStorage();
+    const one = device(server);
+    const code = await one.keep();
+    const two = device(server, storage);
+    await two.use(code);
+    one.act(...NEXT_DAY);
+    await one.settle();
+    two.act(...NEXT_DAY, ...NEXT_DAY);
+    await two.settle();
+    const displaced = toSave(two.state());
+
+    storage.failing = /\.cloud$/;
+    expect(two.cloud.resolve("cloud")).toBe(true);
+    storage.failing = null;
+    // The device's copy is the cloud's run, its keys in another order.
+    const keys = keysFor(codeSlot(code));
+    const reversed = (v: unknown): unknown =>
+      Array.isArray(v)
+        ? v.map(reversed)
+        : v !== null && typeof v === "object"
+          ? Object.fromEntries(
+              Object.keys(v)
+                .reverse()
+                .map((k) => [k, reversed((v as Record<string, unknown>)[k])]),
+            )
+          : v;
+    const own = toSave(reversed(server.state(code)) as GameState);
+    expect(own).not.toBe(storage.getItem(keys.save));
+    storage.setItem(keys.save, own);
+    storage.setItem(keys.backup, own);
+
+    const again = device(server, storage);
+    await again.cloud.start();
+    expect(again.snap().conflict).toBeNull();
+    expect(again.snap().sync).toMatchObject({ kind: "synced" });
+    expect(again.snap().session.recoveryText()).toBe(displaced);
   });
 });
 
