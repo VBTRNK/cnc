@@ -735,7 +735,7 @@ fieldset.choices {
   color: var(--ink-muted);
 }
 
-fieldset.choices {
+.choices {
   display: grid;
   gap: 0.75rem;
   margin-top: 1.5rem;
@@ -945,6 +945,59 @@ fieldset.choices {
 .save-line p {
   flex: 1 1 14rem;
   color: var(--ink-muted);
+}
+
+/* ---- Cloud save ------------------------------------------------------------------ */
+
+.cloud {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: var(--divider);
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+}
+
+.field span {
+  font-family: var(--mono);
+}
+
+/* 1rem or more, so phones don't zoom in on focus. */
+.field input {
+  min-height: var(--control);
+  padding: 0 0.75rem;
+  border: var(--rule);
+  border-radius: 0;
+  background: var(--sheet);
+  font-size: 1.0625rem;
+}
+
+.hint {
+  margin-top: 1rem;
+  color: var(--ink-muted);
+}
+
+.code-label {
+  font-family: var(--mono);
+}
+
+/* The cloud code, set like a dossier number. */
+.code {
+  margin-top: 0.25rem;
+  font-family: var(--mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
+}
+
+.field .code-input {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ---- Newspaper ------------------------------------------------------------------- */

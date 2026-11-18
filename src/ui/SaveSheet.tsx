@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import type { GameState } from "../sim/index.ts";
+import type { CloudSaves, CloudSnapshot } from "../game/cloudSaves.ts";
 import type { GameSession, SaveStatus } from "../game/session.ts";
+import { CloudSection, saveLine, StopSyncing } from "./Cloud.tsx";
 import { download, saveFileName } from "./files.ts";
 import { Sheet } from "./Sheet.tsx";
 import { t, type TextKey } from "./text.ts";
@@ -9,19 +11,32 @@ interface SaveSheetProps {
   session: GameSession;
   state: GameState;
   save: SaveStatus;
+  cloud: CloudSnapshot;
+  saves: CloudSaves;
   onClose: () => void;
+  /** Brings back a conflict card the player put off. */
+  onChoose: () => void;
 }
 
-type Step = { kind: "menu"; error: TextKey | null } | { kind: "import"; state: GameState } | { kind: "newRun" };
+type Step =
+  | { kind: "menu"; error: TextKey | null }
+  | { kind: "stop"; code: string }
+  | { kind: "import"; state: GameState }
+  | { kind: "newRun" };
 
-/** Export, import and starting over. Whatever is replaced is kept as a recovery copy. */
-export function SaveSheet({ session, state, save, onClose }: SaveSheetProps) {
+/** The cloud save, export, import and starting over. Whatever is replaced is kept as a recovery copy. */
+export function SaveSheet({ session, state, save, cloud, saves, onClose, onChoose }: SaveSheetProps) {
   const [step, setStep] = useState<Step>({ kind: "menu", error: null });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const exportSave = () => {
     const text = session.exportText();
     if (text) download(text, saveFileName(state.day));
+  };
+
+  const exportRecovery = () => {
+    const text = session.recoveryText();
+    if (text) download(text, "crime-and-crown-recovery-copy.json");
   };
 
   const onFile = async (file: File | undefined) => {
@@ -43,7 +58,13 @@ export function SaveSheet({ session, state, save, onClose }: SaveSheetProps) {
       <h2>{t("save.title")}</h2>
       {step.kind === "menu" && (
         <>
-          <p>{t(`save.${save}`)}</p>
+          <p>{saveLine(save, cloud.sync)}</p>
+          <CloudSection
+            snap={cloud}
+            cloud={saves}
+            onChoose={onChoose}
+            onStop={(code) => setStep({ kind: "stop", code })}
+          />
           {step.error && (
             <p className="why" role="alert">
               {t(step.error)}
@@ -71,8 +92,21 @@ export function SaveSheet({ session, state, save, onClose }: SaveSheetProps) {
             <button type="button" className="choice" onClick={() => setStep({ kind: "newRun" })}>
               {t("save.newRun")}
             </button>
+            {session.recoveryText() !== null && (
+              <button type="button" className="choice" onClick={exportRecovery}>
+                {t("save.exportRecovery")}
+              </button>
+            )}
           </div>
         </>
+      )}
+      {step.kind === "stop" && (
+        <StopSyncing
+          cloud={saves}
+          code={step.code}
+          onExport={exportSave}
+          onDone={() => setStep({ kind: "menu", error: null })}
+        />
       )}
       {step.kind === "import" && (
         <>
@@ -82,8 +116,8 @@ export function SaveSheet({ session, state, save, onClose }: SaveSheetProps) {
               type="button"
               className="commit"
               onClick={() => {
-                session.replace(step.state, "imported");
-                onClose();
+                if (session.replace(step.state, "imported")) onClose();
+                else setStep({ kind: "menu", error: "save.replaceFailed" });
               }}
             >
               {t("save.import.commit")}
@@ -102,8 +136,8 @@ export function SaveSheet({ session, state, save, onClose }: SaveSheetProps) {
               type="button"
               className="commit"
               onClick={() => {
-                session.newRun();
-                onClose();
+                if (session.newRun()) onClose();
+                else setStep({ kind: "menu", error: "save.replaceFailed" });
               }}
             >
               {t("save.newRun.commit")}

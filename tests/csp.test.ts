@@ -29,6 +29,10 @@ describe("Content-Security-Policy", () => {
     expect(directives.get("style-src")).toEqual(["'self'"]);
   });
 
+  it("connects only to this origin and the shared Supabase project, without WebSockets", () => {
+    expect(directives.get("connect-src")).toEqual(["'self'", "https://cfkdtgjmqpgpatbvfxau.supabase.co"]);
+  });
+
   it("keeps the scaffold's other restrictions", () => {
     expect(directives.get("default-src")).toEqual(["'self'"]);
     expect(directives.get("object-src")).toEqual(["'none'"]);

@@ -171,3 +171,52 @@ prefix_rule(
         "gh issue comment 1",
     ],
 )
+
+# --- Backend addon (shared VibeTrunk Supabase project) -------------------
+# Anything that ships code to, or changes the schema or secrets of, the ONE
+# project every VibeTrunk tool shares needs the owner's yes each time. A
+# prompt routes to the configured reviewer, so choose reviewer `user` for
+# hosted work.
+#
+# A real `db push` is deliberately not listed: the strictest matching rule
+# wins, so a rule on the `db push` prefix would also catch `--dry-run`. Left
+# unlisted, it is hard-denied by both agent hooks. Claude also denies it in
+# permissions. Migrations reach the shared project only from VBTRNK/supabase,
+# by the owner.
+
+prefix_rule(
+    pattern = ["npx", "supabase", "functions", "deploy"],
+    decision = "prompt",
+    justification = "This ships code to the shared hosted project. Being reversible does not make it unattended: it is an external deployment and needs the owner to say so.",
+    match = [
+        "npx supabase functions deploy my-function",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npx", "supabase", "db", "reset"],
+    decision = "forbidden",
+    justification = "Resets a database; against the linked project it would wipe every VibeTrunk tool's data.",
+    match = [
+        "npx supabase db reset",
+        "npx supabase db reset --linked",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npx", "supabase", "secrets", "set"],
+    decision = "forbidden",
+    justification = "Rotates live secrets of the shared project; the owner does this.",
+    match = [
+        "npx supabase secrets set KEY=value",
+    ],
+)
+
+prefix_rule(
+    pattern = ["npx", "supabase", "migration", "repair"],
+    decision = "forbidden",
+    justification = "Rewrites the shared project's migration history; the owner does this.",
+    match = [
+        "npx supabase migration repair --status applied 20260101000000",
+    ],
+)

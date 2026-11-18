@@ -40,7 +40,8 @@ Date: 2026-11-16
   talks to it directly with the publishable key; no service-role key is used
   by this repo. A narrowly scoped database function is allowed for atomic
   saves.
-- Sign-in only, no sign-up: the shared project keeps public sign-ups off, and
+- (Superseded by ADR-009: no accounts, cloud saves by code.)
+  Sign-in only, no sign-up: the shared project keeps public sign-ups off, and
   that setting is project-wide. Cloud saves therefore reach existing VibeTrunk
   account holders; everyone else plays as a guest with a local save.
 - Hosted migration route: a catalogued migration in `VBTRNK/supabase` with a
@@ -169,3 +170,88 @@ Date: 2026-11-18
 - Save format 2 adds `paid`, `calls`, the stop's `bribeOdds` and the log's
   `fine` and `seized`; version 1 saves migrate (goods held then count at the
   city's usual price).
+
+## ADR-009 — Cloud saves by code, no accounts
+
+Date: 2026-11-18
+
+- Context: S6 applies ADR-002's backend. The owner decided that the game's
+  cloud saves must be separate from FLUT/KUT accounts. This replaces ADR-002's
+  sign-in-only point: there is no sign-in at all.
+- Model: a run is kept in the cloud under a random code (16 Crockford base32
+  characters, 80 bits), entered on another device to continue it. No
+  recovery: a lost code loses the cloud copy, not the device save. Rejected:
+  an own Supabase project with username sign-up (a second project, passwords
+  without reset); sign-up into the shared project (it would need a server
+  piece and expose KUT's grants to strangers); device-bound anonymous
+  accounts (lost with the device, so no better than the local save); an
+  auto-assigned name (public, so it needs a password: a code with extra steps).
+- Database: `cnc.saves` keyed by the code's SHA-256; row-level security with
+  no policy, so no client role reads or writes the table. Only `anon` may call
+  `cnc.get_save` and `cnc.put_save` (security definer, empty search path).
+  `put_save` accepts a save only while the presented base revision is current,
+  sets revision and time itself, answers a retry (same upload id, base and
+  save) as saved and refuses an upload id reused for anything else. Revisions
+  come from one sequence: a save created again under a code after deletion
+  (restore, pruning) never repeats a number, so no device's old base matches
+  it. Rejected: a fresh code on restore (other devices would lose the code)
+  and a separate row id beside the revision (one more field in every call).
+  Every refusal is SQLSTATE 22023. Tested in an in-process Postgres (PGlite).
+- Shared project: the owner decided (2026-11-18, review 3) to keep cnc on the
+  shared project, accepting the residual load the public functions put on
+  KUT's database; a dedicated project was the alternative.
+- Shared capacity (provisional caps): 64 KiB a save (a 200-day run is about
+  22 KB), 60 new codes an hour and 2000 in all. Every save is created on one
+  path, under an advisory lock after the caps, so neither concurrent calls nor
+  rows deleted meanwhile get past them. That bounds stored saves to
+  125 MiB of JSON before overhead. At a cap, new codes are refused (`busy`)
+  and existing ones keep working; raising a cap or deleting stale rows (by
+  `updated_at`) is a later migration; pruning deletes rows, never resets
+  the revision sequence, and spares saves created within the last hour (both
+  caps count the saves still stored, so deleting a newer one would free
+  hourly room). Request volume itself is not limited
+  in SQL: anyone holding the public key can already send requests to the
+  shared Data API, and limiting it per request would mean writing per
+  request. The project's gateway limits apply.
+- Slots: the guest game keeps the first keys, each code gets `cnc.c.<code>`.
+  Only the open code's slot syncs, under that code; a closed slot's sync
+  changes nothing, even when an earlier call answers late. Only a build that
+  can sync opens a code's slot: without settings, or without a held Web Lock
+  keeping one writing tab, the game plays the guest game and leaves the code
+  and its slot for a build that can. Rules: `design.md`.
+- Sync: an upload (id, base, text) is stored before it is sent and stays
+  pending until settled; a pending upload is sent again exactly as it was, so
+  a late commit and its retry are one revision. Later moves follow it.
+  Uploads wait 2 s to coalesce moves and flush at day end and on page hide.
+  No automatic retry loop: the next move, reconnecting or returning to the
+  foreground tries again. A synced code whose cloud save disappears says so
+  and is put back only when the player asks.
+- Storage: ordered, checked writes rather than one record or a journal. The
+  rule: the sync record never understates the save. A move is marked unsent
+  before it is saved and isn't saved if that fails; the base moves only after
+  its run is stored, and the cloud's run is taken only into a session that
+  stores it. The save itself is the commit point; its backup copy is
+  refreshed after it, best effort, so a failed write never touches the only
+  readable copy. Any leftover (a run stored, its new base not) makes the next
+  check adopt again or ask, never upload over the cloud. A code's slot that
+  opens without its own save (missing, unreadable or recovered from the
+  backup) waits for the cloud's run before uploading; if that can't even be
+  recorded, the slot doesn't sync that time. Replacing a run is all or
+  nothing and keeps the run in play as the recovery copy; keeping this
+  device's run in a conflict first stores it; an upload that couldn't be
+  recorded is not sent; a choice or removal that can't be stored says so.
+- Removing a code from this device clears its local slot. The confirmation
+  explains the local loss and offers export because cloud presence can change.
+- Client: two `fetch` calls with a 15 s deadline, no supabase-js. A new-format
+  publishable key goes only in `apikey`, never as a bearer token. Replies are
+  checked field by field; a malformed one counts as no reply (a write as
+  unclear). The build refuses a key that isn't publishable or anon, and a URL
+  that isn't a bare origin in `connect-src` (`scripts/public-env.ts`); a
+  loopback test server only for the dev server or with `CNC_LOCAL_CLOUD=1`.
+  A build without `VITE_SUPABASE_*` is guest-only. CSP: `connect-src` gains
+  the project's HTTPS origin only.
+- Migration route: catalogued in `VBTRNK/supabase`, applied by the owner's
+  terminal push from there; its workflow refuses non-KUT migrations.
+- Agent rules: the backend addon's denies are merged for both agents. Its two
+  read-only allows (`migration list`, `db push --dry-run`) are left for the
+  owner to add: an agent does not grant itself permissions.

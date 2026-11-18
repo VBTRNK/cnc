@@ -208,3 +208,67 @@ describe("export and import", () => {
     expect(storage.getItem(KEYS.replaced)).toBe(old);
   });
 });
+
+describe("a write only half done (reviews 2 and 3: F4, H2)", () => {
+  /** Storage whose writes to keys matching `failing` fail. */
+  function keyed(): StorageLike & { failing: RegExp | null } {
+    const inner = memoryStorage();
+    return {
+      failing: null,
+      getItem: (k) => inner.getItem(k),
+      removeItem: (k) => inner.removeItem(k),
+      setItem(k, v) {
+        if (this.failing?.test(k)) throw new DOMException("full", "QuotaExceededError");
+        inner.setItem(k, v);
+      },
+    };
+  }
+
+  it("reports failure and keeps the old run, also after a reload, when the save itself can't be written", () => {
+    const storage = keyed();
+    const session = open(storage);
+    session.dispatch({ type: "askAround" });
+    const old = stateOf(session);
+
+    storage.failing = /\.save$/;
+    expect(session.replace(newGame(9, "other-run"), "imported")).toBe(false);
+    expect(stateOf(session)).toEqual(old);
+    storage.failing = null;
+    expect(stateOf(open(storage))).toEqual(old);
+    expect(storage.getItem(KEYS.backup)).toBe(toSave(old));
+  });
+
+  it("counts a replacement as done once the save is written, though the backup copy failed", () => {
+    const storage = keyed();
+    const session = open(storage);
+    const other = newGame(9, "other-run");
+
+    storage.failing = /\.save\.backup$/;
+    expect(session.replace(other, "imported")).toBe(true);
+    storage.failing = null;
+    expect(stateOf(open(storage))).toEqual(other);
+  });
+
+  for (const [what, primary] of [
+    ["unreadable", "{broken"],
+    ["missing", null],
+  ] as const) {
+    it(`never loses the only readable copy when the save is ${what} and can't be repaired`, () => {
+      const storage = keyed();
+      const good = stateOf(open(storage));
+      if (primary === null) storage.removeItem(KEYS.save);
+      else storage.setItem(KEYS.save, primary);
+
+      storage.failing = /\.save$/;
+      const repairing = open(storage);
+      expect(stateOf(repairing)).toEqual(good);
+      expect(repairing.getSnapshot().save).toBe("full");
+      expect(storage.getItem(KEYS.backup)).toBe(toSave(good));
+
+      storage.failing = null;
+      const again = open(storage);
+      expect(stateOf(again)).toEqual(good);
+      expect(again.getSnapshot().notice).toBe("recovered");
+    });
+  }
+});
