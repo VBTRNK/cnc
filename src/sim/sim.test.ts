@@ -229,7 +229,7 @@ describe("police stops", () => {
 
   it("slipping him something pays, adds heat and runs the sale as quoted, unchecked", () => {
     const s = play(carrying(rngWhere(below(0.005), below(0.8))), { type: "sell", good: "smokes", units: 17 }).state;
-    expect(s.pending?.bribeOdds).toBe(80);
+    expect(s.pending?.kind === "stop" && s.pending.bribeOdds).toBe(80);
     const { state, events } = play(s, { type: "resolveStop", choice: "bribe" });
     expect(types(events)).toEqual(["bribed", "sold"]);
     expect(state.cash).toBe(250 - 83 + 170);
@@ -252,7 +252,7 @@ describe("police stops", () => {
       s.heat = 40;
       s.xp.nerve = 25;
     }), { type: "sell", good: "smokes", units: 17 }).state;
-    expect(s.pending?.bribeOdds).toBeCloseTo(80 + 10 - 12);
+    expect(s.pending?.kind === "stop" && s.pending.bribeOdds).toBeCloseTo(80 + 10 - 12);
   });
 
   it("legging it: success runs the sale; failure is an arrest and no sale", () => {

@@ -142,6 +142,57 @@ describe("version 1 saves", () => {
     };
     const loaded = loadSave(asVersion1(s));
     if (!loaded.ok) throw new Error(loaded.detail);
-    expect(loaded.state.pending?.bribeOdds).toBeCloseTo(80 + 5 - 6);
+    expect(loaded.state.pending?.kind === "stop" && loaded.state.pending.bribeOdds).toBeCloseTo(80 + 5 - 6);
+  });
+});
+
+describe("version 2 saves", () => {
+  /** A current state written back as version 2: without the fields version 3 added. */
+  const asVersion2 = (s: GameState): string => {
+    const state = structuredClone(s) as unknown as Record<string, any>;
+    for (const key of ["detective", "milestones", "cards", "flags"]) delete state[key];
+    const strip = (log: Record<string, unknown>) => {
+      delete log.pub;
+      delete log.best;
+    };
+    const paper = (p: Record<string, unknown>) => {
+      strip(p.log as Record<string, unknown>);
+      for (const key of ["pinch", "case", "firsts", "crown"]) delete p[key];
+    };
+    strip(state.today);
+    if (state.paper) paper(state.paper);
+    for (const p of state.news) paper(p);
+    return JSON.stringify({ format: SAVE_FORMAT, version: 2, state });
+  };
+
+  it("load with a fresh detective and firsts recovered from the papers still kept", () => {
+    let s = play(newGame(9, "v2"), { type: "buy", good: "smokes", units: 20 }, { type: "travel", to: "strip" }).state;
+    s = play(s, { type: "sell", good: "smokes", units: 20 }, { type: "callItADay" }, { type: "startDay" }).state;
+    s.upgrades = ["coat"];
+    s.day = 4;
+    const loaded = loadSave(asVersion2(s));
+    expect(loaded).toMatchObject({ ok: true, migratedFrom: 2 });
+    if (!loaded.ok) return;
+    expect(loaded.state.detective).toEqual({ seen: { docks: {}, oldtown: {}, uptown: {}, strip: {} }, case: null, next: 5, promoted: false });
+    expect(loaded.state.milestones.firsts).toEqual({ sale: 1, coat: 4 });
+    expect(loaded.state.milestones.best).toEqual({ day: 1, takings: s.news[0]!.log.proceeds });
+    expect(loaded.state.news[0]).toMatchObject({ pinch: [], case: null, firsts: [], crown: false, log: { pub: 0, best: null } });
+    expect([loaded.state.cards, loaded.state.flags]).toEqual([{}, {}]);
+  });
+
+  it("recover the firsts of a day in progress from its log", () => {
+    const s = play(newGame(9, "v2"), { type: "buy", good: "smokes", units: 20 }, { type: "travel", to: "strip" }, { type: "sell", good: "smokes", units: 10 }).state;
+    s.today.jobPaid = 200;
+    const loaded = loadSave(asVersion2(s));
+    if (!loaded.ok) throw new Error(loaded.detail);
+    expect(loaded.state.milestones.firsts).toEqual({ sale: 1, job: 1 });
+  });
+
+  it("load from version 1 through both migrations", () => {
+    const doc = JSON.parse(asVersion2(midRun()));
+    doc.version = 1;
+    delete doc.state.paid;
+    delete doc.state.calls;
+    expect(loadSave(JSON.stringify(doc))).toMatchObject({ ok: true, migratedFrom: 1 });
   });
 });

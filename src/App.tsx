@@ -3,6 +3,7 @@ import type { CloudSaves } from "./game/cloudSaves.ts";
 import type { GameSession } from "./game/session.ts";
 import type { Conflict } from "./game/sync.ts";
 import type { Action } from "./sim/index.ts";
+import { CardSheet } from "./ui/CardSheet.tsx";
 import { CellsScreen } from "./ui/CellsScreen.tsx";
 import { City } from "./ui/City.tsx";
 import { CloudChoice } from "./ui/Cloud.tsx";
@@ -10,6 +11,7 @@ import { download, saveFileName } from "./ui/files.ts";
 import { Me } from "./ui/Me.tsx";
 import type { Overlay } from "./ui/overlay.ts";
 import { PaperScreen } from "./ui/PaperScreen.tsx";
+import { People } from "./ui/People.tsx";
 import { CallDaySheet, JobSheet, TradeSheet, UpgradeSheet } from "./ui/Sheets.tsx";
 import { SaveSheet } from "./ui/SaveSheet.tsx";
 import { Status } from "./ui/Status.tsx";
@@ -18,8 +20,8 @@ import { Street } from "./ui/Street.tsx";
 import { t } from "./ui/text.ts";
 import { resultLines } from "./ui/words.ts";
 
-type Tab = "street" | "city" | "me";
-const TABS: readonly Tab[] = ["street", "city", "me"];
+type Tab = "street" | "city" | "people" | "me";
+const TABS: readonly Tab[] = ["street", "city", "people", "me"];
 
 export function App({ saves }: { saves: CloudSaves }) {
   const cloud = useSyncExternalStore(saves.subscribe, saves.getSnapshot);
@@ -153,12 +155,15 @@ export function App({ saves }: { saves: CloudSaves }) {
               onRing={() => session.dispatch({ type: "ringRound" })}
             />
           )}
+          {tab === "people" && <People state={state} />}
           {tab === "me" && <Me state={state} save={snap.save} sync={cloud.sync} onOpen={setOverlay} />}
         </fieldset>
       </main>
 
-      {choice ?? (state.pending ? (
+      {choice ?? (state.pending?.kind === "stop" ? (
         <StopCard state={state} stop={state.pending} dispatch={session.dispatch} readOnly={readOnly} />
+      ) : state.pending?.kind === "card" ? (
+        <CardSheet state={state} pending={state.pending} dispatch={session.dispatch} readOnly={readOnly} />
       ) : (
         !readOnly &&
         overlay && (

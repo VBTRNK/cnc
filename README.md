@@ -7,10 +7,12 @@ Not live yet.
 
 ## What it is now
 
-The first playable with cloud saves: the solo trading loop on Street, City
-and Me, police stops, the evening paper, two upgrades, a save on the device
-with export and import, an install manifest, and cloud saves by code (no
-accounts). The simulation is in `src/sim`, the
+The persistent MVP's game: the solo trading loop on Street, City and Me,
+police stops, Detective Sergeant Pinch and his warned operations, authored
+encounter cards, the evening paper as the run's story, Pinch's board and the
+cast on People, three purchases ending with the Crown & Anchor, a save on the
+device with export and import, an install manifest, and cloud saves by code
+(no accounts). The simulation is in `src/sim`, the
 session, local store and cloud sync in `src/game`, the screens in `src/ui`,
 the database migration in `supabase/migrations`; the game is specified in
 [`docs/design.md`](docs/design.md). Rewrite this paragraph as the tool

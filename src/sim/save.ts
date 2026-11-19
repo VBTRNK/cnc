@@ -3,11 +3,25 @@
 // copy, and refuses newer ones so the caller never overwrites them. Keeping the original
 // and falling back to the last valid snapshot belong to the store that calls this.
 
-import { GOOD, GOODS, HARMLESS, PLACE, PLACES, RULES, SKILLS, UPGRADES } from "./content.ts";
+import { CARD_IDS, CARDS } from "./cards.ts";
+import {
+  FLAGS,
+  GOOD,
+  GOODS,
+  HABITS,
+  HARMLESS,
+  MILESTONES,
+  PINCH,
+  PLACE,
+  PLACES,
+  RULES,
+  SKILLS,
+  UPGRADES,
+} from "./content.ts";
 import type { GameState } from "./state.ts";
 
 export const SAVE_FORMAT = "crime-and-crown-save";
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface SaveDocument {
   format: typeof SAVE_FORMAT;
@@ -44,6 +58,49 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     log(state.today);
     if (isObject(state.paper)) log(state.paper.log);
     if (Array.isArray(state.news)) for (const p of state.news) if (isObject(p)) log(p.log);
+    return { ...doc, state };
+  },
+  // 3: the detective, milestones, cards and flags; the pub and the best sale in the day log.
+  2: (doc) => {
+    const state = structuredClone(doc.state) as Record<string, any>;
+    const log = (l: unknown) => {
+      if (isObject(l)) Object.assign(l, { pub: 0, best: null });
+    };
+    const paper = (p: unknown) => {
+      if (!isObject(p)) return;
+      log(p.log);
+      Object.assign(p, { pinch: [], case: null, firsts: [], crown: false });
+    };
+    log(state.today);
+    paper(state.paper);
+    const news: Record<string, any>[] = Array.isArray(state.news) ? state.news.filter(isObject) : [];
+    for (const p of news) paper(p);
+
+    // Firsts come from the papers still kept; a version 2 save never recorded when an
+    // upgrade was bought, so the board dates one to the day of the migration.
+    const firsts: Record<string, number> = {};
+    let best: { day: number; takings: number } | null = null;
+    for (const p of news) {
+      const l = p.log as Record<string, any>;
+      if (l.sold > 0) firsts.sale ??= p.day;
+      if (l.jobPaid > 0) firsts.job ??= p.day;
+      if (l.arrested) firsts.arrest ??= p.day;
+      if (p.cash >= PINCH.grand) firsts.grand ??= p.day;
+      const takings = Number(l.proceeds) + Number(l.jobPaid);
+      if (takings > 0 && (!best || takings > best.takings)) best = { day: p.day, takings };
+    }
+    // The day in progress (by day) is in the log, not yet in a paper.
+    if (state.phase === "day" && isObject(state.today)) {
+      if (Number(state.today.sold) > 0) firsts.sale ??= state.day;
+      if (Number(state.today.jobPaid) > 0) firsts.job ??= state.day;
+    }
+    if (Number(state.cash) >= PINCH.grand) firsts.grand ??= state.day;
+    if (Array.isArray(state.upgrades)) for (const u of state.upgrades) firsts[u] ??= state.day;
+
+    state.detective = { seen: { docks: {}, oldtown: {}, uptown: {}, strip: {} }, case: null, next: PINCH.firstCase, promoted: false };
+    state.milestones = { firsts, best, cases: [], older: { closed: 0, cold: 0 } };
+    state.cards = {};
+    state.flags = {};
     return { ...doc, state };
   },
 };
@@ -232,7 +289,45 @@ const dayLog = shape({
   jobPaid: int(0, MAX_CASH),
   fine: int(0, MAX_CASH),
   seized: int(0),
+  pub: int(0, MAX_CASH),
+  best: nullable(shape({ good: oneOf(GOODS), units: int(1, 10_000), proceeds: int(0, MAX_CASH), place: oneOf(PLACES) })),
 });
+
+const places = all(list(oneOf(PLACES), 2), (x, path) => {
+  const a = x as unknown[];
+  return a.length > 0 && new Set(a).size === a.length ? null : `${path}: places`;
+});
+const openCase = shape({
+  n: int(1),
+  place: oneOf(PLACES),
+  habit: oneOf(HABITS),
+  announced: day,
+  places,
+  caught: bool,
+});
+const pastCase = shape({
+  n: int(1),
+  place: oneOf(PLACES),
+  habit: oneOf(HABITS),
+  outcome: oneOf(["closed", "cold"]),
+  day,
+});
+const pinchItem: Check = (x, path) => {
+  if (!isObject(x)) return `${path}: object`;
+  switch (x.kind) {
+    case "announced":
+      return shape({ kind: oneOf(["announced"]), case: openCase })(x, path);
+    case "closed":
+    case "cold":
+      return shape({ kind: oneOf(["closed", "cold"]), case: pastCase })(x, path);
+    case "intro":
+    case "promoted":
+    case "credit":
+      return shape({ kind: oneOf(["intro", "promoted", "credit"]) })(x, path);
+    default:
+      return `${path}.kind: unknown value`;
+  }
+};
 
 const paper = shape({
   day,
@@ -241,6 +336,10 @@ const paper = shape({
   log: dayLog,
   cash: int(0, MAX_CASH),
   heat: num(0, RULES.heatMax),
+  pinch: list(pinchItem, 10),
+  case: nullable(openCase),
+  firsts: list(oneOf(MILESTONES), MILESTONES.length),
+  crown: bool,
 });
 
 const rumour = shape({
@@ -280,18 +379,34 @@ const gameState = shape({
   ),
   rumour: nullable(rumour),
   memory: keyed(PLACES, keyed(GOODS, seen, true)),
-  pending: nullable(
-    shape({
-      kind: oneOf(["stop"]),
-      quote,
-      bribe: nullable(int(1, MAX_CASH)),
-      bribeOdds: odds,
-      bribeRefusal: nullable(oneOf(["wanted", "short"])),
-    }),
+  pending: nullable((x, path) =>
+    isObject(x) && x.kind === "card"
+      ? shape({ kind: oneOf(["card"]), card: oneOf(CARD_IDS), odds: nullable(odds) })(x, path)
+      : shape({
+          kind: oneOf(["stop"]),
+          quote,
+          bribe: nullable(int(1, MAX_CASH)),
+          bribeOdds: odds,
+          bribeRefusal: nullable(oneOf(["pinch", "wanted", "short"])),
+        })(x, path),
   ),
   today: dayLog,
   paper: nullable(paper),
   news: list(paper, RULES.newsCap),
+  detective: shape({
+    seen: keyed(PLACES, keyed(HABITS, num(0, 1_000_000), true)),
+    case: nullable(openCase),
+    next: day,
+    promoted: bool,
+  }),
+  milestones: shape({
+    firsts: keyed(MILESTONES, day, true),
+    best: nullable(shape({ day, takings: int(1, MAX_CASH) })),
+    cases: list(pastCase, PINCH.casesKept),
+    older: shape({ closed: int(0), cold: int(0) }),
+  }),
+  cards: keyed(CARD_IDS, day, true),
+  flags: keyed(FLAGS, day, true),
 });
 
 /** Rules between fields that the sim relies on. */
@@ -303,6 +418,11 @@ function consistency(s: GameState): string | null {
   if (s.phase === "night" && (s.paper === null || s.pending !== null)) return "state.phase: night without a paper";
   if (s.phase === "day" && s.paper !== null) return "state.paper: paper by day";
   if (new Set(s.events.map((e) => e.id)).size !== s.events.length) return "state.events: duplicate id";
+  if (s.pending?.kind === "card") {
+    const card = CARDS[s.pending.card];
+    if (card.choices.length === 0) return "state.pending: a report never waits";
+    if ((s.pending.odds === null) !== !card.choices.some((c) => c.chance)) return "state.pending.odds: frozen odds for its chance";
+  }
   return null;
 }
 

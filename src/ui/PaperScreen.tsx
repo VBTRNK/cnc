@@ -35,6 +35,7 @@ export function PaperScreen({ paper, last, onStart, readOnly }: PaperProps) {
         <h1 ref={headRef} tabIndex={-1} className="headline">
           {view.head}
         </h1>
+        <p className="byline">{t("paper.byline")}</p>
         <p className="story">{view.story}</p>
         {view.briefs.length > 0 && (
           <ul className="paper-briefs">

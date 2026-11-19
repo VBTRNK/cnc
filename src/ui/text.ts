@@ -2,7 +2,7 @@
 // keys, no i18n library). Templates take named values; whole sentences are never built
 // from fragments, so another language can reorder them.
 
-import type { GoodId, HarmlessId, PlaceId, SkillId, UpgradeId } from "../sim/index.ts";
+import { CODENAMES, type GoodId, type HabitId, type HarmlessId, type PlaceId, type SkillId, type UpgradeId } from "../sim/index.ts";
 
 const TEXT = {
   "app.name": "Crime & Crown",
@@ -18,6 +18,7 @@ const TEXT = {
   "nav.street": "Street",
   "nav.city": "City",
   "nav.me": "Me",
+  "nav.people": "People",
   "nav.label": "Screens",
 
   // Heat, risk and odds words
@@ -44,6 +45,7 @@ const TEXT = {
   "note.soldOut": "sold out",
   "note.low": "low stock",
   "note.sweep": "Sweep on",
+  "note.operation": "Operation {Codename}",
 
   // Street
   "street.flavour.docks": "The harbour coppers mostly watch the gulls.",
@@ -51,6 +53,7 @@ const TEXT = {
   "street.flavour.uptown": "Patrol cars idle outside every boutique.",
   "street.flavour.strip": "Neon, noise and the odd copper.",
   "street.flavour.sweep": "Sweep on. Blue lights on every corner.",
+  "street.flavour.operation": "Operation {Codename}: Pinch on every corner, and he can't be bought.",
   "street.held": "{n} held",
   "action.ask": "Ask around",
   "action.ask.detail": "One new tip",
@@ -126,6 +129,8 @@ const TEXT = {
   "result.handedOverSale": "He took the lot. The sale's off.",
   "result.upgraded.coat": "The big coat: {pockets} pockets.",
   "result.upgraded.phone": "The burner phone. Ring round from the City.",
+  "result.upgraded.crown": "The Crown & Anchor is yours, Guv'nor.",
+  "result.mags": "Mags: “{line}”",
   "result.levelUp.patter": "Your patter improves: level {level}.",
   "result.levelUp.nerve": "Your nerve hardens: level {level}.",
   "result.levelUp.savvy": "You're getting savvy: level {level}.",
@@ -173,6 +178,12 @@ const TEXT = {
   "upgrade.phone": "Burner phone",
   "upgrade.coat.what": "{pockets} pockets instead of {from}.",
   "upgrade.phone.what": "Ring round from the City for every place's prices. Coppers listen in: each call adds heat.",
+  "upgrade.crown": "The Crown & Anchor",
+  "upgrade.crown.what": "Old Reg's pub on the Strip. Takes {takings} a night, and Pinch will know where you drink.",
+  "crown.who": "Old Reg, landlord of the Crown & Anchor",
+  "crown.story": "“{cost} and she's yours: the beer, the darts, the damp. I'm off to Margate.”",
+  "crown.buy": "Buy the Crown & Anchor",
+  "crown.notYet": "Not yet",
   "upgrade.owned": "Yours",
   "upgrade.buyLabel": "Buy the {name} for {cost}",
   "upgrade.buy": "Buy · {cost}",
@@ -280,6 +291,9 @@ const TEXT = {
   "stop.bribe.after.job": "He takes it: on to the job. He's honest: he takes your goods.",
   "stop.bribe.wanted": "You're wanted. He won't be bought.",
   "stop.bribe.short": "You can't cover what he'd want.",
+  "stop.bribe.pinch": "Pinch can't be bought. He'd tell the papers.",
+  "stop.pinch.sell": "“Operation {Codename}! Hello, hello: {kind}, is it?”",
+  "stop.pinch.job": "“Operation {Codename}! Going somewhere?”",
   "stop.legIt": "Leg it",
   "stop.legIt.after": "Make it: heat +{heat}, and on you go. Don't: you're nicked.",
   "stop.handOver": "Hand it over",
@@ -289,6 +303,13 @@ const TEXT = {
   "chip.heat": "Heat +{heat}",
   "chip.goods": "All goods",
   "chip.odds": "{odds}",
+  "chip.gain": "+{amount}",
+  "chip.cool": "Heat −{heat}",
+  "chip.add": "+{goods}",
+  "chip.lose": "Half your {kind}",
+  "chip.xp": "{skill} +{n}",
+  "chip.tip": "A tip",
+  "chip.move": "Operation moves",
 
   // The cells, after an arrest
   "cells.head": "Nicked!",
@@ -297,6 +318,7 @@ const TEXT = {
 
   // Newspaper
   "paper.masthead": "The Crown Courier",
+  "paper.byline": "By Lenny Scoop",
   "paper.edition": "Day {day} · Late edition",
   "paper.start": "Start day {day}",
   "paper.arrested.head": "Nicked!",
@@ -316,8 +338,8 @@ const TEXT = {
   "paper.tomorrowShortage.head": "{Kind} run short {at}",
   "paper.tomorrowGlut.head": "{Kind} flood {at}",
   "paper.tomorrow.story": "From tomorrow morning, for two days.",
-  "paper.earner.head": "A nice little earner",
-  "paper.earner.story": "Takings of {total} today, and nobody the wiser.",
+  "paper.best.head": "{Kind} fly {at}",
+  "paper.best.story": "{count} gone for {proceeds}, and nobody the wiser.",
   "paper.quiet.head": "Quiet night on the streets",
   "paper.quiet.story": "The city sleeps with one eye open.",
   "paper.brief.tomorrowShortage": "Tomorrow: {kind} short {at}.",
@@ -326,14 +348,192 @@ const TEXT = {
   "paper.brief.stillGlut": "Still on tomorrow: {kind} going cheap {at}.",
   "paper.brief.stillSweep": "Still on tomorrow: police sweep {at}.",
   "paper.chip.takings": "Takings {amount}",
+  "paper.chip.pub": "Pub {amount}",
   "paper.chip.spent": "Spent {amount}",
   "paper.chip.job": "Job {amount}",
   "paper.chip.stops": "Stops {n}",
   "paper.chip.cash": "Cash {amount}",
   "paper.chip.heat": "Heat {word}",
+
+  // Milestones on the front page
+  "paper.first.crown.head": "Long live the Guv'nor!",
+  "paper.first.crown.story": "The Crown & Anchor changes hands and Old Reg heads for the seaside. Chapter one closes; the bar stays open.",
+  "paper.first.grand.head": "A grand in the hand",
+  "paper.first.grand.story": "Four figures. The kiosk talks of nothing else.",
+  "paper.first.phone.head": "Hello, who's this?",
+  "paper.first.phone.story": "A burner phone on the street. Somewhere, a copper puts on headphones.",
+  "paper.first.coat.head": "Big coat, bigger plans",
+  "paper.first.coat.story": "Fifteen more pockets, and nobody asks what's in the lining.",
+  "paper.first.escape.head": "The one that got away",
+  "paper.first.escape.story": "A suspect legs it from the law. Witnesses describe a blur.",
+  "paper.first.job.head": "Job done",
+  "paper.first.job.story": "A tidy job for a tidy sum. The Yard is baffled.",
+  "paper.first.sale.head": "Open for business",
+  "paper.first.sale.story": "Every empire starts with a carton.",
+
+  // Pinch in the paper
+  "paper.pinch.intro.head": "New man on the beat",
+  "paper.pinch.intro.story": "Detective Sergeant Percy Pinch promises results. “Crime has a pattern,” he says, “and I am its worst nightmare.”",
+  "paper.pinch.announced.head": "Pinch exposes {label}",
+  "paper.pinch.announced.story": "Operation {Codename} hits {places} on day {first} and day {last}. “They won't see it coming,” says Pinch, who has just told them.",
+  "paper.pinch.closed.head": "Pinch gets his man",
+  "paper.pinch.closed.story": "Operation {Codename} nets a suspect. {label}: case closed, he says.",
+  "paper.pinch.cold.head": "Operation {Codename} draws a blank",
+  "paper.pinch.cold.story": "Two days, no arrests. Pinch blames the weather and {label}.",
+  "paper.pinch.promoted.head": "Pinch made Inspector",
+  "paper.pinch.promoted.story": "Detective Inspector Percy Pinch thanks himself. His operations will now cover twice the ground.",
+  "paper.brief.intro": "New on the beat: Detective Sergeant Percy Pinch.",
+  "paper.brief.announced": "Pinch announces Operation {Codename}: {places}, day {first} and day {last}.",
+  "paper.brief.closed": "Operation {Codename} closed: Pinch got his man.",
+  "paper.brief.cold": "Operation {Codename} went cold.",
+  "paper.brief.promoted": "Pinch made Detective Inspector.",
+  "paper.brief.credit": "Pinch claims the collar: “All part of the plan.”",
+  "paper.brief.opTomorrow": "Tomorrow: Operation {Codename} {at}. Pinch can't be bought.",
+  "paper.brief.opStill": "Still on tomorrow: Operation {Codename} {at}.",
+  "paper.brief.reg.0": "Old Reg of the Crown & Anchor: “{cost} and she's yours. Please.”",
+  "paper.brief.reg.1": "The Crown & Anchor's ceiling fell in again. Old Reg wants out.",
+  "paper.brief.reg.2": "Old Reg seen reading seaside brochures behind the bar.",
+
+  // Cases
+  "case.label.smokes": "the {Adj} Smokes Ring",
+  "case.label.tapes": "the {Adj} Tape Racket",
+  "case.label.watches": "the {Adj} Watch Cartel",
+  "case.label.fireworks": "the {Adj} Fireworks Plot",
+  "case.label.ask": "the {Adj} Gossip Network",
+  "case.label.lieLow": "the {Adj} Loitering Syndicate",
+  "case.label.oddJob": "the {Adj} Odd-Job Syndicate",
+  "case.label.job": "the {Adj} Heist Mob",
+  "case.label.drink": "the {Adj} Drinking Club",
+  "and": "{a} and {b}",
+
+  // People: Pinch's board and the cast
+  "people.pinch.sergeant": "Detective Sergeant Percy Pinch",
+  "people.pinch.inspector": "Detective Inspector Percy Pinch",
+  "people.pinch.unaware": "Hasn't noticed you. Yet.",
+  "people.pinch.watching": "Watching. He knows where you've been seen.",
+  "people.pinch.resting": "Resting after Operation {Codename}. Not for long.",
+  "people.case.announced": "Operation {Codename}: {Label}. {Places}, day {first} and day {last}.",
+  "people.case.on": "Operation {Codename}: {Label}. On now: {places}.",
+  "people.case.closed": "Closed",
+  "people.case.cold": "Cold",
+  "people.case.past": "Operation {Codename}: {Label}",
+  "people.case.older": "And {n} older cases: {closed} closed, {cold} cold.",
+  "people.exhibit": "Exhibit {letter}",
+  "exhibit.sale": "A first sale, day {day}.",
+  "exhibit.sale.reading": "The Opening Move of a Vast Criminal Enterprise.",
+  "exhibit.grand": "{amount} in hand, day {day}.",
+  "exhibit.grand.reading": "Unexplained Wealth.",
+  "exhibit.coat": "A larger coat, day {day}.",
+  "exhibit.coat.reading": "Significant Expansion of Distribution Capacity.",
+  "exhibit.phone": "A burner phone, day {day}.",
+  "exhibit.phone.reading": "A Sophisticated Communications Network.",
+  "exhibit.job": "A job that came off, day {day}.",
+  "exhibit.job.reading": "Unmistakable Signs of Organisation.",
+  "exhibit.arrest": "A night in the cells, day {day}.",
+  "exhibit.arrest.reading": "Proof My Methods Work.",
+  "exhibit.escape": "A stop legged from, day {day}.",
+  "exhibit.escape.reading": "Superhuman Evasion. Possibly Trained.",
+  "exhibit.case": "His first case, day {day}.",
+  "exhibit.case.reading": "The Net Tightens.",
+  "exhibit.crown": "The Crown & Anchor, day {day}.",
+  "exhibit.crown.reading": "A Front. Obviously a Front.",
+  "exhibit.promotion": "His promotion, day {day}.",
+  "exhibit.promotion.reading": "Long Overdue.",
+  "exhibit.best": "A {amount} day, day {day}.",
+  "exhibit.best.reading": "Laundering on an Industrial Scale.",
+  "cast.lenny": "Lenny Scoop, The Crown Courier",
+  "cast.lenny.line": "“Anything for a story, pal.”",
+  "cast.lenny.guvnor": "“Anything for the Guv'nor. Within reason. Mostly.”",
+  "cast.mags": "Mags, the news kiosk",
+  "cast.mags.line": "“Heard something? Course I have. Ask.”",
+  "cast.mags.cells": "“Out already, love? Kettle's on.”",
+  "cast.reg": "Old Reg, the Crown & Anchor",
+  "cast.reg.line": "“{cost} and she's yours. I'm begging.”",
+  "cast.reg.gone": "“Postcard from Margate. Wish you were here. Not really.”",
+
+  // Cards: the dossier, the choices and their results
+  "card.stamp": "On the street",
+  "card.stamp.lenny": "Exclusive",
+  "card.why.noCash": "You can't cover it.",
+  "card.why.noPockets": "No room in your pockets.",
+  "card.why.noGoods": "You've none to sell.",
+  "card.terry.who": "Terry, back of a van",
+  "card.terry.story": "“Twenty cartons, ninety quid. Fell off a lorry. Several lorries.”",
+  "card.terry.buy": "Take them",
+  "card.terry.buy.done": "{goods} for {cost}. Terry's gone before you can count them.",
+  "card.terry.pass": "Pass",
+  "card.terry.pass.done": "Terry shrugs and drives off.",
+  "card.customs.who": "A customs officer, looking the other way",
+  "card.customs.story": "“A seized crate's ten tapes short. Ninety quid and I never counted.”",
+  "card.customs.buy": "Buy them",
+  "card.customs.buy.done": "{goods} for {cost}. He's already counting something else.",
+  "card.customs.pass": "Pass",
+  "card.customs.pass.done": "He goes back to not looking.",
+  "card.genuineWatch.who": "A collector in a camel coat",
+  "card.genuineWatch.story": "“That's a genuine one. Don't argue. I'll pay half as much again.”",
+  "card.genuineWatch.sell": "Sell him one",
+  "card.genuineWatch.sell.done": "He paid {amount} for a watch you know is fake.",
+  "card.genuineWatch.pass": "Pass",
+  "card.genuineWatch.pass.done": "He'll find another mug.",
+  "card.churchRoof.who": "The vicar of St Agatha's",
+  "card.churchRoof.story": "“The roof leaks. The Lord provides, mostly through donations.”",
+  "card.churchRoof.give": "Give $50",
+  "card.churchRoof.give.done": "The vicar thanks you loudly. Even the coppers heard.",
+  "card.churchRoof.walkOn": "Walk on",
+  "card.churchRoof.walkOn.done": "You walk on. So does the rain.",
+  "card.doubleOrNothing.who": "A man with three cups",
+  "card.doubleOrNothing.story": "“Double or nothing, sport. A hundred says you can't find the pea.”",
+  "card.doubleOrNothing.bet": "Bet $100",
+  "card.doubleOrNothing.bet.after": "Find it: +$100. Don't: −$100.",
+  "card.doubleOrNothing.bet.won": "Found the pea. He pays up, sulking.",
+  "card.doubleOrNothing.bet.lost": "No pea. There never was a pea.",
+  "card.doubleOrNothing.pass": "Pass",
+  "card.doubleOrNothing.pass.done": "He finds another mark.",
+  "card.mugger.who": "A mugger with a cosh",
+  "card.mugger.story": "“Wallet. Now.”",
+  "card.mugger.handOver": "Hand over $50",
+  "card.mugger.handOver.done": "He takes $50 and says thanks, which is worse.",
+  "card.mugger.stand": "Stand up to him",
+  "card.mugger.stand.after": "Face him down and your nerve grows. Lose, and he takes $120.",
+  "card.mugger.stand.won": "He thinks better of it. Your knees agree, later.",
+  "card.mugger.stand.lost": "He takes $120 and your dignity.",
+  "card.mugger.run": "Run",
+  "card.mugger.run.done": "You run. He doesn't bother.",
+  "card.tradingStandards.who": "A Trading Standards officer",
+  "card.tradingStandards.story": "“Just a routine look in your pockets, sir.”",
+  "card.tradingStandards.duck": "Duck into a doorway",
+  "card.tradingStandards.duck.done": "An hour in a doorway. He's gone.",
+  "card.tradingStandards.brazen": "Brazen it out",
+  "card.tradingStandards.brazen.after": "Talk your way out on patter. Fail, and he takes half of what you carry most.",
+  "card.tradingStandards.brazen.won": "“Carry on, sir.” You do.",
+  "card.tradingStandards.brazen.lost": "He took {goods}. “Confiscated, sir.”",
+  "card.oldMate.who": "Dougie, an old mate",
+  "card.oldMate.story": "“Lend us a ton? Pay you back with interest. Swear on me mum.”",
+  "card.oldMate.lend": "Lend him $100",
+  "card.oldMate.lend.done": "Dougie swears on his mum and is gone.",
+  "card.oldMate.notNow": "Not now",
+  "card.oldMate.notNow.done": "Dougie understands. He looks hurt about it.",
+  "card.oldMatePays.report": "Dougie turns up with {amount} and a tip. His mum's fine.",
+  "card.noQuestions.who": "A man in a balaclava, in broad daylight",
+  "card.noQuestions.story": "“Three boxes of fireworks. Three-sixty. No questions.”",
+  "card.noQuestions.buy": "Buy them",
+  "card.noQuestions.buy.done": "{goods} for {cost}. No questions. Several answers.",
+  "card.noQuestions.pass": "Pass",
+  "card.noQuestions.pass.done": "He goes, loudly.",
+  "card.falseTrail.who": "Lenny Scoop, The Crown Courier",
+  "card.falseTrail.story": "“Pinch hits {places} tomorrow, pal. For {cost} I print a story that sends him somewhere else. Maybe.”",
+  "card.falseTrail.feed": "Feed him a story",
+  "card.falseTrail.feed.after": "If Pinch swallows it, the operation moves. If not, the money's gone.",
+  "card.falseTrail.feed.won": "Pinch swallowed it. Operation {Codename} moves to {places}.",
+  "card.falseTrail.feed.lost": "Pinch didn't bite. Lenny keeps the money.",
+  "card.falseTrail.leave": "Leave it",
+  "card.falseTrail.leave.done": "“Suit yourself, pal.”",
 } as const;
 
 export type TextKey = keyof typeof TEXT;
+
+/** A key built at run time (cards, exhibits); tests check that every one exists. */
+export const hasText = (key: string): key is TextKey => key in TEXT;
 export type Values = Record<string, string | number>;
 
 /** The text for `key` with its {names} filled in. A missing value is a bug, so it shows. */
@@ -367,6 +567,8 @@ const GOOD_NAMES: Record<GoodId, GoodNames> = {
 
 interface PlaceNames {
   name: string;
+  /** "Docks", "Old Town": before a noun, in a case's label. */
+  adj: string;
   /** "at the Docks", "in Old Town": where something is. */
   at: string;
   At: string;
@@ -375,10 +577,10 @@ interface PlaceNames {
 }
 
 const PLACE_NAMES: Record<PlaceId, PlaceNames> = {
-  docks: { name: "The Docks", at: "at the Docks", At: "The Docks", the: "the Docks" },
-  oldtown: { name: "Old Town", at: "in Old Town", At: "Old Town", the: "Old Town" },
-  uptown: { name: "Uptown", at: "uptown", At: "Uptown", the: "Uptown" },
-  strip: { name: "The Strip", at: "on the Strip", At: "The Strip", the: "the Strip" },
+  docks: { name: "The Docks", adj: "Docks", at: "at the Docks", At: "The Docks", the: "the Docks" },
+  oldtown: { name: "Old Town", adj: "Old Town", at: "in Old Town", At: "Old Town", the: "Old Town" },
+  uptown: { name: "Uptown", adj: "Uptown", at: "uptown", At: "Uptown", the: "Uptown" },
+  strip: { name: "The Strip", adj: "Strip", at: "on the Strip", At: "The Strip", the: "the Strip" },
 };
 
 export const goodName = (g: GoodId): string => GOOD_NAMES[g].name;
@@ -394,6 +596,25 @@ export const placeValues = (p: PlaceId): Values => ({
 });
 
 export const skillName = (k: SkillId): string => t(`skill.${k}`);
+
+const capital = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1);
+
+/** "Kipper": a case's codename by its number, repeating after the last. */
+export const codename = (n: number): string => {
+  const id = CODENAMES[(n - 1) % CODENAMES.length] as string;
+  return capital(id);
+};
+
+/** "the Uptown Watch Cartel". */
+export const caseLabel = (place: PlaceId, habit: HabitId): string => t(`case.label.${habit}`, { Adj: PLACE_NAMES[place].adj });
+
+/** Places in a sentence: "the Docks", "the Docks and Uptown". */
+export function placesText(places: readonly PlaceId[], form: "the" | "at" = "the"): string {
+  const names = places.map((p) => PLACE_NAMES[p][form]);
+  return names.length === 2 ? t("and", { a: names[0]!, b: names[1]! }) : (names[0] ?? "");
+}
+
+export const upper = capital;
 export const upgradeName = (u: UpgradeId): string => t(`upgrade.${u}`);
 export const harmlessKey = (h: HarmlessId) => `brief.harmless.${h}` as const;
 

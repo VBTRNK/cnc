@@ -28,9 +28,8 @@ tracked as GitHub issues.
   game pauses it. The rules are in "The loop" below.
 - Phone first: portrait, one hand, touch only, short sessions that can stop at any point. A
   desktop browser gets the same screens in a wider layout, usable by keyboard.
-- Screens: Street (where you are, stock, prices, actions), City (neighbourhoods and travel)
-  and Me (character and upgrades). People (the detective and the cast) becomes a tab in the
-  persistent MVP.
+- Screens: Street (where you are, stock, prices, actions), City (neighbourhoods and travel),
+  People (the detective and the cast) and Me (character and upgrades).
 - A decision and what it costs or risks are shown together. Routine actions give a short
   inline result. Cards that block are for dilemmas and significant outcomes; plain news can
   be dismissed, and an ordinary opportunity can be ignored without penalty.
@@ -119,8 +118,7 @@ the same: what is the best use of my next few hours?
   **burner phone** $1,200. The phone adds *Ring round* to City: it notes every place's
   current price as seen now (not stock or demand) and adds heat, 5 × the call's number
   today (+5, +10, +15, ...; the count restarts each morning). Coppers listen in on a phone
-  that is never thrown away. The third purchase, in the persistent MVP, is the Crown (see
-  "The first chapter").
+  that is never thrown away. The third purchase is the Crown (see "The first chapter").
 - **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
   level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
   legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
@@ -188,11 +186,11 @@ the same: what is the best use of my next few hours?
   - Plain news never blocks; stops and dilemmas do.
   - **Day end**, however it comes (22:00, Call it a day, an arrest, an injury): the last
     action and its consequences; the clock runs on to 22:00 and applies anything still
-    scheduled today, so ending early skips nothing and an unseen midday item leads the
-    paper; heat cooling, then overnight cooling (after an arrest 25 becomes 17); events
-    ending today expire; the roll (tomorrow's baseline, stock, demand and midday item, and
-    the morning event after that); the detective (persistent MVP); the newspaper from
-    committed results and scheduled facts; save; "Start day N". Tomorrow's morning event
+    scheduled today, so ending early skips nothing and an unseen midday item makes the
+    paper (its headline, or a brief under a bigger story); heat cooling, then overnight cooling (after an arrest 25 becomes 17); the Crown's
+    takings; events ending today expire; the detective; the roll (tomorrow's baseline, stock,
+    demand and midday item, and the morning event after that); the newspaper from committed
+    results and scheduled facts; save; "Start day N". Tomorrow's morning event
     activates at 10:00 before any card or action, even when an arrest makes 14:00 the first
     playable hour.
 - **Day 1 fixture.** Stock is the base totals without noise, except at the Docks: smokes 40,
@@ -247,7 +245,8 @@ tally, and what people feel is in their authored lines.
 
   Being seen elsewhere steers him too; that follows from the tally and needs no rule.
 - **Consequence and resolution.** The case is *closed* if the player is arrested or hands
-  goods over in a stop inside the operation; otherwise it goes *cold*. Neither adds a
+  goods over in a stop inside the operation, that night, and the operation ends with it;
+  otherwise it goes *cold* after its second day. Neither adds a
   penalty: the arrest or the seizure is the cost. The paper reports his triumph or his flop,
   the case goes on his board, and he rests three days before the next theory. An arrest
   outside an operation earns only a line in which he takes the credit.
@@ -258,34 +257,38 @@ tally, and what people feel is in their authored lines.
 - **Events.** Blocking choice cards (two or three choices) are for dilemmas: stops, the
   false trail, encounters and the Crown. Everything else is a report or a line in the paper.
   An *encounter* takes the midday slot's harmless third: at 16:00, the first authored card
-  whose conditions hold where the player stands, else a harmless line as before. A card
-  rests 10 days after it shows; some show once.
+  whose conditions hold where the player stands, else a harmless line as before. The pool
+  is tried narrowest conditions first. A midday item first applied at the day end stays a
+  line in the paper. A card rests 10 days after it shows; some show once.
   - Conditions, all of which must hold: day at least n; at a place; holding at least n of a
     good, or any goods; cash at least n; heat at least or at most a band; has or hasn't an
     upgrade or the Crown; the detective's state (case announced, operation on, promoted); a
     flag set or not.
-  - Effects: cash up or down (fixed, or a share of cash); heat; goods gained (up to free
-    pockets, at a stated price so profit still works) or lost; skill experience; hours
-    spent; a market event or sweep of the existing kinds, under the overlap rule; Pinch's
-    tally at a place; moving the open operation; setting a flag. A chance choice draws once
-    between two effect lists, with odds of a base plus skill points, clamped 10-90%.
+  - Effects: cash up or down; heat; goods gained (up to free pockets, at a stated price so
+    profit still works), sold at a factor of the price there, or lost; skill experience;
+    hours spent; a price tip; moving the open operation; setting or clearing a flag. A
+    chance choice draws once between two effect lists, with odds of a base plus skill
+    points, clamped 10-90%. A new kind of effect (a share of cash, Pinch's tally, a market
+    event) comes with the first card that needs it.
   - The first pool, ten cards:
 
     | Card | Where, when | Choices |
     | --- | --- | --- |
     | Terry's van | the Docks | 20 smokes for $90 · Pass |
-    | Customs blind eye | the Docks, day 6+ | 10 tapes for $60, heat +5 · Pass |
-    | A genuine watch | Uptown, holding watches | Sell one at double, heat +5 · Pass |
+    | Customs blind eye | the Docks, day 6+ | 10 tapes for $90, heat +5 · Pass |
+    | A genuine watch | Uptown, holding watches | Sell one at half as much again, heat +5 · Pass |
     | Double or nothing | the Strip, cash $300+ | 50%: +$100 or −$100 · Pass |
     | The church roof | Old Town, cash $500+ | Give $50, heat −8 · Walk on |
-    | No questions asked | anywhere, day 5+ | 3 fireworks for $150, heat +5 · Pass |
+    | No questions asked | anywhere, day 5+ | 3 fireworks for $360, heat +5 · Pass |
     | A mugger | anywhere, cash $300+ | Hand over $50 · Stand up to him (Nerve chance: Nerve +2, or −$120) · Run, 1 h |
     | Trading Standards | anywhere, warm or worse, holding goods | Duck into a doorway, 1 h · Brazen it out (Patter chance: nothing, or lose half of one good) |
     | Old mate | anywhere, cash $400+, once | Lend $100 (a flag) · Not now |
     | Old mate pays up | 4+ days after the loan | A report: +$150 and a tip |
 
-    No card may be a dominant earner: its expected value in any state stays below a good
-    hour of trading.
+    No card may be a dominant earner: its mean value where it shows stays below a good hour
+    of trading (about $50). It is measured by forking the run at each card and playing every
+    choice on with the same policy to the end of the next day (`CARDS=1`). In a lucky state,
+    such as a shortage nearby, a card may pay more.
 - **Cast,** four people with a portrait and a voice and no numbers. No relationship has a
   mechanical effect in the MVP; lines change with flags and milestones (Lenny's nickname for
   the player, Mags's greeting after an arrest).
@@ -303,20 +306,23 @@ tally, and what people feel is in their authored lines.
   three briefs. Pinch appears only at chain events and milestones.
 - **Milestones** live in compact state beside the capped news log, so trimming old papers
   loses none: the day of each first (sale, $1,000, coat, phone, job, arrest, escape, case,
-  the Crown, promotion), the best day, and each case's place, label and outcome.
+  the Crown, promotion), the best day, and the last 100 cases' place, label and outcome,
+  with older cases kept as closed and cold totals, so a save stays inside the cloud's size
+  cap however long the run.
 - **People tab.** Pinch's board on top: each milestone pinned as an exhibit with his
   reading of it ("Exhibit C: a larger coat. *Significant Expansion of Distribution
   Capacity.*"), the open case with its days, and past cases stamped *closed* or *cold*.
   Below it the cast, one current line each.
 - **The first chapter: claim the Crown.** The third purchase on Me, shown from day 1: the
-  Crown & Anchor, $5,000. Buying it ends chapter one with a front page and a title from
+  Crown & Anchor, $2,500. Buying it ends chapter one with a front page and a title from
   Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
   player drinks: each night adds 2 to his tally for the Strip. After the Crown, money buys
   false trails, bribes and a margin; further purchases come with #18, #19 and #7.
-- **To verify** with the strategy runs: about three cases in 20 days; what an operation
-  costs a trader who ignores it against one who avoids it; the Crown around day 16 for a
-  median trader, and whether it beats keeping the money; every encounter a real choice in
-  some state and none a dominant earner.
+- **To verify** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
+  card's value per choice): about three cases in 20 days; what an operation costs a trader
+  who ignores it against one who avoids it; the Crown around day 16 for a median trader;
+  every encounter a real choice in some state and none a dominant earner. Results are in
+  the tracking issue (#8) and ADR-011.
 
 ## Look and feel
 

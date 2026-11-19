@@ -1,4 +1,4 @@
-import { RULES, SKILLS, UPGRADES, UPGRADE_COST, has, level, type GameState } from "../sim/index.ts";
+import { PINCH, RULES, SKILLS, UPGRADES, UPGRADE_COST, has, level, type GameState } from "../sim/index.ts";
 import type { SaveStatus } from "../game/session.ts";
 import type { SyncStatus } from "../game/sync.ts";
 import { saveLine } from "./Cloud.tsx";
@@ -38,7 +38,9 @@ export function Me({ state, save, sync, onOpen }: MeProps) {
           <li key={u} className="upgrade">
             <div>
               <h2>{upgradeName(u)}</h2>
-              <p>{t(`upgrade.${u}.what`, { pockets: RULES.coatPockets, from: RULES.pockets })}</p>
+              <p>
+                {t(`upgrade.${u}.what`, { pockets: RULES.coatPockets, from: RULES.pockets, takings: money(PINCH.crownTakings) })}
+              </p>
             </div>
             {has(state, u) ? (
               <span className="owned">{t("upgrade.owned")}</span>

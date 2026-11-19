@@ -238,6 +238,37 @@ try {
   check("the next call costs more heat", /Heat \+10/.test(await text(".ring .action-chips") ?? ""), await text(".ring .action-chips"));
   await tap(".tabs button", "Street");
 
+  // ---- A saved encounter card, Pinch himself at a stop, his board on People ----------------
+  const store = (state) => {
+    const text = JSON.stringify(sim.toSave(state));
+    return evaluate(`localStorage.setItem("cnc.save", ${text}); localStorage.setItem("cnc.save.backup", ${text})`);
+  };
+  await store({ ...sim.newGame(3, "cardcheck"), cash: 400, pending: { kind: "card", card: "mugger", odds: 50 } });
+  await reload();
+  await snap("encounter-card");
+  check("an encounter card shows after reload", /mugger/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
+  check("its chance shows its odds", /even odds/.test(await text("dialog.card .choices") ?? ""), await text("dialog.card .choices"));
+  await tap("dialog.card .choice-card", "Run");
+  check("the card's choice leaves a line", /You run/.test(await text(".result") ?? ""), await text(".result"));
+
+  const op = { ...sim.newGame(4, "pinchcheck"), day: 7, held: { smokes: 5, tapes: 0, watches: 0, fireworks: 0 }, paid: { smokes: 30, tapes: 0, watches: 0, fireworks: 0 } };
+  op.detective = { ...op.detective, case: { n: 1, place: "docks", habit: "oddJob", announced: 5, places: ["docks"], caught: false } };
+  op.milestones = { firsts: { sale: 1, coat: 4, case: 5 }, best: { day: 3, takings: 640 }, cases: [], older: { closed: 0, cold: 0 } };
+  const pinched = sim.step({ ...op, rng: testing.rngWhere(testing.below(0.001)) }, { type: "sell", good: "smokes", units: 1 });
+  await store(pinched.state);
+  await reload();
+  await snap("pinch-stop");
+  check("inside his operation the stop is Pinch", /Percy Pinch/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
+  check("and he can't be bought", await evaluate(`[...document.querySelectorAll("dialog.card .choice-card")].find(b => b.textContent.includes("Slip him"))?.disabled === true`));
+  await tap("dialog.card .choice-card", "Hand it over");
+  await tap(".tabs button", "People");
+  await snap("people");
+  check("People shows his open case", /Operation Kipper: The Docks Odd-Job Syndicate/.test(await text(".board") ?? ""), await text(".board"));
+  check("and the exhibits", (await evaluate(`document.querySelectorAll(".exhibit").length`)) === 4);
+  check("and the cast", (await evaluate(`document.querySelectorAll(".cast-member").length`)) === 3);
+  check("People: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`));
+  await tap(".tabs button", "Street");
+
   // ---- Export -------------------------------------------------------------------------
   await tap(".tabs button", "Me");
   await tap(".save-line button", "Save and run");

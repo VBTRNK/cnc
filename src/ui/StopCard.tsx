@@ -1,7 +1,8 @@
 import { GOODS, RULES, type Action, type GameState, type PendingStop } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
+import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { goodValues, money, t } from "./text.ts";
+import { codename, goodValues, money, t } from "./text.ts";
 import { oddsText } from "./words.ts";
 
 interface StopCardProps {
@@ -15,17 +16,27 @@ interface StopCardProps {
 export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
   const q = stop.quote;
   const kind = q.type;
-  const situation = q.type === "sell" ? t("stop.sell", goodValues(q.good)) : t("stop.job");
+  // Inside his operation the stop is Pinch himself.
+  const pinch = stop.bribeRefusal === "pinch";
+  const op = { Codename: codename(state.detective.case?.n ?? 1) };
+  const situation = pinch
+    ? q.type === "sell"
+      ? t("stop.pinch.sell", { ...op, ...goodValues(q.good) })
+      : t("stop.pinch.job", op)
+    : q.type === "sell"
+      ? t("stop.sell", goodValues(q.good))
+      : t("stop.job");
+  const who = pinch ? t(state.detective.promoted ? "people.pinch.inspector" : "people.pinch.sergeant") : t("stop.who");
   const choose = (choice: "bribe" | "legIt" | "handOver") => dispatch({ type: "resolveStop", choice });
   const carrying = GOODS.some((g) => state.held[g] > 0);
 
   return (
     <Sheet label={t("stop.stamp")} blocking className="card">
       <div className="dossier">
-        <Portrait />
+        <Portrait who={pinch ? "pinch" : "copper"} />
         <div className="dossier-text">
           <p className="stamp">{t("stop.stamp")}</p>
-          <p className="dossier-who">{t("stop.who")}</p>
+          <p className="dossier-who">{who}</p>
           <p>{situation}</p>
         </div>
       </div>
@@ -39,7 +50,7 @@ export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
         >
           <span className="choice-title">{t("stop.bribe")}</span>
           {stop.bribe === null ? (
-            <span className="choice-after">{t(stop.bribeRefusal === "wanted" ? "stop.bribe.wanted" : "stop.bribe.short")}</span>
+            <span className="choice-after">{t(`stop.bribe.${stop.bribeRefusal ?? "short"}`)}</span>
           ) : (
             <>
               <span className="choice-after">{t(`stop.bribe.after.${kind}`)}</span>
@@ -71,20 +82,5 @@ export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
         </button>
       </fieldset>
     </Sheet>
-  );
-}
-
-/** An ink silhouette of a beat copper on a halftone ground. */
-function Portrait() {
-  return (
-    <div className="portrait" aria-hidden="true">
-      <svg viewBox="0 0 120 140" focusable="false">
-        <path
-          fill="currentColor"
-          d="M60 8c-17 0-29 12-31 34l-6 4v8h74v-8l-6-4C89 20 77 8 60 8Zm-23 52c2 20 11 33 23 33s21-13 23-33H37Zm-27 80c2-24 18-38 38-42l12 10 12-10c20 4 36 18 38 42H10Z"
-        />
-        <rect className="badge" x="52" y="24" width="16" height="14" />
-      </svg>
-    </div>
   );
 }
