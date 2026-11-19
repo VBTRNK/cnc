@@ -106,7 +106,8 @@ the same: what is the best use of my next few hours?
     can be rumoured the day before, is announced in that evening's paper, and is active from
     10:00 for two full days.
   - *Midday item*, rolled the evening before and hidden until 16:00: a shortage or glut, a
-    sweep, or a harmless line, a third each. Active from 16:00 until 22:00 the next day.
+    sweep, or a harmless line, a third each. Active from 16:00 until 22:00 the next day. In
+    the persistent MVP the harmless third becomes an encounter (see "Events").
 
   At most one event of each slot starts per day. A place and good (or, for a sweep, a place)
   that an active or scheduled event covers can't get an overlapping one; with no free
@@ -118,8 +119,8 @@ the same: what is the best use of my next few hours?
   **burner phone** $1,200. The phone adds *Ring round* to City: it notes every place's
   current price as seen now (not stock or demand) and adds heat, 5 × the call's number
   today (+5, +10, +15, ...; the count restarts each morning). Coppers listen in on a phone
-  that is never thrown away. The first playable has no third upgrade: the later purchase
-  is designed with the first-chapter goal (#6).
+  that is never thrown away. The third purchase, in the persistent MVP, is the Crown (see
+  "The first chapter").
 - **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
   level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
   legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
@@ -212,8 +213,110 @@ the same: what is the best use of my next few hours?
 - **To verify.** The simulation's strategy runs (`npm run strategies`) measure these rules;
   their results are in the tracking issue (#8). Phone play (S5) checks the 2-4 minute day,
   whether stops feel explainable, whether the first purchase is a real choice, and whether
-  it is fun. After the phone (about day 8) there is nothing left to buy; the MVP's
-  first-chapter goal and what money is for later are designed with the detective (#6).
+  it is fun.
+
+## The detective, events and cast
+
+The persistent MVP's layer on top of the loop. Every number is provisional: the strategy
+runs tune them. Names are placeholders. Nothing here adds to the Street screen. Three ideas
+stay separate: local danger is heat and the police factors, the detective's belief is his
+tally, and what people feel is in their authored lines.
+
+- **The detective.** Detective Sergeant Percy Pinch: pompous, vain, sees conspiracies in
+  everything, can't resist a press statement. He is introduced in day 3's paper.
+- **Habit: where he sees you.** Pinch keeps one tally per place. Every hour of a timed
+  action there adds 1; travel adds nothing. Each night the tallies halve. He goes by where
+  the player is seen, not what they sell, so he can be wrong: hours lying low or on odd
+  jobs count like selling. The tally touches no odds.
+- **Theory.** At a day end from day 5, with no case open and his rest over, he opens a case
+  on the place with the highest tally (a tie is drawn from the generator). The case gets a
+  comic label from what the player did most there ("The Uptown Watch Cartel", "The Docks
+  Odd-Job Syndicate") and a codename ("Operation Kipper").
+- **Warned operation.** He announces it in that evening's paper. The operation runs the day
+  after next, from 10:00 for two full days, so there is always one whole day of warning. In
+  its place the police factor is doubled, and a stop there is Pinch himself, who can't be
+  bribed: *Slip him something* is not offered; *Leg it* and *Hand it over* are. Nothing else
+  changes. A sweep can't overlap an operation, under the events' overlap rule.
+- **False trail.** On the day between the announcement and the operation, the first card of
+  the day comes from Lenny (below), and only when the player can afford it:
+  - *Feed him a story:* $150 ($300 once Pinch is promoted). Pinch swallows it with 55% + 5
+    points per Savvy level, clamped 10-90%; then the operation moves to the place with his
+    lowest tally, and the result line names it. Otherwise the money is gone and nothing
+    changes.
+  - *Leave it.*
+
+  Being seen elsewhere steers him too; that follows from the tally and needs no rule.
+- **Consequence and resolution.** The case is *closed* if the player is arrested or hands
+  goods over in a stop inside the operation; otherwise it goes *cold*. Neither adds a
+  penalty: the arrest or the seizure is the cost. The paper reports his triumph or his flop,
+  the case goes on his board, and he rests three days before the next theory. An arrest
+  outside an operation earns only a line in which he takes the credit.
+- **Promotion,** once: at the third day end after the player buys the Crown he becomes
+  Detective Inspector, so the purchase has three days to be enjoyed. From then on an
+  operation covers the two places with the highest tallies. His record of closed and cold
+  cases is colour, not a gate.
+- **Events.** Blocking choice cards (two or three choices) are for dilemmas: stops, the
+  false trail, encounters and the Crown. Everything else is a report or a line in the paper.
+  An *encounter* takes the midday slot's harmless third: at 16:00, the first authored card
+  whose conditions hold where the player stands, else a harmless line as before. A card
+  rests 10 days after it shows; some show once.
+  - Conditions, all of which must hold: day at least n; at a place; holding at least n of a
+    good, or any goods; cash at least n; heat at least or at most a band; has or hasn't an
+    upgrade or the Crown; the detective's state (case announced, operation on, promoted); a
+    flag set or not.
+  - Effects: cash up or down (fixed, or a share of cash); heat; goods gained (up to free
+    pockets, at a stated price so profit still works) or lost; skill experience; hours
+    spent; a market event or sweep of the existing kinds, under the overlap rule; Pinch's
+    tally at a place; moving the open operation; setting a flag. A chance choice draws once
+    between two effect lists, with odds of a base plus skill points, clamped 10-90%.
+  - The first pool, ten cards:
+
+    | Card | Where, when | Choices |
+    | --- | --- | --- |
+    | Terry's van | the Docks | 20 smokes for $90 · Pass |
+    | Customs blind eye | the Docks, day 6+ | 10 tapes for $60, heat +5 · Pass |
+    | A genuine watch | Uptown, holding watches | Sell one at double, heat +5 · Pass |
+    | Double or nothing | the Strip, cash $300+ | 50%: +$100 or −$100 · Pass |
+    | The church roof | Old Town, cash $500+ | Give $50, heat −8 · Walk on |
+    | No questions asked | anywhere, day 5+ | 3 fireworks for $150, heat +5 · Pass |
+    | A mugger | anywhere, cash $300+ | Hand over $50 · Stand up to him (Nerve chance: Nerve +2, or −$120) · Run, 1 h |
+    | Trading Standards | anywhere, warm or worse, holding goods | Duck into a doorway, 1 h · Brazen it out (Patter chance: nothing, or lose half of one good) |
+    | Old mate | anywhere, cash $400+, once | Lend $100 (a flag) · Not now |
+    | Old mate pays up | 4+ days after the loan | A report: +$150 and a tip |
+
+    No card may be a dominant earner: its expected value in any state stays below a good
+    hour of trading.
+- **Cast,** four people with a portrait and a voice and no numbers. No relationship has a
+  mechanical effect in the MVP; lines change with flags and milestones (Lenny's nickname for
+  the player, Mags's greeting after an arrest).
+  - **Percy Pinch,** the detective.
+  - **Lenny Scoop,** crime reporter on *The Crown Courier*: prints anything that sells,
+    calls everyone "pal", terrified of his editor. He bylines the headline and sells the
+    false trail.
+  - **Mags,** who runs the news kiosk and hears everything a day early. She voices the tips
+    and rumours from *Ask around*.
+  - **Old Reg,** landlord of the Crown & Anchor on the Strip: maudlin, broke, wants out. His
+    worries trail the pub's sale in the paper.
+- **The newspaper** is the story of the run. One headline, chosen in this order: a
+  milestone today; Pinch (a case announced, closed or cold, his promotion); an arrest; an
+  unseen midday item; tomorrow's morning event; the day's best sale; a stock line. At most
+  three briefs. Pinch appears only at chain events and milestones.
+- **Milestones** live in compact state beside the capped news log, so trimming old papers
+  loses none: the day of each first (sale, $1,000, coat, phone, job, arrest, escape, case,
+  the Crown, promotion), the best day, and each case's place, label and outcome.
+- **People tab.** Pinch's board on top: each milestone pinned as an exhibit with his
+  reading of it ("Exhibit C: a larger coat. *Significant Expansion of Distribution
+  Capacity.*"), the open case with its days, and past cases stamped *closed* or *cold*.
+  Below it the cast, one current line each.
+- **The first chapter: claim the Crown.** The third purchase on Me, shown from day 1: the
+  Crown & Anchor, $5,000. Buying it ends chapter one with a front page and a title from
+  Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
+  player drinks: each night adds 2 to his tally for the Strip. After the Crown, money buys
+  false trails, bribes and a margin; further purchases come with #18, #19 and #7.
+- **To verify** with the strategy runs: about three cases in 20 days; what an operation
+  costs a trader who ignores it against one who avoids it; the Crown around day 16 for a
+  median trader, and whether it beats keeping the money; every encounter a real choice in
+  some state and none a dominant earner.
 
 ## Look and feel
 
@@ -292,7 +395,8 @@ the same: what is the best use of my next few hours?
 ## Saves
 
 - A save is one versioned JSON document: format version, run identity, in-game clock,
-  random-generator state, pending decisions, progression and a capped news log. Content is
+  random-generator state, pending decisions, progression, milestones and a capped news
+  log. Content is
   referenced by stable IDs.
 - The game saves on the device after every action and whenever a pending decision appears
   or is resolved. Reopening never rerolls or skips a decision. A second tab is read-only.
@@ -371,5 +475,4 @@ the same: what is the best use of my next few hours?
 
 ## Not decided here
 
-- The detective's events, the cast and the first-chapter goal (#6).
 - The later layers, and whether the territory phase gets a map (#7).
