@@ -11,7 +11,7 @@ beyond its tools-list entry.
 
 - Stack: Vite, React and TypeScript as a static single-page app, plain CSS,
   Vitest (ADR-002, applied in ADR-003). The app is the local first playable.
-- Hosting: Vercel project `cnc`, at `https://cnc.vibetrunk.com` once live.
+- Hosting: Vercel project `cnc`, live at `https://cnc.vibetrunk.com`.
 - Backend: the shared VibeTrunk Supabase project, schema `cnc` (not `public`),
   for cloud saves by code; no accounts, nothing shared with other tools'
   users (ADR-009). Row-level security is on for every table; the browser

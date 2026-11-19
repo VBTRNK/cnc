@@ -696,20 +696,17 @@ fieldset.choices {
 .portrait {
   align-self: start;
   padding: 0.5rem 0.5rem 0;
+  border: 1.5px solid var(--ink);
   background-color: var(--sheet);
   background-image: radial-gradient(circle, rgb(22 20 15 / 0.35) 1px, transparent 1.6px);
   background-size: 6px 6px;
-  color: var(--ink);
   line-height: 0;
 }
 
-.portrait svg {
+.portrait img {
+  display: block;
   width: 100%;
   height: auto;
-}
-
-.portrait .badge {
-  fill: var(--sheet);
 }
 
 .dossier-text {

@@ -3,18 +3,19 @@
 Rule the streets. Claim the crown. A tool in the
 [VibeTrunk](https://vibetrunk.com) hub.
 
-Not live yet.
+Play it at [cnc.vibetrunk.com](https://cnc.vibetrunk.com): the persistent MVP.
 
 ## What it is now
 
-The persistent MVP's game: the solo trading loop on Street, City and Me,
+The persistent MVP, live: the solo trading loop on Street, City and Me,
 police stops, Detective Sergeant Pinch and his warned operations, authored
 encounter cards, the evening paper as the run's story, Pinch's board and the
-cast on People, three purchases ending with the Crown & Anchor, a save on the
-device with export and import, an install manifest, and cloud saves by code
-(no accounts). The simulation is in `src/sim`, the
-session, local store and cloud sync in `src/game`, the screens in `src/ui`,
-the database migration in `supabase/migrations`; the game is specified in
+cast on People with their ink portraits, three purchases ending with the
+Crown & Anchor, a save on the device with export and import, an install
+manifest, and cloud saves by code (no accounts). The simulation is in
+`src/sim`, the session, local store and cloud sync in `src/game`, the screens
+and portraits in `src/ui`, the database migration in `supabase/migrations`;
+the game is specified in
 [`docs/design.md`](docs/design.md). Rewrite this paragraph as the tool
 changes; don't append history (that lives in the PRs).
 
@@ -28,7 +29,8 @@ npm run dev      # dev server
 npm run verify   # typecheck, tests, hook tests, production build
 npm run preview  # the production build under the real security headers
 npm run strategies -- 20 400  # strategy runs: days, seeds (ONLY=trader,... to pick)
-npm run browser-check  # with preview running: phone flows, saves and CSP in headless Edge
+npm run browser-check  # with preview running: phone and keyboard flows, saves, CSP and an
+                       # accessibility audit of every screen, in headless Edge
 ```
 
 Cloud saves need `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (see

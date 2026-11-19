@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140">
+  <!-- pinch, Set A, Tabloid cartoon -->
+  <defs><pattern id="tone" patternUnits="userSpaceOnUse" width="4.4" height="4.4"><circle cx="1.1" cy="1.1" r="1" fill="#16140F"/><circle cx="3.3" cy="3.3" r="0.8" fill="#16140F"/></pattern></defs>
+  <path d="M4 141Q5 117 20 108L40 98l6-13h28l8 13 21 10q14 9 15 33Z" fill="#E6E3DA" stroke="#16140F" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M43 91l18 8 15-9 7 51H36Z" fill="#F7F5EE" stroke="#16140F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M55 105l8-3 7 4-4 7 5 28H56l2-29Z" fill="#A3140D"/>
+  <path d="M9 142q3-23 13-32l20-14 4 17-11 5 11 7 8 17Z" fill="#E6E3DA" stroke="#16140F" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 91l24 17 10 34H70l7-16 12-9-12-1Z" fill="#E6E3DA" stroke="#16140F" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M42 96l9 15 12-9 11 9 6-17M15 122l14-7m68-5 7 12" fill="none" stroke="#16140F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M9 141q5-16 12-21l15 1 9 20Zm83-14 8-11 11 25H83Z" fill="url(#tone)"/>
+  <path d="M14 137q4-14 11-17m12 3 11 16m43-19-8 9 16 1m-6 8 9-1" fill="none" stroke="#F7F5EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="92" cy="132" r="2.2" fill="#F7F5EE"/>
+  <path d="M35 52q-11 1-9 13 1 9 10 11l3 10q6 11 22 12 16 1 26-10 6-7 1-15l-2-13-4-17-43-4Z" fill="#F7F5EE" stroke="#16140F" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M35 54q7 1 10 8l-3 14q3 13 18 19-18 0-24-16l-1-7q-9-1-7-11 1-6 7-7ZM67 91q12-4 17-13 4 8-9 15Z" fill="url(#tone)"/>
+  <path d="M34 46l45-5 5 11-16-1-22 6-6 11-4-5Z" fill="#16140F"/>
+  <path d="M31 62q4-2 6 5m11 10q-1-5 3-8m8 22q9 1 15-4" fill="none" stroke="#16140F" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 59q6-8 15-4l-1 2q-6-1-14 2Zm21-5q5-6 15-4l-1 2q-7-1-14 2Z" fill="#16140F"/>
+  <path d="M47 63q6-5 12-2m10-1q5-4 10-1" fill="none" stroke="#16140F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="55" cy="62" r="1.8" fill="#16140F"/>
+  <circle cx="74" cy="60" r="1.9" fill="#16140F"/>
+  <path d="M65 62q0 5-3 11 0 3 6 2l4-2" fill="none" stroke="#16140F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M64 76q6-6 13-1 6 4 10-2 1 7-6 9-7 1-14-2-9 5-15 4-7-1-8-7 4 4 9 1 7-5 11-2Z" fill="#16140F"/>
+  <path d="M56 80l6-2m10-1 6 2" fill="none" stroke="#F7F5EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 86q8 1 14-3" fill="none" stroke="#16140F" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="74" cy="60" r="8.8" fill="none" stroke="#16140F" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M84 62q1 7-4 10m4-5q13 19-2 36" fill="none" stroke="#16140F" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M27 39Q29 19 42 12q4-2 12 2 9 5 19-3 10 2 14 24l2 9-56 6Z" fill="#16140F" stroke="#16140F" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M28 34q27 3 58-9l2 8q-30 13-62 10Z" fill="#A3140D"/>
+  <path d="M24 39q20 6 52-4 20-7 29-3 8 6-6 12-21 9-58 12-21 3-26-2-6-5 9-15Z" fill="#16140F" stroke="#16140F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 49q16 7 47-2 23-6 33-10M34 32q2-12 9-16m13 2q8 3 16-3" fill="none" stroke="#F7F5EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
