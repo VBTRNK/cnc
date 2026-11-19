@@ -9,7 +9,8 @@ export type GoodId = (typeof GOODS)[number];
 export const PLACES = ["docks", "oldtown", "uptown", "strip"] as const;
 export type PlaceId = (typeof PLACES)[number];
 
-export const UPGRADES = ["coat", "phone"] as const;
+/** The coat and the phone, then the Crown & Anchor: the first chapter's goal. */
+export const UPGRADES = ["coat", "phone", "crown"] as const;
 export type UpgradeId = (typeof UPGRADES)[number];
 
 export const SKILLS = ["patter", "nerve", "savvy"] as const;
@@ -18,6 +19,26 @@ export type SkillId = (typeof SKILLS)[number];
 /** Harmless midday lines, by ID. */
 export const HARMLESS = ["pigeons", "parade", "heatwave"] as const;
 export type HarmlessId = (typeof HARMLESS)[number];
+
+/** What Pinch sees the player doing at a place: selling a good, or one of the timed actions; "drink" is the Crown. */
+export const HABITS = [...GOODS, "ask", "lieLow", "oddJob", "job", "drink"] as const;
+export type HabitId = (typeof HABITS)[number];
+
+/** Operation codenames, by case number (case 1 is the first), repeating after the last. */
+export const CODENAMES = ["kipper", "winkle", "teapot", "bowler", "crumpet", "brolly", "haddock", "mothball"] as const;
+export type CodenameId = (typeof CODENAMES)[number];
+
+/** The run's firsts, kept beside the news log so trimming old papers loses none. */
+export const MILESTONES = ["sale", "grand", "coat", "phone", "job", "arrest", "escape", "case", "crown", "promotion"] as const;
+export type MilestoneId = (typeof MILESTONES)[number];
+
+/** Flags that cards set and test. */
+export const FLAGS = ["loan"] as const;
+export type FlagId = (typeof FLAGS)[number];
+
+/** The authored cast. */
+export const CAST = ["pinch", "lenny", "mags", "reg"] as const;
+export type CastId = (typeof CAST)[number];
 
 export interface Good {
   base: number;
@@ -54,7 +75,7 @@ export const PLACE: Record<PlaceId, Place> = {
 export const isSource = (place: PlaceId, good: GoodId): boolean =>
   PLACE[place].factor[good] <= 0.75;
 
-export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200 };
+export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200, crown: 2500 };
 
 export const RULES = {
   startCash: 250,
@@ -137,6 +158,37 @@ export const RULES = {
 
   newsCap: 30,
 } as const;
+
+/** The detective, his cases and the Crown (docs/design.md, "The detective, events and cast"). */
+export const PINCH = {
+  /** He is introduced in this day's paper. */
+  introDay: 3,
+  /** The first day end at which he may open a case. */
+  firstCase: 5,
+  /** The operation runs this many days after the paper that announced it... */
+  warning: 2,
+  /** ...for this many days. */
+  operationDays: 2,
+  police: 2,
+  /** Days of rest after a case closes or goes cold. */
+  rest: 3,
+  /** He is promoted at the day end this many days after the Crown is bought (its third day end). */
+  promotion: 2,
+  /** The false trail's odds: this base, plus the cards' points per Savvy level. */
+  trailBase: 55,
+  /** The Crown & Anchor's nightly takings, and what it adds to his tally for the Strip. */
+  crownTakings: 75,
+  crownTally: 2,
+  /** A tally share below this is dropped when the tallies halve. */
+  tallyFloor: 0.1,
+  /** A milestone: cash at or above this. */
+  grand: 1000,
+  /** Cases kept in full on his board; older ones live on as closed and cold totals, so a save stays bounded. */
+  casesKept: 100,
+} as const;
+
+/** Cards: a shown card rests this many days; a chance's odds move this many points per skill level. */
+export const CARDS_RULES = { rest: 10, perLevel: 5 } as const;
 
 /** Day 1 fixture (docs/design.md): authored prices. Docks fireworks are sold out (stock 0). */
 export const DAY1_PRICES: Record<PlaceId, Record<GoodId, number>> = {

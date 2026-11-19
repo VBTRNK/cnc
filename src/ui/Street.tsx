@@ -4,6 +4,7 @@ import {
   RULES,
   canAskAround,
   hoursLeft,
+  operationOn,
   price,
   priceHint,
   quoteJob,
@@ -16,7 +17,7 @@ import {
 import { Chip, RiskChip } from "./bits.tsx";
 import { eventAt, sweepAt } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
-import { goodName, money, placeName, t } from "./text.ts";
+import { codename, goodName, money, placeName, t } from "./text.ts";
 import { briefs, oddsText, resultLines } from "./words.ts";
 
 interface StreetProps {
@@ -37,7 +38,11 @@ export function Street({ state, events, refusal, dismissed, onDismiss, onOpen, d
     .filter((b) => !dismissed.has(b.id));
   const left = hoursLeft(state);
   const job = quoteJob(state);
-  const flavour = sweepAt(state, state.place) ? t("street.flavour.sweep") : t(`street.flavour.${state.place}`);
+  const flavour = operationOn(state, state.place)
+    ? t("street.flavour.operation", { Codename: codename(state.detective.case?.n ?? 1) })
+    : sweepAt(state, state.place)
+      ? t("street.flavour.sweep")
+      : t(`street.flavour.${state.place}`);
 
   const resultRef = useRef<HTMLParagraphElement>(null);
   useEffect(() => {

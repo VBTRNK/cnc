@@ -284,3 +284,45 @@ ADR-144, because the database is shared.
   The owner makes it a required check.
 - Each approval of the apply job is the yes for that push; a merge authorizes
   none.
+
+## ADR-011 — The detective, cards and save format 3
+
+Date: 2026-11-19. Builds `docs/design.md` "The detective, events and cast".
+
+- Pinch acts at the day end before tomorrow's midday item is rolled, so a sweep
+  never lands on an operation; a false trail moves it only to places no sweep
+  covers, keeping its size (a promoted operation keeps one of its own places
+  only when a sweep leaves too few). His tally is kept per place and habit (the case's label), halved
+  nightly; a share under 0.1 is dropped.
+- A case closes the night he catches the player inside the operation, and the
+  operation ends with it. His board keeps the last 100 cases in full and older
+  ones as closed and cold totals (owner, after review): keeping every case
+  outgrew the cloud's 64 KiB cap around day 2,700. Worst case now, as
+  `cnc.put_save` measures it: about 38 KB (full news log, 100 cases). Encounters show only
+  during the day; a midday item started in the step that ends the day is
+  unseen and always makes the paper, as a brief when a bigger story leads.
+  Hours spent on a card count as lying low in his tally. A card's tip always
+  lands: with every place seen today, it is the price seen longest ago.
+- The pool is tried in a fixed order, narrowest conditions first, so the
+  general cards (the mugger, from $300) don't shadow the rest.
+- Cards are data in `src/sim/cards.ts`. Only effects a card uses exist; a share
+  of cash, Pinch's tally and a market event come with the first card that
+  needs one.
+- Tuned by the strategy runs (400 seeds × 20 days, `trader`): the Crown costs
+  $2,500, not $5,000, to land on day 17 for a trader who keeps $300 aside (day
+  16 without); at $5,000, 42 of 300 traders bought it by day 20. Its $75 a
+  night pays back in 33 nights: a goal, not an investment. Three cases per
+  run; ignoring an operation leaves median wealth about level but adds an
+  arrest every four runs, against avoiding it.
+- A card's value is measured by forking the run where it shows: each choice
+  against the card's last, played on with the same policy and generator to
+  the end of the next day (`CARDS=1`). Valuing goods at the city's usual price
+  had missed where they sell. Measured means: Customs' tapes at $90 −$3 to
+  −$49, the genuine watch at 1.5× $40, the fireworks at $360 $46; every card's
+  mean stays under a good hour of trading (about $50), with lucky states above.
+  The owner chose this mean-based reading over "in any state", which would
+  price the buy cards out of ordinary states.
+- Save format 3 adds the detective, milestones, cards shown and flags, the
+  log's `pub` and best sale, and the paper's Pinch items, case, firsts and
+  Crown. Version 2 saves migrate with firsts recovered from the papers kept
+  (an upgrade is dated to the day of the migration).

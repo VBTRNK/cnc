@@ -1,7 +1,9 @@
 // Seeded random play over many runs: every reachable state must keep the rules'
 // invariants, conserve cash and goods, honour the event schedule and survive a save.
 
+import { CARDS } from "./cards.ts";
 import { GOODS, PLACES, UPGRADES } from "./content.ts";
+import { operationOn } from "./market.ts";
 import { Rng } from "./rng.ts";
 import { loadSave, toSave, validateState } from "./save.ts";
 import { carried, check, maxBuy, maxSale, newGame, pockets, step, type Action, type DomainEvent } from "./sim.ts";
@@ -12,7 +14,9 @@ const DAYS = 12;
 
 function randomAction(s: GameState, r: Rng): Action {
   if (s.phase === "night") return { type: "startDay" };
-  if (s.pending) return { type: "resolveStop", choice: r.pick(["bribe", "legIt", "handOver"] as const) };
+  if (s.pending?.kind === "stop") return { type: "resolveStop", choice: r.pick(["bribe", "legIt", "handOver"] as const) };
+  // Any choice, including ones that can't be afforded: those must be refused and change nothing.
+  if (s.pending?.kind === "card") return { type: "resolveCard", choice: r.pick(CARDS[s.pending.card].choices).id };
   const good = r.pick(GOODS);
   const options: Action[] = [
     { type: "buy", good, units: Math.max(1, r.int(1, Math.max(1, maxBuy(s, good)))) },
@@ -64,6 +68,13 @@ function account(ledger: Ledger, e: DomainEvent): void {
     case "bribeRefused":
       for (const g of GOODS) ledger.goods[g]! -= e.seized[g];
       break;
+    case "cardResolved":
+      ledger.cash += e.cash;
+      for (const g of GOODS) ledger.goods[g]! += e.goods[g];
+      break;
+    case "takings":
+      ledger.cash += e.amount;
+      break;
   }
 }
 
@@ -99,11 +110,14 @@ function runOne(seed: number) {
   if (seed % 3 === 0) s.cash = 6000;
   const ledger: Ledger = { cash: s.cash, goods: Object.fromEntries(GOODS.map((g) => [g, 0])) };
   const everyEvent = new Map<string, WorldEvent>();
+  /** Every operation day and place, as "day:place". */
+  const operations = new Set<string>();
   const actions: Action[] = [];
   const seen = new Set<string>();
   let guard = 0;
   while (s.day <= DAYS && guard++ < 5000) {
     for (const e of s.events) everyEvent.set(e.id, e);
+    for (const p of PLACES) if (operationOn(s, p)) operations.add(`${s.day}:${p}`);
     const action = randomAction(s, policy);
     const before = structuredClone(s);
     const r = step(s, action);
@@ -116,13 +130,15 @@ function runOne(seed: number) {
     for (const e of r.events) {
       account(ledger, e);
       seen.add(e.type === "job" ? `job:${e.outcome}` : e.type === "dayEnded" ? `end:${e.cause}` : e.type);
+      if (e.type === "cardResolved") seen.add(`card:${e.card}`);
+      if (e.type === "dayEnded") for (const item of e.paper.pinch) seen.add(`pinch:${item.kind}`);
     }
     s = r.state;
     checkState(s);
     expect(s.cash).toBe(ledger.cash);
     for (const g of GOODS) expect(s.held[g]).toBe(ledger.goods[g]);
   }
-  return { final: s, events: [...everyEvent.values()], actions, seen };
+  return { final: s, events: [...everyEvent.values()], operations, actions, seen };
 }
 
 describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
@@ -137,7 +153,9 @@ describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
     for (const branch of [
       "stopped", "pattedDown", "bribed", "bribeRefused", "rangRound", "leggedIt", "handedOver", "arrested", "upgraded",
       "levelUp", "tip", "job:success", "job:nothing", "job:hurt", "job:arrested",
-      "end:clock", "end:called", "end:arrest", "end:hurt",
+      "end:clock", "end:called", "end:arrest", "end:hurt", "takings",
+      "pinch:intro", "pinch:announced", "pinch:cold", "pinch:closed", "pinch:promoted", "pinch:credit",
+      ...Object.keys(CARDS).map((id) => `card:${id}`),
     ]) {
       expect(seen, branch).toContain(branch);
     }
@@ -158,6 +176,15 @@ describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
       }
       for (const [i, a] of sweeps.entries()) {
         for (const b of sweeps.slice(i + 1)) if (a.place === b.place) expect(overlap(a, b)).toBe(false);
+      }
+    }
+  });
+
+  it("never runs a sweep where Pinch's operation is on", () => {
+    for (const { events, operations } of runs) {
+      for (const e of events) {
+        if (e.kind !== "sweep") continue;
+        for (let d = e.startDay; d <= e.endDay; d++) expect(operations.has(`${d}:${e.place}`), e.id).toBe(false);
       }
     }
   });

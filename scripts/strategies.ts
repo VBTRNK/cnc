@@ -1,9 +1,12 @@
 // Strategy runs over many seeds, on the real simulation (docs/design.md, "To verify").
-// Usage: node scripts/strategies.ts [days=20] [seeds=400]   ONLY=name,name to pick policies.
+// Usage: node scripts/strategies.ts [days=20] [seeds=400]   ONLY=name,name to pick policies;
+// DETAIL=1 adds arrests, jobs, Pinch's cases and each card's value per choice.
+// CARDS=1 instead forks every encounter (see `cardValues` below) and prints what each choice is worth.
 // The planner is greedy and one trip deep and knows only what a player could see: prices
 // where it stands, prices last seen elsewhere (tips, ringing round with the phone). A person can beat it.
 
 import {
+  CARDS,
   GOOD,
   GOODS,
   PLACE,
@@ -11,17 +14,20 @@ import {
   RULES,
   UPGRADE_COST,
   carried,
+  choiceBlock,
   has,
   hoursLeft,
   maxBuy,
   maxSale,
   newGame,
+  operationOn,
   pockets,
   price,
   quoteJob,
   ringDistance,
   step,
   type Action,
+  type CardId,
   type DomainEvent,
   type GameState,
   type GoodId,
@@ -44,9 +50,24 @@ interface Policy {
   shuttle: boolean;
   /** With the phone: ring round at the day's start, also after midday, or before every move. */
   ring: "once" | "twice" | "everyMove";
+  /** Cards: take the first choice the player can, or always the last (pass, walk on, leave). */
+  cards: "take" | "pass";
+  /** Pinch's operations: trade on regardless, or stay away from their places. */
+  ops: "ignore" | "avoid";
 }
 
-const BASE: Policy = { order: ["coat", "phone"], lieLowAt: 45, endAt: null, stop: "bribeElseRun", jobs: "floor", split: false, shuttle: false, ring: "once" };
+const BASE: Policy = {
+  order: ["coat", "phone", "crown"],
+  lieLowAt: 45,
+  endAt: null,
+  stop: "bribeElseRun",
+  jobs: "floor",
+  split: false,
+  shuttle: false,
+  ring: "once",
+  cards: "take",
+  ops: "ignore",
+};
 const POLICIES: Record<string, Policy> = {
   trader: BASE,
   phoneFirst: { ...BASE, order: ["phone", "coat"] },
@@ -61,6 +82,10 @@ const POLICIES: Record<string, Policy> = {
   dailyJob: { ...BASE, jobs: "daily" },
   shuttle: { ...BASE, shuttle: true },
   oddJobsOnly: { ...BASE, order: [], jobs: "never" },
+  avoidOps: { ...BASE, ops: "avoid" },
+  passCards: { ...BASE, cards: "pass" },
+  crownFirst: { ...BASE, order: ["crown", "coat", "phone"] },
+  noCrown: { ...BASE, order: ["coat", "phone"] },
   jobsAndOddJobs: { ...BASE, order: [], jobs: "daily" },
 };
 
@@ -118,6 +143,17 @@ class Book {
     } else if (e.type === "arrested" || e.type === "handedOver" || e.type === "bribeRefused") {
       // Seizure takes carried goods; the lots don't know pockets from the lock-up, so take the oldest.
       for (const g of GOODS) if (e.seized[g] > 0) this.take(g, e.seized[g], () => {});
+    } else if (e.type === "cardResolved") {
+      // A card gains one good at a stated cost, or sells or loses some.
+      for (const g of GOODS) {
+        const d = e.goods[g];
+        if (d > 0) this.lots[g].push({ units: d, cost: Math.max(0, -e.cash) / d, from: at });
+        if (d < 0) {
+          let cost = 0;
+          this.take(g, -d, (lot, n) => (cost += n * lot.cost));
+          if (e.cash > 0) this.earned.trade += e.cash - cost;
+        }
+      }
     } else if (e.type === "job") this.earned.job += e.pay;
     else if (e.type === "oddJob") this.earned.odd += e.pay;
   }
@@ -136,6 +172,7 @@ const unitsPerHour = (s: GameState, g: GoodId): number => (GOOD[g].rate * (10 + 
 function plan(s: GameState, book: Book): Plan | null {
   let best: Plan | null = null;
   for (const to of PLACES) {
+    if (avoiding(s, to)) continue;
     const travel = ringDistance(s.place, to);
     if (travel >= hoursLeft(s)) continue;
     let cash = s.cash;
@@ -177,14 +214,30 @@ function plan(s: GameState, book: Book): Plan | null {
   return best;
 }
 
+/** Set per decision: the policy in play avoids Pinch's operations. */
+let avoid = false;
+const avoiding = (s: GameState, place: PlaceId): boolean => avoid && operationOn(s, place);
+
 // ---- A policy as a function from state to the next action -----------------------------
 
 function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
   if (s.phase === "night") return { type: "startDay" };
+  if (s.pending?.kind === "card") {
+    const choices = CARDS[s.pending.card].choices;
+    const open = choices.filter((c) => !choiceBlock(s, c));
+    const pick = p.cards === "take" ? open[0] : open.at(-1);
+    return { type: "resolveCard", choice: (pick ?? choices.at(-1))!.id };
+  }
   if (s.pending) {
     if (p.stop === "handOver") return { type: "resolveStop", choice: "handOver" };
     if (p.stop === "bribeElseRun" && s.pending.bribe !== null) return { type: "resolveStop", choice: "bribe" };
     return { type: "resolveStop", choice: "legIt" };
+  }
+  avoid = p.ops === "avoid";
+  // Standing in an operation it avoids: leave first, for the nearest place without one.
+  if (avoid && operationOn(s, s.place)) {
+    const away = [...PLACES].filter((q) => !operationOn(s, q)).sort((a, b) => ringDistance(s.place, a) - ringDistance(s.place, b))[0];
+    if (away && ringDistance(s.place, away) < hoursLeft(s)) return { type: "travel", to: away };
   }
   const next = queue.shift();
   if (next) return next;
@@ -261,13 +314,37 @@ interface Run {
   timed: number;
   jobs: Record<string, number>;
   afterArrest: { cash: number; back: number | null }[];
+  cases: number;
+  closed: number;
+  pinchStops: number;
+  tradeHours: number;
+  /** Per card and choice: times taken and the summed immediate value (cash, goods at the usual price). */
+  cards: Map<string, { n: number; value: number }>;
 }
+
+const usual = (g: GoodId): number => (GOOD[g].base * PLACES.reduce((n, q) => n + PLACE[q].factor[g], 0)) / PLACES.length;
 
 function runOne(name: string, p: Policy, seed: number): Run {
   let s = newGame(seed, `${name}-${seed}`);
   const book = new Book();
   const queue: Action[] = [];
-  const out: Run = { wealth: [], arrests: 0, stops: 0, upgradeDay: {}, topRoute: 0, earned: book.earned, actions: 0, timed: 0, jobs: {}, afterArrest: [] };
+  const out: Run = {
+    wealth: [],
+    arrests: 0,
+    stops: 0,
+    upgradeDay: {},
+    topRoute: 0,
+    earned: book.earned,
+    actions: 0,
+    timed: 0,
+    jobs: {},
+    afterArrest: [],
+    cases: 0,
+    closed: 0,
+    pinchStops: 0,
+    tradeHours: 0,
+    cards: new Map(),
+  };
   const wealth = () => s.cash + book.atCost() + s.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
   let lastGood = wealth();
   let open: { day: number; before: number; i: number } | null = null;
@@ -292,11 +369,24 @@ function runOne(name: string, p: Policy, seed: number): Run {
     for (const e of r.events) {
       book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
       if (e.type === "stopped") out.stops += 1;
+      if (e.type === "stopped" && e.stop.bribeRefusal === "pinch") out.pinchStops += 1;
+      if (e.type === "sold" || e.type === "travelled") out.tradeHours += e.hours;
+      if (e.type === "cardResolved") {
+        const key = `${e.card as CardId}:${e.choice ?? "report"}`;
+        const c = out.cards.get(key) ?? { n: 0, value: 0 };
+        c.n += 1;
+        c.value += e.cash + GOODS.reduce((v, g) => v + e.goods[g] * usual(g), 0);
+        out.cards.set(key, c);
+      }
       if (e.type === "arrested") out.arrests += 1;
       if (e.type === "job") out.jobs[e.outcome] = (out.jobs[e.outcome] ?? 0) + 1;
       if (e.type === "upgraded") out.upgradeDay[e.upgrade] = s.day;
       if (e.type === "dayEnded") {
         out.wealth[e.paper.day] = wealth();
+        for (const item of e.paper.pinch) {
+          if (item.kind === "announced") out.cases += 1;
+          if (item.kind === "closed") out.closed += 1;
+        }
         if (open) {
           const o = open;
           if (out.wealth[e.paper.day]! >= o.before && e.paper.day > o.day) {
@@ -324,9 +414,112 @@ const pct = (xs: number[], q: number): number => {
 };
 const k = (n: number) => (Number.isNaN(n) ? "-" : n >= 10_000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
 
+// ---- What a card is worth, in the state where it shows ---------------------------------
+
+const cloneBook = (b: Book): Book => Object.assign(new Book(), structuredClone({ lots: b.lots, routes: b.routes, earned: b.earned }));
+/** Cash and goods at the city's usual price; upgrades at cost. */
+const worth = (s: GameState): number =>
+  s.cash + GOODS.reduce((v, g) => v + s.held[g] * usual(g), 0) + s.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
+
+/** Plays `s` on with policy `p` to the end of day `until`, and returns what the run is worth then. */
+function playOn(s: GameState, p: Policy, book: Book, until: number): number {
+  const queue: Action[] = [];
+  for (let guard = 0; guard < 400 && !(s.phase === "night" && s.day >= until); guard++) {
+    const before = s;
+    let r = step(s, decide(s, p, book, queue));
+    if (!r.ok) {
+      queue.length = 0;
+      r = step(s, s.pending ? decide(s, { ...p, cards: "pass" }, book, queue) : { type: "callItADay" });
+      if (!r.ok) break;
+    }
+    for (const e of r.events) book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
+    s = r.state;
+  }
+  return worth(s);
+}
+
+/**
+ * Forks the `trader` run at every encounter: each open choice is taken, the run played on with
+ * the same policy to the end of the next day, and the choice's value is its worth then minus the
+ * worth after the card's last choice (pass, walk on, not now, or the cheapest way out). The
+ * markets, demand, selling hours and stops are the real ones from that state.
+ */
+const FORKS = 4;
+
+function cardValues(): void {
+  const p = POLICIES.trader!;
+  const values = new Map<string, number[]>();
+  for (let i = 0; i < SEEDS; i++) {
+    const seed = (i + 1) * 7919;
+    let s = newGame(seed, `cards-${seed}`);
+    const book = new Book();
+    const queue: Action[] = [];
+    for (let guard = 0; s.day <= DAYS && guard < DAYS * 200; guard++) {
+      if (s.pending?.kind === "card" && !s.pending.card.startsWith("falseTrail")) {
+        const card = CARDS[s.pending.card];
+        const open = card.choices.filter((c) => !choiceBlock(s, c));
+        const base = card.choices.at(-1)!;
+        const until = s.day + 1;
+        // Common random numbers: after the choice, both forks play on from the same generator
+        // position, over several positions, so the difference is the choice and not the dice.
+        const value = (id: string, after: number) => {
+          const r = step(s, { type: "resolveCard", choice: id });
+          if (!r.ok) return null;
+          const b = cloneBook(book);
+          for (const e of r.events) b.record(e, s.place);
+          return playOn({ ...r.state, rng: after }, p, b, until);
+        };
+        for (const c of open) {
+          if (c.id === base.id) continue;
+          const diffs: number[] = [];
+          for (let k = 0; k < FORKS; k++) {
+            const after = (seed * 31 + s.day * 997 + k * 7919) | 0;
+            const v = value(c.id, after);
+            const zero = value(base.id, after);
+            if (v !== null && zero !== null) diffs.push(v - zero);
+          }
+          if (diffs.length === 0) continue;
+          const key = `${s.pending.card}:${c.id}`;
+          values.set(key, [...(values.get(key) ?? []), diffs.reduce((x, y) => x + y, 0) / diffs.length]);
+        }
+      }
+      const before = s;
+      let r = step(s, decide(s, p, book, queue));
+      if (!r.ok) {
+        queue.length = 0;
+        r = step(s, { type: "callItADay" });
+        if (!r.ok) break;
+      }
+      for (const e of r.events) book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
+      s = r.state;
+    }
+  }
+  console.log(`card values: trader, ${SEEDS} seeds × ${DAYS} days; each choice against the card's last choice, played on to the end of the next day`);
+  console.log(["choice".padEnd(28), "shows", "mean", "p50", "p90", "max", "share > $100"].join("  "));
+  for (const [key, xs] of [...values.entries()].sort()) {
+    const big = xs.filter((x) => x > 100).length / xs.length;
+    console.log(
+      [
+        key.padEnd(28),
+        String(xs.length).padStart(5),
+        k(xs.reduce((a, b) => a + b, 0) / xs.length).padStart(4),
+        k(pct(xs, 0.5)).padStart(4),
+        k(pct(xs, 0.9)).padStart(4),
+        k(Math.max(...xs)).padStart(4),
+        `${Math.round(100 * big)}%`.padStart(12),
+      ].join("  "),
+    );
+  }
+}
+
+if (process.env.CARDS) {
+  cardValues();
+  process.exit(0);
+}
+
 console.log(`days=${DAYS} seeds=${SEEDS}; wealth = cash + goods at cost + upgrades at cost; medians unless noted`);
 console.log(
-  ["policy".padEnd(15), "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
+  ["policy".padEnd(15), "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "crown", "cases", "trade$/h", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
 );
 for (const [name, p] of Object.entries(POLICIES)) {
   if (process.env.ONLY && !process.env.ONLY.split(",").includes(name)) continue;
@@ -350,6 +543,9 @@ for (const [name, p] of Object.entries(POLICIES)) {
       (runs.reduce((a, r) => a + r.stops, 0) / SEEDS).toFixed(1).padStart(5),
       upDay("coat").padStart(4),
       upDay("phone").padStart(5),
+      upDay("crown").padStart(5),
+      (runs.reduce((a, r) => a + r.cases, 0) / SEEDS).toFixed(2).padStart(5),
+      k(pct(runs.map((r) => r.earned.trade / Math.max(1, r.tradeHours)), 0.5)).padStart(8),
       `${(100 * pct(route, 0.5)).toFixed(0)}%/${(100 * pct(route, 0.9)).toFixed(0)}%`.padStart(16),
       `${((100 * e.trade) / all).toFixed(0)}/${((100 * e.job) / all).toFixed(0)}/${((100 * e.odd) / all).toFixed(0)}`.padStart(14),
       (runs.reduce((a, r) => a + r.actions, 0) / (SEEDS * DAYS)).toFixed(1).padStart(8),
@@ -368,5 +564,20 @@ for (const [name, p] of Object.entries(POLICIES)) {
       );
     }
     if (Object.keys(jobs).length) console.log(`   jobs: ${JSON.stringify(jobs)}`);
+    const sum = (f: (r: Run) => number) => runs.reduce((a, r) => a + f(r), 0);
+    console.log(
+      `   Pinch: ${(sum((r) => r.cases) / SEEDS).toFixed(2)} cases/run, ${(sum((r) => r.closed) / SEEDS).toFixed(2)} closed, ${(sum((r) => r.pinchStops) / SEEDS).toFixed(2)} stops by him; crown bought in ${runs.filter((r) => r.upgradeDay.crown).length}/${SEEDS}`,
+    );
+    const cards = new Map<string, { n: number; value: number }>();
+    for (const r of runs) {
+      for (const [key, c] of r.cards) {
+        const all = cards.get(key) ?? { n: 0, value: 0 };
+        all.n += c.n;
+        all.value += c.value;
+        cards.set(key, all);
+      }
+    }
+    const lines = [...cards.entries()].sort().map(([key, c]) => `${key} ${(c.n / SEEDS).toFixed(2)}/run $${Math.round(c.value / c.n)}`);
+    if (lines.length) console.log(`   cards (taken per run, mean immediate value): ${lines.join(" · ")}`);
   }
 }

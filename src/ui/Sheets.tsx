@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  PINCH,
   RULES,
   UPGRADE_COST,
   carried,
@@ -18,6 +19,7 @@ import {
   type UpgradeId,
 } from "../sim/index.ts";
 import { Chip, RiskChip } from "./bits.tsx";
+import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { goodName, money, t, upgradeName, type TextKey } from "./text.ts";
 import { oddsText } from "./words.ts";
@@ -179,12 +181,13 @@ export function CallDaySheet({ state, onClose, commit }: CommitProps) {
 }
 
 export function UpgradeSheet({ state, upgrade, onClose, commit }: CommitProps & { upgrade: UpgradeId }) {
+  if (upgrade === "crown") return <CrownSheet state={state} onClose={onClose} commit={commit} />;
   const name = upgradeName(upgrade);
   const cost = money(UPGRADE_COST[upgrade]);
   return (
     <Sheet label={name} onClose={onClose}>
       <h2>{name}</h2>
-      <p>{t(`upgrade.${upgrade}.what`, { pockets: RULES.coatPockets, from: RULES.pockets })}</p>
+      <p>{t(`upgrade.${upgrade}.what`, { pockets: RULES.coatPockets, from: RULES.pockets, takings: money(PINCH.crownTakings) })}</p>
       <button
         type="button"
         className="commit"
@@ -193,6 +196,39 @@ export function UpgradeSheet({ state, upgrade, onClose, commit }: CommitProps & 
       >
         {t("upgrade.commit", { name: name.toLowerCase(), cost })}
       </button>
+    </Sheet>
+  );
+}
+
+/** The Crown & Anchor: Old Reg's dossier and the first chapter's choice. */
+function CrownSheet({ state, onClose, commit }: CommitProps) {
+  const cost = money(UPGRADE_COST.crown);
+  return (
+    <Sheet label={upgradeName("crown")} onClose={onClose} className="card">
+      <div className="dossier">
+        <Portrait who="reg" />
+        <div className="dossier-text">
+          <p className="dossier-who">{t("crown.who")}</p>
+          <p>{t("crown.story", { cost })}</p>
+        </div>
+      </div>
+      <div className="choices">
+        <button
+          type="button"
+          className="choice-card"
+          disabled={state.cash < UPGRADE_COST.crown}
+          onClick={() => commit({ type: "buyUpgrade", upgrade: "crown" })}
+        >
+          <span className="choice-title">{t("crown.buy")}</span>
+          <span className="action-chips">
+            <Chip warn>{t("chip.cost", { amount: cost })}</Chip>
+            <Chip>{t("paper.chip.pub", { amount: money(PINCH.crownTakings) })}</Chip>
+          </span>
+        </button>
+        <button type="button" className="choice-card" onClick={onClose}>
+          <span className="choice-title">{t("crown.notYet")}</span>
+        </button>
+      </div>
     </Sheet>
   );
 }

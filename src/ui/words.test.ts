@@ -1,7 +1,7 @@
-import { newGame, type DomainEvent, type GameState } from "../sim/index.ts";
+import { CARD_IDS, CARDS, newGame, type DomainEvent, type GameState, type Paper } from "../sim/index.ts";
 import { atLeast, below, play, rngWhere } from "../sim/testing.ts";
-import { t } from "./text.ts";
-import { briefs, oddsWord, paperView, resultLines } from "./words.ts";
+import { hasText, t } from "./text.ts";
+import { briefs, cardKeys, choiceChips, exhibits, oddsWord, paperView, pinchLine, resultLines } from "./words.ts";
 
 const noPlaceholders = (lines: string[]) => {
   for (const line of lines) expect(line).not.toMatch(/[{}]/);
@@ -66,5 +66,139 @@ describe("what the player reads", () => {
 
   it("puts odds into words", () => {
     expect([90, 65, 50, 30, 10].map(oddsWord)).toEqual(["likely", "good", "even", "poor", "long"]);
+  });
+});
+
+describe("cards", () => {
+  it("have every line they need", () => {
+    for (const id of CARD_IDS) for (const key of cardKeys(id)) expect(hasText(key), key).toBe(true);
+  });
+
+  it("show their effects as chips: solid when certain, dashed with odds when a chance", () => {
+    const s = newGame(1, "words");
+    s.cash = 400;
+    const [hand, stand, run] = CARDS.mugger.choices;
+    expect(choiceChips(s, hand!, null).map((c) => [c.text, c.kind])).toEqual([["−$50", "certain"]]);
+    expect(choiceChips(s, stand!, 50).map((c) => [c.text, c.kind])).toEqual([
+      ["even odds", "chance"],
+      ["Nerve +2", "chance"],
+      ["−$120", "chance"],
+    ]);
+    expect(choiceChips(s, run!, null).map((c) => c.text)).toEqual(["1 h"]);
+    expect(choiceChips(s, CARDS.terry.choices[0]!, null).map((c) => c.text)).toEqual(["−$90", "+20 cartons of smokes"]);
+  });
+
+  it("leave a line naming what changed", () => {
+    const e: DomainEvent = {
+      type: "cardResolved",
+      card: "terry",
+      choice: "buy",
+      won: null,
+      cash: -45,
+      goods: { smokes: 10, tapes: 0, watches: 0, fireworks: 0 },
+      places: null,
+    };
+    expect(resultLines([e], newGame(1, "words"))).toEqual(["10 cartons of smokes for $45. Terry's gone before you can count them."]);
+  });
+});
+
+describe("the paper", () => {
+  const paper = (edit: (p: Paper) => void): Paper => {
+    const { state } = play(newGame(1, "words"), { type: "callItADay" });
+    const p = structuredClone(state.paper!);
+    edit(p);
+    return p;
+  };
+  const kase = { n: 1, place: "uptown" as const, habit: "watches" as const, announced: 5, places: ["uptown" as const], caught: false };
+
+  it("leads with a milestone, then Pinch, then an arrest", () => {
+    const pinch = (p: Paper) => {
+      p.day = 5;
+      p.pinch = [{ kind: "announced", case: kase }];
+      p.case = kase;
+    };
+    expect(paperView(paper((p) => {
+      pinch(p);
+      p.firsts = ["coat"];
+    })).head).toBe("Big coat, bigger plans");
+    const view = paperView(paper(pinch));
+    expect(view.head).toBe("Pinch exposes the Uptown Watch Cartel");
+    expect(view.story).toBe("Operation Kipper hits Uptown on day 7 and day 8. “They won't see it coming,” says Pinch, who has just told them.");
+    expect(paperView(paper((p) => {
+      p.log.arrested = true;
+      p.log.fine = 50;
+    })).head).toBe("Nicked!");
+  });
+
+  it("keeps an unseen midday item when a bigger story leads", () => {
+    const view = paperView(paper((p) => {
+      p.day = 3;
+      p.pinch = [{ kind: "intro" }];
+      p.unseenMidday = { id: "d3-midday", slot: "midday", startDay: 3, startHour: 16, endDay: 4, activated: true, kind: "harmless", line: "parade" };
+    }));
+    expect(view.head).toBe("New man on the beat");
+    expect(view.briefs).toContain("A brass band parade. Everyone's watching the tuba.");
+  });
+
+  it("keeps an unseen midday item ahead of three Pinch briefs under the cap", () => {
+    const past = { n: 1, place: "uptown" as const, habit: "watches" as const, outcome: "cold" as const, day: 26 };
+    const view = paperView(paper((p) => {
+      p.day = 26;
+      p.firsts = ["arrest"];
+      p.log.arrested = true;
+      p.log.fine = 50;
+      p.pinch = [{ kind: "cold", case: past }, { kind: "promoted" }, { kind: "announced", case: kase }, { kind: "credit" }];
+      p.unseenMidday = { id: "d26-midday", slot: "midday", startDay: 26, startHour: 16, endDay: 27, activated: true, kind: "sweep", place: "uptown" };
+    }));
+    expect(view.head).toBe("Nicked!");
+    expect(view.briefs).toHaveLength(3);
+    expect(view.briefs[0]).toBe("Police sweep uptown until tomorrow night.");
+  });
+
+  it("warns of an operation the night before, and leads a quiet day with its best sale", () => {
+    const view = paperView(paper((p) => {
+      p.day = 6;
+      p.case = kase;
+      p.unseenMidday = null;
+      p.tomorrow = [];
+      p.log.best = { good: "tapes", units: 12, proceeds: 240, place: "strip" };
+    }));
+    expect(view.head).toBe("Tapes fly on the Strip");
+    expect(view.story).toBe("12 tapes gone for $240, and nobody the wiser.");
+    expect(view.briefs).toEqual(["Tomorrow: Operation Kipper uptown. Pinch can't be bought."]);
+  });
+
+  it("is bylined by Lenny and carries Old Reg's worries until the pub is sold", () => {
+    expect(paperView(paper((p) => (p.day = 4))).briefs).toContain("Old Reg of the Crown & Anchor: “$2,500 and she's yours. Please.”");
+    expect(paperView(paper((p) => {
+      p.day = 4;
+      p.crown = true;
+    })).briefs.some((b) => b.includes("Reg"))).toBe(false);
+  });
+});
+
+describe("the People tab", () => {
+  it("pins each milestone as an exhibit, in order, with Pinch's reading", () => {
+    const s = newGame(1, "words");
+    s.milestones.firsts = { coat: 4, sale: 1 };
+    s.milestones.best = { day: 3, takings: 640 };
+    expect(exhibits(s)).toEqual([
+      { letter: "A", what: "A first sale, day 1.", reading: "The Opening Move of a Vast Criminal Enterprise." },
+      { letter: "B", what: "A $640 day, day 3.", reading: "Laundering on an Industrial Scale." },
+      { letter: "C", what: "A larger coat, day 4.", reading: "Significant Expansion of Distribution Capacity." },
+    ]);
+  });
+
+  it("says what Pinch is up to", () => {
+    const s = newGame(1, "words");
+    expect(pinchLine(s)).toBe("Hasn't noticed you. Yet.");
+    s.day = 6;
+    s.detective.case = { n: 2, place: "docks", habit: "oddJob", announced: 5, places: ["docks"], caught: false };
+    expect(pinchLine(s)).toBe("Operation Winkle: The Docks Odd-Job Syndicate. The Docks, day 7 and day 8.");
+  });
+
+  it("lets Mags voice what asking around turns up", () => {
+    const { state, events } = play(newGame(1, "words"), { type: "askAround" });
+    expect(resultLines(events, state)[0]).toMatch(/^Mags: “Word is .*”$/);
   });
 });

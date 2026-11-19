@@ -4,6 +4,7 @@ import {
   callHeat,
   has,
   hoursLeft,
+  operationOn,
   ringDistance,
   type Action,
   type DomainEvent,
@@ -12,7 +13,7 @@ import {
 } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
 import { eventAt, knownPrice, sweepAt, type PriceView } from "./known.ts";
-import { goodValues, money, placeName, t } from "./text.ts";
+import { codename, goodValues, money, placeName, t } from "./text.ts";
 import { resultLines, rumourLine, seenText } from "./words.ts";
 
 interface CityProps {
@@ -67,6 +68,7 @@ function PlaceCard({ state, place, onGo }: { state: GameState; place: PlaceId; o
     .filter((x): x is NonNullable<PriceView["seen"]> => x !== null)
     .sort((a, b) => b.day - a.day || b.hour - a.hour)[0];
   const notes: { text: string; warn: boolean }[] = [];
+  if (operationOn(state, place)) notes.push({ text: t("note.operation", { Codename: codename(state.detective.case?.n ?? 1) }), warn: true });
   if (sweepAt(state, place)) notes.push({ text: t("note.sweep"), warn: true });
   for (const g of GOODS) {
     const e = eventAt(state, place, g);

@@ -8,6 +8,7 @@ import {
   GOOD,
   GOODS,
   HARMLESS,
+  PINCH,
   PLACE,
   PLACES,
   RULES,
@@ -17,7 +18,7 @@ import {
   type SkillId,
 } from "./content.ts";
 import type { Rng } from "./rng.ts";
-import type { Cell, GameState, MarketKind, PerGood, PerPlace, Rumour, WorldEvent } from "./state.ts";
+import type { Cell, GameState, MarketKind, OpenCase, PerGood, PerPlace, Rumour, WorldEvent } from "./state.ts";
 
 export const clamp = (x: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, x));
 const atLeast1 = (x: number): number => Math.max(1, Math.round(x));
@@ -26,7 +27,7 @@ export const level = (xp: number): number => RULES.levels.filter((t) => xp >= t)
 export const skill = (s: GameState, id: SkillId): number => level(s.xp[id]);
 
 /** Absolute hour, for comparing times across days. */
-const at = (day: number, hour: number): number => day * 24 + hour;
+export const at = (day: number, hour: number): number => day * 24 + hour;
 const startOf = (e: WorldEvent): number => at(e.startDay, e.startHour);
 const endOf = (e: WorldEvent): number => at(e.endDay, RULES.dayEnd);
 
@@ -53,8 +54,24 @@ export function price(s: GameState, place: PlaceId, good: GoodId): number {
   return atLeast1(cell.baseline * (ev.kind === "shortage" ? RULES.shortage.price : RULES.glut.price));
 }
 
+/** The first day of a case's operation; it runs from 10:00 that day for `PINCH.operationDays` days. */
+export const operationStart = (c: OpenCase): number => c.announced + PINCH.warning;
+export const operationWindow = (c: OpenCase): [number, number] => [
+  at(operationStart(c), RULES.dayStart),
+  at(operationStart(c) + PINCH.operationDays - 1, RULES.dayEnd),
+];
+
+/** Pinch's operation is on at this place today. */
+export function operationOn(s: GameState, place: PlaceId): boolean {
+  const c = s.detective.case;
+  if (!c || !c.places.includes(place)) return false;
+  const start = operationStart(c);
+  return s.day >= start && s.day < start + PINCH.operationDays;
+}
+
+/** A sweep and an operation never overlap, so a place's police factor doubles at most once. */
 export const police = (s: GameState, place: PlaceId): number =>
-  PLACE[place].police * (sweepOn(s, place) ? RULES.sweepPolice : 1);
+  PLACE[place].police * (sweepOn(s, place) ? RULES.sweepPolice : operationOn(s, place) ? PINCH.police : 1);
 
 /** The city's usual price for a good: base × the mean place factor. Hints compare against it. */
 export const usualPrice = (good: GoodId): number =>
@@ -166,9 +183,17 @@ function freePairs(s: GameState, start: number, end: number): { place: PlaceId; 
   return out;
 }
 
+/** A sweep covers this place at some time in [start, end]. */
+export const sweepCovers = (s: GameState, place: PlaceId, start: number, end: number): boolean =>
+  s.events.some((e) => e.kind === "sweep" && e.place === place && overlaps(e, start, end));
+
+/** Places a sweep may cover in [start, end]: no sweep there and no operation, under the overlap rule. */
 function freePlaces(s: GameState, start: number, end: number): PlaceId[] {
+  const c = s.detective.case;
+  const [opStart, opEnd] = c ? operationWindow(c) : [0, -1];
   return PLACES.filter(
-    (place) => !s.events.some((e) => e.kind === "sweep" && e.place === place && overlaps(e, start, end)),
+    (place) =>
+      !sweepCovers(s, place, start, end) && !(c?.places.includes(place) && opStart <= end && start <= opEnd),
   );
 }
 

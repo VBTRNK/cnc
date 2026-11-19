@@ -218,7 +218,7 @@ fieldset.choices {
   left: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--newsprint);
   border-top: var(--rule);
@@ -1131,4 +1131,97 @@ fieldset.choices {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---- People: Pinch's board and the cast ------------------------------------------- */
+
+.board {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  background: var(--manila);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.board-head {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.board-head h1 {
+  font-family: var(--body);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.exhibits,
+.cases {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.exhibit,
+.case {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--ink-muted);
+  background: var(--sheet);
+}
+
+.exhibit-letter {
+  font-family: var(--display);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.exhibit-reading {
+  font-style: italic;
+}
+
+.case {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cases-older {
+  margin-top: 0.75rem;
+  font-style: italic;
+}
+
+.case .stamp {
+  font-size: 1.125rem;
+}
+
+.cast {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.cast-member {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.cast-member h2 {
+  font-family: var(--body);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.portrait-small {
+  padding: 0.3rem 0.3rem 0;
+}
+
+.byline {
+  margin-top: 0.25rem;
+  font-style: italic;
+  color: var(--ink-muted);
 }
