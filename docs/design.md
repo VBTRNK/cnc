@@ -208,10 +208,10 @@ the same: what is the best use of my next few hours?
 - **Difficulty.** The first release (local first playable and persistent MVP) has one
   forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
   Hard mode comes after the persistent MVP, chosen at the start of a run and fixed for it.
-- **To verify.** The simulation's strategy runs (`npm run strategies`) measure these rules;
-  their results are in the tracking issue (#8). Phone play (S5) checks the 2-4 minute day,
-  whether stops feel explainable, whether the first purchase is a real choice, and whether
-  it is fun.
+- **Measuring.** The simulation's strategy runs (`npm run strategies`) measure these rules;
+  their results are in the decisions log and the tracking issue (#8). Play on a phone judges
+  the 2-4 minute day, whether stops feel explainable, whether the first purchase is a real
+  choice, and whether it is fun.
 
 ## The detective, events and cast
 
@@ -318,11 +318,11 @@ tally, and what people feel is in their authored lines.
   Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
   player drinks: each night adds 2 to his tally for the Strip. After the Crown, money buys
   false trails, bribes and a margin; further purchases come with #18, #19 and #7.
-- **To verify** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
-  card's value per choice): about three cases in 20 days; what an operation costs a trader
-  who ignores it against one who avoids it; the Crown around day 16 for a median trader;
-  every encounter a real choice in some state and none a dominant earner. Results are in
-  the tracking issue (#8) and ADR-011.
+- **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
+  card's value per choice): three cases in 20 days; ignoring an operation costs a trader no
+  wealth but about one arrest in four runs; the Crown on day 16-17 for a median trader;
+  every encounter a real choice in some state and none a dominant earner. The numbers are in
+  ADR-011.
 
 ## Look and feel
 
@@ -354,15 +354,18 @@ tally, and what people feel is in their authored lines.
   chance, and a dashed chip with a question mark is unknown.
 - **Newspaper.** A masthead, one headline with a short story, a few one-line briefs, the
   day's totals as chips, and one button that starts the next day.
-- **Portraits** are ink silhouettes or drawings on a halftone ground.
+- **Portraits** are tabloid-cartoon caricatures on a halftone ground in a thin ink frame:
+  brush-ink outlines, Ben-Day dot shadows, sheet and newsprint fills and one spot of red. Each
+  outline tells who it is (Pinch's trilby and monocle, Lenny's fedora and press card, Mags's
+  curls, Old Reg's tufts and apron, the copper's helmet, a stranger's flat cap).
 - **Tone of voice.** Dry, punning tabloid. Text is scarce: a line stays only if it informs a
   decision or adds character. No headings or labels that restate what the screen shows.
 
 ## Release steps
 
 1. **Local first playable:** the solo loop, upgrades and recovery, minimal news, a local
-   save, the install manifest. No account. A prototype, not a release.
-2. **Persistent MVP:** adds the detective's chain (habit, theory, warned operation,
+   save, the install manifest. No account. A prototype, superseded by step 2.
+2. **Persistent MVP,** live at https://cnc.vibetrunk.com: adds the detective's chain (habit, theory, warned operation,
    consequence, resolution), a modest pool of authored events, a small cast with authored
    personalities, the newspaper as the story of the run, and cloud saves by code. It
    has no general scheme system, no general opinion system and no earned-trait system.
@@ -386,15 +389,18 @@ tally, and what people feel is in their authored lines.
   language.
 - The interface (`src/ui`) renders snapshots from a session (`src/game/session.ts`) and
   sends it actions; it never advances the world itself. Every line of text is a keyed
-  template in `src/ui/text.ts`. The fonts come from pinned Fontsource packages and are
-  bundled as same-origin files.
+  template in `src/ui/text.ts`. The fonts come from pinned Fontsource packages and the
+  portraits are SVG files in `src/ui/portraits/`; both are bundled as same-origin files.
 - The Content-Security-Policy keeps the scaffold's strict baseline. Scripts and styles load
   from this origin only; the one added connection is the Supabase project's HTTPS origin.
   Allowances are per origin, never a wildcard. Motion uses CSS classes; nothing may inject
   styles at runtime.
 - Tests run the simulation without a browser. Focused checks cover what those cannot: save
-  handling, cloud sync, browser flows, and the production build under its real
-  headers.
+  handling, cloud sync, and the production build under its real headers in a browser
+  (`npm run browser-check`): touch and keyboard flows on a phone and a desktop, old,
+  future, corrupt and unwritable saves, and an accessibility audit of every screen and
+  sheet (controls at least 48 px high, no text under 14 px, text contrast of 4.5:1 or 3:1
+  when large, reflow at 320 px, a visible focus at every stop, no motion when reduced).
 - The game ships a web app manifest and icons, so supporting browsers can install it.
   Installing does not by itself make the game start without a network.
 

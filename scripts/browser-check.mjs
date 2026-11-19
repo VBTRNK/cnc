@@ -293,11 +293,203 @@ try {
   check("future save shows the newer-save screen", (await text(".headline")) === "A newer save");
   check("future save untouched", (await evaluate(`localStorage.getItem("cnc.save")`)) === future);
 
-  // ---- Desktop width ----------------------------------------------------------------------
+  // ---- Acceptance: every screen and sheet against M4 on a phone ------------------------------
+  // Controls at least 48 px high (44 wide), no text under 14 px, text contrast 4.5:1 (3:1 when
+  // large), and reflow at 320 px without sideways scrolling. Inside an open modal only the
+  // dialog counts; disabled controls are exempt from contrast, as in WCAG.
+  const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, mobile: true };
+  const AUDIT = `(() => {
+    const visible = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none"; };
+    const name = (e) => (e.getAttribute("aria-label") || e.textContent || e.tagName).trim().replace(/\\s+/g, " ").slice(0, 30);
+    const modal = [...document.querySelectorAll("dialog")].find((d) => d.open && d.matches(":modal"));
+    const root = modal ?? document.body;
+    const rgba = (c) => { const n = c.match(/[\\d.]+/g).map(Number); return { r: n[0], g: n[1], b: n[2], a: n.length > 3 ? n[3] : 1 }; };
+    const over = (top, under) => ({ r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 });
+    const background = (e) => {
+      const layers = [];
+      for (let el = e; el; el = el.parentElement) {
+        const c = rgba(getComputedStyle(el).backgroundColor);
+        if (c.a > 0) layers.push(c);
+        if (c.a >= 1) break;
+      }
+      let bg = { r: 255, g: 255, b: 255, a: 1 };
+      for (const c of layers.reverse()) bg = over(c, bg);
+      return bg;
+    };
+    const lum = ({ r, g, b }) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+    const small = [], tiny = new Set(), faint = new Set();
+    let controls = 0, runs = 0;
+    for (const e of root.querySelectorAll("button, a[href], input, select, textarea, summary")) {
+      // A visually hidden file input is worked by the button that labels it.
+      if (!visible(e) || e.closest(".visually-hidden")) continue;
+      controls++;
+      const r = e.getBoundingClientRect();
+      if (r.height < 47.5 || r.width < 44) small.push(name(e) + " " + Math.round(r.width) + "x" + Math.round(r.height));
+    }
+    const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const e = n.parentElement;
+      if (!n.textContent.trim() || !e || !visible(e) || e.closest(".visually-hidden")) continue;
+      runs++;
+      const cs = getComputedStyle(e);
+      const size = parseFloat(cs.fontSize);
+      if (size < 13.9) tiny.add(name(e) + " " + size + "px");
+      if (e.closest(":disabled, [aria-disabled='true']")) continue;
+      const fg = over(rgba(cs.color), background(e));
+      const need = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 700) ? 3 : 4.5;
+      const got = ratio(fg, background(e));
+      if (got < need) faint.add(name(e) + " " + got.toFixed(2) + ":1");
+    }
+    return { controls, runs, small, tiny: [...tiny], faint: [...faint] };
+  })()`;
+  const audit = async (screen) => {
+    await sleep(250);
+    const a = await evaluate(AUDIT);
+    log.push(`  ${screen}: ${a.controls} controls, ${a.runs} runs of text measured`);
+    check(`${screen}: something to measure`, a.controls > 0 && a.runs > 0);
+    check(`${screen}: controls 48 px`, a.small.length === 0, a.small.join("; "));
+    check(`${screen}: no text under 14 px`, a.tiny.length === 0, a.tiny.join("; "));
+    check(`${screen}: text contrast`, a.faint.length === 0, a.faint.join("; "));
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
+    await sleep(250);
+    check(`${screen}: reflows at 320 px`, await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), await evaluate(`document.documentElement.scrollWidth + "px"`));
+    await s("Emulation.setDeviceMetricsOverride", PHONE);
+    await sleep(150);
+  };
+
+  await store({ ...sim.newGame(5, "audit"), day: 2 });
+  await reload();
+  await audit("Street");
+  await tap("button.good", "Untaxed smokes");
+  await audit("trade sheet");
+  await key("Escape", "Escape", 27);
+  await tap(".tabs button", "City");
+  await audit("City");
+  await store({ ...op, cash: 3000 });
+  await reload();
+  await tap(".tabs button", "Me");
+  await audit("Me");
+  await tap(".upgrade button", "$2,500");
+  await snap("crown-sheet");
+  check("the Crown sheet shows Old Reg", /Old Reg/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
+  await audit("Crown sheet");
+  await key("Escape", "Escape", 27);
+  await tap(".save-line button", "Save and run");
+  await audit("save sheet");
+  await key("Escape", "Escape", 27);
+  await tap(".tabs button", "People");
+  check("every portrait is a same-origin image", await evaluate(`(() => { const i = [...document.querySelectorAll(".portrait img")]; return i.length === 4 && i.every(p => p.complete && p.naturalWidth > 0 && new URL(p.src).origin === location.origin); })()`));
+  await audit("People");
+  await store({ ...sim.newGame(3, "cardaudit"), cash: 400, pending: { kind: "card", card: "mugger", odds: 50 } });
+  await reload();
+  await audit("encounter card");
+  await store(pinched.state);
+  await reload();
+  await audit("Pinch's stop");
+  await store(testing.play(sim.newGame(6, "paperaudit"), { type: "callItADay" }).state);
+  await reload();
+  await audit("paper");
+  await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(nickedText)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(nickedText)})`);
+  await reload();
+  await audit("cells");
+
+  // ---- Reduced motion, and no result that dismisses itself ----------------------------------
+  // Day 1 at the Docks: 8 tapes for $120, then 3 watches with what is left.
+  await store(sim.newGame(7, "motion"));
+  await reload();
+  const sheetMotion = `getComputedStyle(document.querySelector("dialog.sheet")).animationName`;
+  await tap("button.good", "Bootleg tapes");
+  check("a sheet rises by default", (await evaluate(sheetMotion)) !== "none", await evaluate(sheetMotion));
+  await tap("dialog .commit");
+  await sleep(6000);
+  check("the result line is still there after 6 s", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
+  await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await tap("button.good", "Knock-off watches");
+  check("reduced motion: the sheet doesn't move", (await evaluate(sheetMotion)) === "none", await evaluate(sheetMotion));
+  await tap("dialog .commit");
+  await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(nickedText)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(nickedText)})`);
+  await reload();
+  check("reduced motion: the bars don't drop", await evaluate(`[...document.querySelectorAll(".cells *")].every(e => getComputedStyle(e).animationName === "none")`));
+  await s("Emulation.setEmulatedMedia", { features: [] });
+
+  // ---- T7: no rerolls, an old save, a write that fails ------------------------------------------
+  await store({ ...sim.newGame(8, "reroll"), day: 2 });
+  await reload();
+  const prices = `[...document.querySelectorAll("button.good")].map(b => b.textContent).join("|")`;
+  const before = await evaluate(prices);
+  await reload();
+  check("reload rerolls no price", (await evaluate(prices)) === before, before);
+
+  // A version 2 save (before the detective) holding 10 smokes; then 8 tapes, then 1 watch.
+  const v2state = structuredClone(testing.play(sim.newGame(9, "v2"), { type: "buy", good: "smokes", units: 10 }).state);
+  for (const k of ["detective", "milestones", "cards", "flags"]) delete v2state[k];
+  delete v2state.today.pub;
+  delete v2state.today.best;
+  const v2 = JSON.stringify({ format: sim.SAVE_FORMAT, version: 2, state: v2state });
+  await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
+  await reload();
+  check("an old save opens where it was", (await text("button.good .held")) === "10", await text("button.good"));
+  check("and its original is kept", (await evaluate(`localStorage.getItem("cnc.save.kept")`)) === v2);
+  check("and it is saved as the current version", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).version`)) === sim.SAVE_VERSION);
+
+  await evaluate(`window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); }`);
+  await tap("button.good", "Bootleg tapes");
+  await tap("dialog .commit");
+  await snap("write-failed");
+  check("a failed write is shown", /out of room/.test(await text(".banner-warn") ?? ""), await text(".banner-warn"));
+  check("with export beside it", await evaluate(`!!document.querySelector(".banner-warn button")`));
+  check("and play goes on", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
+  await evaluate(`Storage.prototype.setItem = window.__setItem`);
+  await tap("button.good", "Knock-off watches");
+  await tap("dialog .commit");
+  check("the next write clears it", await evaluate(`!document.querySelector(".banner-warn")`));
+  check("and stores the run in play", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).state.cash`)) === Number((await text(".cash")).replace(/[^\d]/g, "")), await text(".cash"));
+
+  // ---- Desktop: the wide layout and a keyboard-only day ---------------------------------------
   await evaluate(`localStorage.clear()`);
+  await s("Emulation.setTouchEmulationEnabled", { enabled: false });
   await s("Emulation.setDeviceMetricsOverride", { width: 1280, height: 860, deviceScaleFactor: 1, mobile: false });
   await reload();
   await snap("desktop");
+  const layout = await evaluate(`(() => { const m = document.querySelector(".screen").getBoundingClientRect(), r = document.querySelector(".rail").getBoundingClientRect(); return { main: Math.round(m.width), beside: r.right <= m.left }; })()`);
+  check("desktop: a bounded main column with status beside it", layout.main <= 608 && layout.beside, JSON.stringify(layout));
+  const unringed = [];
+  /** Tabs forward until the focused element matches, checking each stop shows its focus. */
+  const tabTo = async (selector, label = "") => {
+    for (let i = 0; i < 60; i++) {
+      await key("Tab", "Tab", 9);
+      const f = await evaluate(`(() => { const e = document.activeElement, cs = getComputedStyle(e);
+        return { hit: e.matches(${JSON.stringify(selector)}) && (e.textContent + (e.getAttribute("aria-label") ?? "")).includes(${JSON.stringify(label)}),
+          ring: (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) >= 2) || cs.boxShadow !== "none", name: e.tagName + "." + e.className + " " + (e.textContent ?? "").trim().slice(0, 30) }; })()`);
+      // Tab past the last control leaves the page (focus on BODY) before it wraps round.
+      if (!f.ring && !f.name.startsWith("BODY.")) unringed.push(f.name);
+      if (f.hit) return true;
+    }
+    throw new Error(`Tab never reached ${selector} "${label}"`);
+  };
+  const enter = async () => { await key("Enter", "Enter", 13); await sleep(250); };
+  await tabTo("button.good", "Untaxed smokes"); await enter();
+  await tabTo("dialog .commit"); await enter();
+  check("keyboard: buy", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
+  await tabTo(".tabs button", "City"); await enter();
+  await tabTo("button.go", "The Strip"); await enter();
+  check("keyboard: travel", (await text(".place-name")) === "The Strip", await text(".place-name"));
+  await tabTo("button.good", "Untaxed smokes"); await enter();
+  await tabTo("dialog .commit"); await enter();
+  if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand it over"); await enter(); }
+  check("keyboard: sell", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
+  await tabTo("button.action", "Call it a day"); await enter();
+  await tabTo("dialog .commit"); await enter();
+  await tabTo(".paper .commit", "Start day 2"); await enter();
+  check("keyboard: a whole day to the next morning", /Day 2/.test(await text(".daybar")), await text(".daybar"));
+  await store({ ...sim.newGame(3, "cardkeys"), cash: 400, pending: { kind: "card", card: "mugger", odds: 50 } });
+  await reload();
+  check("keyboard: focus starts inside the card", await evaluate(`!!document.activeElement.closest("dialog.card")`), await focused());
+  await tabTo("dialog.card .choice-card", "Run"); await enter();
+  check("keyboard: a card's choice", /You run/.test(await text(".result") ?? ""), await text(".result"));
+  check("keyboard: every focus stop is visible", unringed.length === 0, [...new Set(unringed)].join("; "));
+  await snap("desktop-keyboard");
   // ---- Text zoom 200% on a phone -----------------------------------------------------------
   await s("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await evaluate(`document.documentElement.style.fontSize = "200%"`);
@@ -310,6 +502,9 @@ try {
   log.push(problems.length ? `Console/CSP problems:\n  ${problems.join("\n  ")}` : "No console errors or CSP violations.");
   log.push(`Screenshots: ${OUT}`);
   console.log(log.join("\n"));
+  // Closing over the protocol ends the whole browser; killing the launcher alone leaves
+  // Edge's processes running on Windows, holding the port and the game's save lock.
+  await Promise.race([send("Browser.close").catch(() => {}), sleep(2000)]);
   ws.close();
   edge.kill();
   const failed = problems.length > 0 || log.some((line) => /^(FAIL|ERROR)/.test(line));

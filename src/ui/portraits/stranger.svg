@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140">
+  <!-- stranger, Set A, Tabloid cartoon -->
+  <defs><pattern id="tone" patternUnits="userSpaceOnUse" width="4.4" height="4.4"><circle cx="1.1" cy="1.1" r="1" fill="#16140F"/><circle cx="3.3" cy="3.3" r="0.8" fill="#16140F"/></pattern></defs>
+  <path d="M8 141q4-23 19-34l16-9 32-8 22 13q13 9 16 38Z" fill="#E6E3DA" stroke="#16140F" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M41 91l40-8 9 21-25 37H45Z" fill="#A3140D" stroke="#16140F" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M28 79l21 17 9 23-9 21H8q4-28 27-38Zm57 14 6-21 12 13-7 19q16 11 17 37H66l7-13-3-10Z" fill="#16140F" stroke="#16140F" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 86l13 13 7 19m42-37 5 5-7 19m-74 20 12-13m67 2 9 14" fill="none" stroke="#F7F5EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M15 136q7-15 16-18l14 22H13Zm74 4 7-15 8 4 5 11Z" fill="url(#tone)"/>
+  <path d="M31 55l8-15 35-4 12 12 3 14 7 12-9 5q-2 12-11 19-8 4-22-4-14-8-21-22-10-1-11-9-1-8 9-8Z" fill="#F7F5EE" stroke="#16140F" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M23 58q5-4 14 0l7 14q7 18 22 23-19 0-33-23-11-1-11-11Z" fill="url(#tone)"/>
+  <path d="M29 53l57-12 3 20-17-7-11 5-14 7-11 3-4-7Z" fill="#16140F"/>
+  <path d="M27 62q2-3 6 1m22 1q5-5 12-4m9-2q4-4 9-1m-12 5 6 10-5 3" fill="none" stroke="#16140F" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="63" cy="62" r="1.6" fill="#16140F"/>
+  <circle cx="82" cy="59" r="1.5" fill="#16140F"/>
+  <path d="M47 70q11-8 18-7-6 3-10 7Zm19 12q8-5 17-4l-2 3q-9 1-14 4Z" fill="#16140F"/>
+  <path d="M68 90q6 1 10-3m-19-12 3-2m-1 15 2 1m0-4 2 2m-7-4 2 2" fill="none" stroke="#16140F" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 78l20-2 1 4-20 1Z" fill="#F7F5EE" stroke="#16140F" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 76h3v4h-3Z" fill="#A3140D"/>
+  <path d="M22 52q-5-17 11-28 9-7 28-7 16-1 26 9l10 14-23 14-48 6Z" fill="#16140F" stroke="#16140F" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M40 52q13-11 39-17 17-4 33 7 4 4-5 7-16 2-28 5-20 5-41 5Z" fill="#16140F" stroke="#16140F" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M26 49q5-26 37-28m-29 24q8-13 30-19m8-2q11 2 16 9m-39 21q25-12 50-12" fill="none" stroke="#F7F5EE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M41 52q21-13 45-17l7 1q-29 6-45 17Z" fill="#A3140D"/>
+</svg>
