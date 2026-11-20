@@ -152,7 +152,7 @@ Date: 2026-11-18
 - Context: the first phone play of the local playable found the burner phone
   too strong (every price, live, for free), the bribe a sure thing, and
   sales without their profit.
-- Phone: an active *Ring round* (0 h) that notes every place's price now,
+- Phone: an active *Call around* (0 h) that notes every place's price now,
   for heat 5 × the call's number today. Measured (400 seeds × 20 days,
   median wealth on day 20): no phone $5.8k; one call a day $6.5k; two
   $6.0k; a call before every move $4.2k. The phone pays when used sparingly.
@@ -382,3 +382,46 @@ Date: 2026-11-20. Issue #28; the larger margins belong to intercity trade (#19).
   format change for a one-time effect.
 - The Crown's price and the 17-day target (ADR-011) are not retuned here; they
   wait for the playtest and #19.
+
+## ADR-013 — Compact screens: one frame, a narrow layout, shared treatments
+
+Date: 2026-11-20. Issue #29; the design canvas (round 5) and its "Shared rules"
+are the source, `docs/design.md` "Look and feel" the contract.
+
+- Context: the phone playtest found the four screens hard to scan, and #18
+  will bring many more goods. With large text Street showed no goods on
+  arrival and City no prices.
+- The last move's result moves to a strip at the foot of the status rail, on
+  every screen (it was under Street's place name, and City's call result sat
+  under its button). It stays in view: with the rail where the rail sticks,
+  on its own where the rail scrolls away. Street no longer scrolls to it.
+- Below 22.25 rem wide (356 px at default text, any phone with large text),
+  or when the rail would take over 40% of the screen, the rail scrolls away;
+  a result over 40% of the space above the tabs scrolls away as well.
+  In that narrow layout each screen leads with what the player came for:
+  Street the market, City the price table, and Me's Form stacks. The screens
+  reorder their markup, not just the paint, so focus follows reading order.
+- Moves are two-by-two controls with their hours and at most one figure line
+  (payout; odds and risk, red when real or high). Effect lines stay dropped,
+  and a move without the hours for it stays hidden, as before. Call it a day
+  is a row with a chevron; Call around takes the control form with its heat.
+- City becomes one goods-by-places table, replacing a card per place. Its
+  goods column and least width are in rem; narrower, it scrolls sideways,
+  and where no whole place column fits beside the pinned goods column, the
+  goods column scrolls too.
+- Chips are labels: a 1 px outline in a new rule tone `#837968`, no fill,
+  which dividers use too. Paper (exhibits, ads) loses its outline, so only
+  controls carry an ink outline. Kickers name sections, never the screen.
+- Good names keep to 20 characters with no part over 12, so a name fits two
+  lines in City's goods column; a Vitest test and the browser check hold it.
+- *Ring round* is now *Call around* in the game and these docs. The sim's
+  `ringRound` action and `rangRound` event keep their IDs: players never see
+  them and renaming would only churn tests.
+- The layout is proved with a 12-good test catalogue (`--mode goods12`, or
+  `CNC_CATALOGUE=test12` in Node), never deployed: the production bundle
+  holds none of it, and it is guest-only even with cloud settings, since its
+  saves hold goods the game doesn't know. Its eight extra goods are
+  placeholders; #18 chooses the real catalogue and its numbers.
+- Not taken from the owner's own Street redesign: system fonts and shifted
+  inks, 12-13 px type, a double rule under the rail, a Buy 1 / Sell 1
+  dialog, greyed-out moves without a reason, a yellow mark on held counts.

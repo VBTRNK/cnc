@@ -1,5 +1,5 @@
+import { Fragment, useCallback, useState } from "react";
 import {
-  GOODS,
   PLACES,
   callHeat,
   has,
@@ -7,126 +7,251 @@ import {
   operationOn,
   ringDistance,
   type Action,
-  type DomainEvent,
   type GameState,
+  type GoodId,
   type PlaceId,
 } from "../sim/index.ts";
-import { Chip } from "./bits.tsx";
+import { Chevron, useNarrow } from "./bits.tsx";
 import { eventAt, knownPrice, sweepAt, type PriceView } from "./known.ts";
-import { codename, goodValues, money, placeName, t } from "./text.ts";
-import { resultLines, rumourLine, seenText } from "./words.ts";
+import { goodName, goodsByName, money, placeShort, placeValues, t } from "./text.ts";
+import { rumourLine, seenText } from "./words.ts";
 
 interface CityProps {
   state: GameState;
-  events: readonly DomainEvent[];
   /** Travel: the screen moves on to Street. */
   dispatch: (action: Action) => void;
-  onRing: () => void;
+  onCall: () => void;
 }
 
-/** The four neighbourhoods: travel, and what you know of each. Unknown looks unknown. */
-export function City({ state, events, dispatch, onRing }: CityProps) {
-  const rang = events.some((e) => e.type === "rangRound");
-  return (
-    <>
-      {has(state, "phone") && (
-        <div className="ring">
-          <button type="button" className="action action-wide" onClick={onRing}>
-            <span className="action-label">{t("city.ring")}</span>
-            <span className="action-chips">
-              <Chip warn>{t("chip.heat", { heat: callHeat(state) })}</Chip>
-            </span>
-            <span className="action-detail">{t("city.ring.detail")}</span>
-          </button>
-          <div className="result-slot" role="status">
-            {rang && (
-              <p className="result">
-                <mark>{resultLines(events, state).join(" ")}</mark>
-              </p>
-            )}
-          </div>
-        </div>
+/**
+ * Every place's prices as the player knows them, goods down and places across, with the way
+ * to each place on top. Unknown looks unknown. In the narrow layout the table comes first.
+ */
+export function City({ state, dispatch, onCall }: CityProps) {
+  const narrow = useNarrow();
+  const phone = has(state, "phone");
+  const call = (phone || state.rumour) && (
+    <div className="call">
+      {phone && (
+        <button type="button" className="move move-row" onClick={onCall}>
+          <span className="move-name">{t("city.ring")}</span>
+          <span className="move-hours warn">{t("chip.heat", { heat: callHeat(state) })}</span>
+        </button>
       )}
       {state.rumour && <p className="rumour">{rumourLine(state.rumour)}</p>}
-      <ul className="places">
-        {PLACES.map((p) => (
-          <li key={p}>
-            <PlaceCard state={state} place={p} onGo={() => dispatch({ type: "travel", to: p })} />
-          </li>
-        ))}
-      </ul>
+    </div>
+  );
+  const prices = (
+    <section className="prices" aria-labelledby="k-prices">
+      <h2 className="kicker" id="k-prices">
+        {t("city.prices")}
+      </h2>
+      <PriceTable state={state} narrow={narrow} onGo={(to) => dispatch({ type: "travel", to })} />
+    </section>
+  );
+  return narrow ? (
+    <>
+      {prices}
+      {call}
+    </>
+  ) : (
+    <>
+      {call}
+      {prices}
     </>
   );
 }
 
-function PlaceCard({ state, place, onGo }: { state: GameState; place: PlaceId; onGo: () => void }) {
-  const here = place === state.place;
-  const hours = ringDistance(state.place, place);
-  const views = GOODS.map((g) => ({ good: g, view: knownPrice(state, place, g) }));
-  const newest = views
-    .map((v) => v.view.seen)
-    .filter((x): x is NonNullable<PriceView["seen"]> => x !== null)
-    .sort((a, b) => b.day - a.day || b.hour - a.hour)[0];
-  const notes: { text: string; warn: boolean }[] = [];
-  if (operationOn(state, place)) notes.push({ text: t("note.operation", { Codename: codename(state.detective.case?.n ?? 1) }), warn: true });
-  if (sweepAt(state, place)) notes.push({ text: t("note.sweep"), warn: true });
-  for (const g of GOODS) {
-    const e = eventAt(state, place, g);
-    if (e === "shortage") notes.push({ text: t("city.eventShort", goodValues(g)), warn: true });
-    if (e === "glut") notes.push({ text: t("city.eventGlut", goodValues(g)), warn: false });
-  }
+interface Column {
+  place: PlaceId;
+  here: boolean;
+  hours: number;
+  /** When its newest price was seen; null for here (live) or never seen. */
+  newest: PriceView["seen"];
+  notes: string[];
+}
+
+function column(state: GameState, place: PlaceId, goods: readonly GoodId[]): Column {
+  const newest =
+    goods
+      .map((g) => knownPrice(state, place, g).seen)
+      .filter((x): x is NonNullable<PriceView["seen"]> => x !== null)
+      .sort((a, b) => b.day - a.day || b.hour - a.hour)[0] ?? null;
+  const notes: string[] = [];
+  if (operationOn(state, place)) notes.push(t("city.head.operation"));
+  if (sweepAt(state, place)) notes.push(t("city.head.sweep"));
+  return { place, here: place === state.place, hours: ringDistance(state.place, place), newest, notes };
+}
+
+function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean; onGo: (to: PlaceId) => void }) {
+  const goods = goodsByName();
+  const cols = PLACES.map((p) => column(state, p, goods));
+  const left = hoursLeft(state);
+  // Narrow, the head scrolls away with the page, so the place names come again above the last
+  // rows: the last four, or the last half of a shorter list.
+  const tail = Math.min(4, Math.floor(goods.length / 2));
+  const repeatAt = narrow && tail > 0 ? goods.length - tail : -1;
+  const [more, setMore] = useState(true);
+  const watch = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const update = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+    // A focused Go and its focus ring scroll clear of the fixed goods column and the fade (when
+    // they are there), either way round; its left edge first, where the space is narrower.
+    const reveal = (e: FocusEvent) => {
+      if (!(e.target instanceof HTMLElement) || e.target === el) return;
+      const port = el.getBoundingClientRect();
+      const box = e.target.getBoundingClientRect();
+      const stick = el.querySelector<HTMLElement>("tbody .stick");
+      const pinned = stick && getComputedStyle(stick).position === "sticky" ? stick.getBoundingClientRect().width : 0;
+      const left = port.left + pinned;
+      const right = port.right - (el.parentElement?.querySelector(".table-fade")?.getBoundingClientRect().width ?? 0);
+      const ring = Math.max(0, Math.min(5, (right - left - box.width) / 2));
+      const r = { left: box.left - ring, right: box.right + ring };
+      if (r.left < left) el.scrollLeft -= left - r.left;
+      else if (r.right > right) el.scrollLeft += Math.min(r.right - right, r.left - left);
+    };
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    el.addEventListener("scroll", update, { passive: true });
+    el.addEventListener("focusin", reveal);
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", update);
+      el.removeEventListener("focusin", reveal);
+    };
+  }, []);
+  const hc = (c: Column) => (c.here ? "here-col" : undefined);
 
   return (
-    <article className={here ? "place-card place-here" : "place-card"}>
-      <div className="place-head">
-        <h2>{placeName(place)}</h2>
-        {here ? (
-          <span className="here">{t("city.here")}</span>
-        ) : (
-          hoursLeft(state) >= hours && (
-            <button type="button" className="go" aria-label={t("city.goLabel", { place: placeName(place), hours })} onClick={onGo}>
-              {t("city.go", { hours })}
-            </button>
-          )
-        )}
+    <div className="table-frame">
+      {/* Narrow, the table scrolls sideways: a named region with a keyboard stop of its own. */}
+      <div
+        className="table-scroll"
+        ref={narrow ? watch : undefined}
+        {...(narrow ? { role: "region", tabIndex: 0, "aria-label": t("city.tableLabel") } : {})}
+      >
+        <table className="price-table">
+          <colgroup>
+            <col className="col-goods" />
+            {cols.map((c) => (
+              <col key={c.place} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <td className="stick" />
+              {cols.map((c) => (
+                <th key={c.place} scope="col" className={c.here ? "place-head here-col" : "place-head"}>
+                  {placeShort(c.place)}
+                  {c.notes.map((n) => (
+                    <span key={n} className="head-note">
+                      {n}
+                    </span>
+                  ))}
+                </th>
+              ))}
+            </tr>
+            <tr>
+              <td className="stick" />
+              {cols.map((c) => (
+                <td key={c.place} className={c.here ? "go-cell here-col" : "go-cell"}>
+                  {c.here ? (
+                    <span className="here">
+                      <mark>{t("city.here")}</mark>
+                    </span>
+                  ) : left >= c.hours ? (
+                    <button
+                      type="button"
+                      className="go"
+                      aria-label={t("city.goLabel", { place: placeValues(c.place).place!, hours: c.hours })}
+                      onClick={() => onGo(c.place)}
+                    >
+                      <span className="go-word">{t("city.go")}</span>
+                      <span className="go-hours">{t("hours", { n: c.hours })}</span>
+                    </button>
+                  ) : (
+                    <span className="go-late">{t("city.tooLate")}</span>
+                  )}
+                </td>
+              ))}
+            </tr>
+            <tr className="seen-row">
+              <th scope="row" className="stick">
+                {t("city.seen")}
+              </th>
+              {cols.map((c) => (
+                <td key={c.place} className={hc(c)}>
+                  {c.here ? t("city.seenNow") : c.newest ? seenText(state, c.newest.day, c.newest.hour) : t("city.unseen")}
+                </td>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {goods.map((g, i) => (
+              <Fragment key={g}>
+                {i === repeatAt && (
+                  <tr className="repeat-row" aria-hidden="true">
+                    <td className="stick" />
+                    {cols.map((c) => (
+                      <td key={c.place} className={hc(c)}>
+                        {placeShort(c.place)}
+                      </td>
+                    ))}
+                  </tr>
+                )}
+                <tr>
+                  <th scope="row" className="stick">
+                    {goodName(g)}
+                  </th>
+                  {cols.map((c) => (
+                    <PriceCell key={c.place} state={state} col={c} good={g} />
+                  ))}
+                </tr>
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
       </div>
-      {notes.length > 0 && (
-        <p className="place-notes">
-          {notes.map((n) => (
-            <span key={n.text} className={n.warn ? "note-warn" : "note"}>
-              {n.text}
-            </span>
-          ))}
-        </p>
+      {/* Kept in place (hidden at the end), so a focused Go always knows the room it covers. */}
+      {narrow && (
+        <div className="table-fade" data-more={more || undefined} aria-hidden="true">
+          <Chevron />
+        </div>
       )}
-      {(here || newest) && (
-        <dl className="prices">
-          {views.map(({ good, view }) => (
-            <div key={good} className={view.price === null ? "price price-unknown" : "price"}>
-              <dt>{goodValues(good).Kind}</dt>
-              <dd>
-                <span className="money">{view.price === null ? t("city.unknownPrice") : money(view.price)}</span>
-                <span className={view.soldOut ? "price-hint note-warn" : "price-hint"}>
-                  {cellHint(state, view, newest)}
-                </span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-      {!here && (
-        <p className="seen">
-          {newest ? seenText(state, newest.day, newest.hour) : t("city.unseen")}
-        </p>
-      )}
-    </article>
+    </div>
   );
 }
 
-/** One word under a price: stock trouble, a stale age, or the price hint. */
-function cellHint(s: GameState, v: PriceView, newest: PriceView["seen"] | undefined): string {
-  if (v.soldOut) return t("note.soldOut");
-  if (v.low) return t("note.low");
-  if (v.seen && newest && v.seen.day !== newest.day) return seenText(s, v.seen.day, v.seen.hour);
-  return v.hint ? t(`hint.${v.hint}`) : "";
+function PriceCell({ state, col, good }: { state: GameState; col: Column; good: GoodId }) {
+  const v = knownPrice(state, col.place, good);
+  const hint = cellHint(state, col, good, v);
+  const cls = [col.here && "here-col", v.price === null && "unknown"].filter(Boolean).join(" ");
+  return (
+    <td className={cls || undefined}>
+      {v.price === null ? (
+        <>
+          <span aria-hidden="true">{t("city.unknownPrice")}</span>
+          <span className="visually-hidden">{t("city.unknownLabel")}</span>
+        </>
+      ) : (
+        money(v.price)
+      )}
+      {hint && <span className={hint.warn ? "cell-hint warn" : "cell-hint"}>{hint.text}</span>}
+    </td>
+  );
+}
+
+/** One word under a price: stock trouble, an event, a price older than its column's (by day or
+ * hour), or the hint. */
+function cellHint(s: GameState, col: Column, good: GoodId, v: PriceView): { text: string; warn: boolean } | null {
+  const event = eventAt(s, col.place, good);
+  if (v.soldOut) return { text: t("note.soldOut"), warn: true };
+  if (event === "shortage") return { text: t("note.short"), warn: true };
+  if (v.low) return { text: t("note.low"), warn: false };
+  if (event === "glut") return { text: t("note.glut"), warn: false };
+  if (v.price === null) return null;
+  if (v.seen && col.newest && (v.seen.day !== col.newest.day || v.seen.hour !== col.newest.hour)) {
+    return { text: seenText(s, v.seen.day, v.seen.hour), warn: false };
+  }
+  return v.hint ? { text: t(`hint.${v.hint}`), warn: false } : null;
 }

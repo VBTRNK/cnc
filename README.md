@@ -31,12 +31,16 @@ npm run preview  # the production build under the real security headers
 npm run strategies -- 20 400  # strategy runs: days, seeds (ONLY=trader,... to pick)
 npm run browser-check  # with preview running: phone and keyboard flows, saves, CSP and an
                        # accessibility audit of every screen, in headless Edge
+npm run build:goods12; npm run preview:goods12  # a local build with a 12-good test
+npm run browser-check -- --goods12              # catalogue, and the same checks on it
 ```
 
 Cloud saves need `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (see
 [`.env.example`](.env.example)) in `.env.local`; without them the build is
 guest-only and leaves a device's cloud code and its slot for a build that has them.
 A local test server (localhost) builds only with `CNC_LOCAL_CLOUD=1`.
+The 12-good test build is always guest-only, with or without them: its saves are not
+the game's and must never reach a cloud slot.
 
 ## More
 

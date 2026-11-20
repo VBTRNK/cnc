@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { RULES, heatWord, riskWord } from "../sim/index.ts";
 import { t } from "./text.ts";
 
@@ -52,3 +52,38 @@ export function Marks({ filled, total, className }: { filled: number; total: num
 }
 
 export const DAY_HOURS = RULES.dayEnd - RULES.dayStart;
+
+/** A row's or a toggle's chevron. Decorative: the control's text says what it does. */
+export function Chevron({ to = "right", className = "chev" }: { to?: "right" | "down" | "up"; className?: string }) {
+  const d = to === "right" ? "M6 3l5 5-5 5" : to === "down" ? "M3 6l5 5 5-5" : "M3 10l5-5 5 5";
+  return (
+    <svg className={className} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function CloseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+
+/**
+ * The narrow layout: below 22.25 rem wide, which is 356 px at default text or any phone with
+ * large text (docs/design.md, "Look and feel"). Keep in step with the same query in styles.css.
+ */
+export const NARROW = "(max-width: 22.24rem)";
+
+const narrowQuery = () => (typeof window === "undefined" ? null : window.matchMedia(NARROW));
+const subscribeNarrow = (onChange: () => void) => {
+  const q = narrowQuery();
+  q?.addEventListener("change", onChange);
+  return () => q?.removeEventListener("change", onChange);
+};
+
+/** True in the narrow layout, where screens put what the player came for first. */
+export const useNarrow = (): boolean =>
+  useSyncExternalStore(subscribeNarrow, () => narrowQuery()?.matches ?? false, () => false);

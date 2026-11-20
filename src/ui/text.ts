@@ -2,7 +2,8 @@
 // keys, no i18n library). Templates take named values; whole sentences are never built
 // from fragments, so another language can reorder them.
 
-import { CODENAMES, type GoodId, type HabitId, type HarmlessId, type PlaceId, type SkillId, type UpgradeId } from "../sim/index.ts";
+import { TEST12_NAMES } from "./goods12.ts";
+import { CATALOGUE, CODENAMES, GOODS, type GoodId, type HabitId, type HarmlessId, type PlaceId, type SkillId, type UpgradeId } from "../sim/index.ts";
 
 const TEXT = {
   "app.name": "Crime & Crown",
@@ -31,6 +32,7 @@ const TEXT = {
   "risk.some": "some",
   "risk.real": "real",
   "risk.high": "high",
+  "risk.figure": "{word} risk",
   "odds.likely": "likely",
   "odds.good": "good odds",
   "odds.even": "even odds",
@@ -43,9 +45,7 @@ const TEXT = {
   "note.short": "short",
   "note.glut": "glut",
   "note.soldOut": "sold out",
-  "note.low": "low stock",
-  "note.sweep": "Sweep on",
-  "note.operation": "Operation {Codename}",
+  "note.low": "low",
 
   // Street
   "street.flavour.docks": "The harbour coppers mostly watch the gulls.",
@@ -55,16 +55,15 @@ const TEXT = {
   "street.flavour.sweep": "Sweep on. Blue lights on every corner.",
   "street.flavour.operation": "Operation {Codename}: Pinch on every corner, and he can't be bought.",
   "street.held": "{n} held",
+  "street.moves": "Moves",
+  "street.market": "Market",
+  "tip.dismiss.mags": "Dismiss Mags's tip: {line}",
+  "tip.dismiss.phone": "Dismiss your phone's tip: {line}",
   "action.ask": "Ask around",
-  "action.ask.detail": "One new tip",
   "action.lieLow": "Lie low",
-  "action.lieLow.detail": "Cools your heat",
   "action.oddJob": "Odd job",
-  "action.oddJob.detail": "{pay}, no questions",
   "action.job": "Pull a job",
-  "action.job.detail": "{odds}",
   "action.callDay": "Call it a day",
-  "action.callDay.detail": "Unused hours cool your heat",
   "hours": "{n} h",
   "dismiss": "Dismiss",
   "close": "Close",
@@ -123,12 +122,12 @@ const TEXT = {
   "result.bribed": "He pocketed {amount} and looked the other way.",
   "result.bribeRefused": "“I'm an honest copper.” He took the lot.",
   "result.bribeRefusedSale": "“I'm an honest copper.” He took the lot. The sale's off.",
-  "result.rangRound": "Rang round: prices from every corner. Heat {word}.",
+  "result.rangRound": "Called around: prices from every corner. Heat {word}.",
   "result.leggedIt": "You legged it.",
   "result.handedOver": "He took the lot.",
   "result.handedOverSale": "He took the lot. The sale's off.",
   "result.upgraded.coat": "The big coat: {pockets} pockets.",
-  "result.upgraded.phone": "The burner phone. Ring round from the City.",
+  "result.upgraded.phone": "The burner phone. Call around from the City.",
   "result.upgraded.crown": "The Crown & Anchor is yours, Guv'nor.",
   "result.mags": "Mags: “{line}”",
   "result.levelUp.patter": "Your patter improves: level {level}.",
@@ -148,23 +147,27 @@ const TEXT = {
   "brief.harmless.pigeons": "Pigeons have taken the town hall. Nobody is arresting them.",
   "brief.harmless.parade": "A brass band parade. Everyone's watching the tuba.",
   "brief.harmless.heatwave": "Heatwave. Even the ice-cream vans are sweating.",
-  "brief.phone": "Your phone buzzes. {line}",
+  "brief.who.mags": "Mags:",
+  "brief.who.phone": "Your phone:",
 
   // City
-  "city.here": "You're here",
-  "city.go": "Go · {hours} h",
+  "city.prices": "Prices",
+  "city.tableLabel": "Prices, scrolls sideways",
+  "city.here": "Here",
+  "city.go": "Go",
   "city.goLabel": "Go to {place}, {hours} h",
-  "city.unseen": "Not seen yet",
-  "city.seenNow": "Prices now",
-  "city.seenToday": "Seen at {time}",
-  "city.seenYesterday": "Seen yesterday",
-  "city.seenDay": "Seen on day {day}",
-  "city.ring": "Ring round",
-  "city.ring.detail": "Every place's prices, now. Each call today is hotter.",
+  "city.tooLate": "too late",
+  "city.head.sweep": "Sweep",
+  "city.head.operation": "Pinch",
+  "city.seen": "Seen",
+  "city.unseen": "never",
+  "city.seenNow": "now",
+  "city.seenToday": "{time}",
+  "city.seenDay": "day {day}",
+  "city.ring": "Call around",
   "city.unknownPrice": "?",
+  "city.unknownLabel": "not seen",
   "city.rumour": "Word on tomorrow: {line}",
-  "city.eventShort": "{Kind} short",
-  "city.eventGlut": "{Kind} glut",
 
   // Me
   "skill.patter": "Patter",
@@ -174,10 +177,19 @@ const TEXT = {
   "skill.nerve.what": "Jobs, getaways and bribes go better.",
   "skill.savvy.what": "Less heat, truer rumours.",
   "skill.level": "Level {level} of 5",
+  "me.form": "Form",
+  "me.classifieds": "Classifieds",
+  "me.smallPrint": "Small print",
   "upgrade.coat": "Big coat",
   "upgrade.phone": "Burner phone",
   "upgrade.coat.what": "{pockets} pockets instead of {from}.",
-  "upgrade.phone.what": "Ring round from the City for every place's prices. Coppers listen in: each call adds heat.",
+  "upgrade.coat.owned": "{pockets} pockets",
+  "upgrade.coat.buyLabel": "Buy the big coat for {cost}",
+  "upgrade.phone.owned": "call around",
+  "upgrade.phone.buyLabel": "Buy the burner phone for {cost}",
+  "upgrade.crown.owned": "{takings} a night",
+  "upgrade.crown.buyLabel": "Buy the Crown & Anchor for {cost}",
+  "upgrade.phone.what": "Call around from the City for every place's prices. Coppers listen in: each call adds heat.",
   "upgrade.crown": "The Crown & Anchor",
   "upgrade.crown.what": "Old Reg's pub on the Strip. Takes {takings} a night, and Pinch will know where you drink.",
   "crown.who": "Old Reg, landlord of the Crown & Anchor",
@@ -185,10 +197,10 @@ const TEXT = {
   "crown.buy": "Buy the Crown & Anchor",
   "crown.notYet": "Not yet",
   "upgrade.owned": "Yours",
-  "upgrade.buyLabel": "Buy the {name} for {cost}",
-  "upgrade.buy": "Buy · {cost}",
+  "upgrade.buy": "Buy",
+  "upgrade.short": "{amount} short",
   "upgrade.commit": "Buy the {name} for {cost}",
-  "me.saveOptions": "Save and run",
+  "me.saveOptions": "Cloud, export, new run",
 
   // Save sheet and save status
   "save.title": "Save and run",
@@ -404,6 +416,7 @@ const TEXT = {
   "case.label.oddJob": "the {Adj} Odd-Job Syndicate",
   "case.label.job": "the {Adj} Heist Mob",
   "case.label.drink": "the {Adj} Drinking Club",
+  "case.label.good": "the {Adj} {Kind} Racket",
   "and": "{a} and {b}",
 
   // People: Pinch's board and the cast
@@ -418,7 +431,15 @@ const TEXT = {
   "people.case.cold": "Cold",
   "people.case.past": "Operation {Codename}: {Label}",
   "people.case.older": "And {n} older cases: {closed} closed, {cold} cold.",
-  "people.exhibit": "Exhibit {letter}",
+  "people.exhibits": "Exhibits",
+  "people.exhibit.newest": "Exhibit {letter} · newest",
+  "people.exhibits.newestFirst": "Exhibits, newest first",
+  "people.exhibits.one": "1 exhibit",
+  "people.exhibits.count": "{n} exhibits",
+  "people.cases": "Earlier operations",
+  "people.file.open": "Open the file",
+  "people.file.close": "Close the file",
+  "people.cast": "The cast",
   "exhibit.sale": "A first sale, day {day}.",
   "exhibit.sale.reading": "The Opening Move of a Vast Criminal Enterprise.",
   "exhibit.grand": "{amount} in hand, day {day}.",
@@ -550,7 +571,7 @@ export const when = (iso: string): string =>
 
 // ---- Names ---------------------------------------------------------------------------
 
-interface GoodNames {
+export interface GoodNames {
   name: string;
   one: string;
   other: string;
@@ -558,12 +579,15 @@ interface GoodNames {
   Kind: string;
 }
 
-const GOOD_NAMES: Record<GoodId, GoodNames> = {
+/** The game's goods. Every name keeps to the good-names rule (goodNames.test.ts). */
+export const GAME_GOOD_NAMES: Record<GoodId, GoodNames> = {
   smokes: { name: "Untaxed smokes", one: "carton of smokes", other: "cartons of smokes", kind: "smokes", Kind: "Smokes" },
   tapes: { name: "Bootleg tapes", one: "tape", other: "tapes", kind: "tapes", Kind: "Tapes" },
   watches: { name: "Knock-off watches", one: "watch", other: "watches", kind: "watches", Kind: "Watches" },
   fireworks: { name: "Fireworks", one: "box of fireworks", other: "boxes of fireworks", kind: "fireworks", Kind: "Fireworks" },
 };
+
+const GOOD_NAMES: Record<GoodId, GoodNames> = CATALOGUE === "test12" ? { ...GAME_GOOD_NAMES, ...TEST12_NAMES } : GAME_GOOD_NAMES;
 
 interface PlaceNames {
   name: string;
@@ -584,11 +608,15 @@ const PLACE_NAMES: Record<PlaceId, PlaceNames> = {
 };
 
 export const goodName = (g: GoodId): string => GOOD_NAMES[g].name;
+/** The goods by display name, as Street and City list them. */
+export const goodsByName = (): GoodId[] => [...GOODS].sort((a, b) => goodName(a).localeCompare(goodName(b), "en"));
 export const goodKind = (g: GoodId): string => GOOD_NAMES[g].kind;
 /** "12 tapes", "1 carton of smokes". */
 export const goodCount = (g: GoodId, n: number): string => `${n} ${n === 1 ? GOOD_NAMES[g].one : GOOD_NAMES[g].other}`;
 export const goodValues = (g: GoodId): Values => ({ kind: GOOD_NAMES[g].kind, Kind: GOOD_NAMES[g].Kind });
 export const placeName = (p: PlaceId): string => PLACE_NAMES[p].name;
+/** "Docks", "Strip": a column head. */
+export const placeShort = (p: PlaceId): string => PLACE_NAMES[p].adj;
 export const placeValues = (p: PlaceId): Values => ({
   place: PLACE_NAMES[p].the,
   at: PLACE_NAMES[p].at,
@@ -606,7 +634,12 @@ export const codename = (n: number): string => {
 };
 
 /** "the Uptown Watch Cartel". */
-export const caseLabel = (place: PlaceId, habit: HabitId): string => t(`case.label.${habit}`, { Adj: PLACE_NAMES[place].adj });
+export function caseLabel(place: PlaceId, habit: HabitId): string {
+  const key = `case.label.${habit}`;
+  const Adj = PLACE_NAMES[place].adj;
+  // A good without a label of its own (the test catalogue's) gets the plain one.
+  return hasText(key) ? t(key, { Adj }) : t("case.label.good", { Adj, Kind: GOOD_NAMES[habit as GoodId].Kind });
+}
 
 /** Places in a sentence: "the Docks", "the Docks and Uptown". */
 export function placesText(places: readonly PlaceId[], form: "the" | "at" = "the"): string {

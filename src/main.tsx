@@ -10,6 +10,7 @@ import { App } from "./App";
 import { CODE_KEY, CloudSaves } from "./game/cloudSaves.ts";
 import { configuredCloud } from "./game/cloud.ts";
 import { claimWriter } from "./game/tabs.ts";
+import { CATALOGUE } from "./sim/index.ts";
 import "./styles.css";
 
 const randomWord = (): number => crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
@@ -20,11 +21,15 @@ async function boot(): Promise<void> {
   const root = document.getElementById("root");
   if (!root) throw new Error("Missing #root element");
 
-  // Without these settings the build is guest-only and offers no cloud save.
-  const configured = configuredCloud({
-    url: import.meta.env.VITE_SUPABASE_URL as string | undefined,
-    key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined,
-  });
+  // Without these settings the build is guest-only and offers no cloud save. The 12-good test
+  // build is guest-only regardless: its saves hold goods the game doesn't know.
+  const configured =
+    CATALOGUE === "game"
+      ? configuredCloud({
+          url: import.meta.env.VITE_SUPABASE_URL as string | undefined,
+          key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined,
+        })
+      : null;
   let saves: CloudSaves | null = null;
   const claim = await claimWriter(() => saves?.takeOver());
   saves = new CloudSaves({

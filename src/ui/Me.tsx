@@ -13,58 +13,86 @@ interface MeProps {
   onOpen: (overlay: Overlay) => void;
 }
 
-/** The character: skills earned by doing, upgrades bought once, and the save. */
+/** The character: Form (skills earned by doing), the Classifieds (upgrades) and the save. */
 export function Me({ state, save, sync, onOpen }: MeProps) {
+  const values = { pockets: RULES.coatPockets, from: RULES.pockets, takings: money(PINCH.crownTakings) };
+  const forSale = UPGRADES.filter((u) => !has(state, u));
+  const owned = UPGRADES.filter((u) => has(state, u));
   return (
     <>
-      <ul className="skills">
-        {SKILLS.map((k) => {
-          const lv = level(state.xp[k]);
-          return (
-            <li key={k} className="skill">
-              <div className="skill-head">
-                <h2>{skillName(k)}</h2>
-                <Marks className="pips" filled={lv} total={RULES.levels.length} />
+      <section aria-labelledby="k-form">
+        <h2 className="kicker" id="k-form">
+          {t("me.form")}
+        </h2>
+        <ul className="form">
+          {SKILLS.map((k) => {
+            const lv = level(state.xp[k]);
+            return (
+              <li key={k} className="skill">
+                <h3 className="skill-name">{skillName(k)}</h3>
+                <span className="skill-level" aria-hidden="true">
+                  {lv}
+                </span>
                 <span className="visually-hidden">{t("skill.level", { level: lv })}</span>
+                <Marks className="pips" filled={lv} total={RULES.levels.length} />
+                <p className="skill-what">{t(`skill.${k}.what`)}</p>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section aria-labelledby="k-ads">
+        <h2 className="kicker" id="k-ads">
+          {t("me.classifieds")}
+        </h2>
+        {forSale.map((u) => {
+          const cost = UPGRADE_COST[u];
+          return (
+            <article key={u} className="paper-note ad">
+              <h3 className="ad-name">{upgradeName(u)}</h3>
+              <p className="ad-what">{t(`upgrade.${u}.what`, values)}</p>
+              <div className="ad-foot">
+                <span className="ad-cost">{money(cost)}</span>
+                {state.cash >= cost ? (
+                  <button
+                    type="button"
+                    className="buy"
+                    aria-label={t(`upgrade.${u}.buyLabel`, { cost: money(cost) })}
+                    onClick={() => onOpen({ kind: "upgrade", upgrade: u })}
+                  >
+                    {t("upgrade.buy")}
+                  </button>
+                ) : (
+                  <span className="ad-short">{t("upgrade.short", { amount: money(cost - state.cash) })}</span>
+                )}
               </div>
-              <p>{t(`skill.${k}.what`)}</p>
-            </li>
+            </article>
           );
         })}
-      </ul>
+        {owned.length > 0 && (
+          <ul className="owned-list">
+            {owned.map((u) => (
+              <li key={u} className="owned-row">
+                <span>
+                  <span className="owned-name">{upgradeName(u)}</span> <span className="owned-what">{t(`upgrade.${u}.owned`, values)}</span>
+                </span>
+                <span className="yours">{t("upgrade.owned")}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <ul className="upgrades">
-        {UPGRADES.map((u) => (
-          <li key={u} className="upgrade">
-            <div>
-              <h2>{upgradeName(u)}</h2>
-              <p>
-                {t(`upgrade.${u}.what`, { pockets: RULES.coatPockets, from: RULES.pockets, takings: money(PINCH.crownTakings) })}
-              </p>
-            </div>
-            {has(state, u) ? (
-              <span className="owned">{t("upgrade.owned")}</span>
-            ) : (
-              <button
-                type="button"
-                className="choice"
-                aria-label={t("upgrade.buyLabel", { name: upgradeName(u).toLowerCase(), cost: money(UPGRADE_COST[u]) })}
-                disabled={state.cash < UPGRADE_COST[u]}
-                onClick={() => onOpen({ kind: "upgrade", upgrade: u })}
-              >
-                {t("upgrade.buy", { cost: money(UPGRADE_COST[u]) })}
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="save-line">
-        <p>{saveLine(save, sync)}</p>
-        <button type="button" className="choice" onClick={() => onOpen({ kind: "save" })}>
+      <section aria-labelledby="k-print">
+        <h2 className="kicker" id="k-print">
+          {t("me.smallPrint")}
+        </h2>
+        <p className="save-line">{saveLine(save, sync)}</p>
+        <button type="button" className="choice save-button" onClick={() => onOpen({ kind: "save" })}>
           {t("me.saveOptions")}
         </button>
-      </div>
+      </section>
     </>
   );
 }

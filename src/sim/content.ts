@@ -2,8 +2,15 @@
 // Saves reference content by these IDs, never by display text; renaming an ID needs a
 // save migration. Display text lives with the UI under its own keys.
 
-export const GOODS = ["smokes", "tapes", "watches", "fireworks"] as const;
-export type GoodId = (typeof GOODS)[number];
+import { CATALOGUE } from "./catalogue.ts";
+import { TEST12 } from "./goods12.ts";
+
+const GAME_GOODS = ["smokes", "tapes", "watches", "fireworks"] as const;
+export type GoodId = (typeof GAME_GOODS)[number];
+/** The goods traded, in catalogue order: the game's four, or the 12-good test catalogue. */
+export const GOODS: readonly GoodId[] = CATALOGUE === "test12" ? [...GAME_GOODS, ...TEST12.map((g) => g.id)] : GAME_GOODS;
+const testOnly = <T>(make: (g: (typeof TEST12)[number]) => T): Record<string, T> =>
+  CATALOGUE === "test12" ? Object.fromEntries(TEST12.map((g) => [g.id, make(g)])) : {};
 
 /** Ring order: neighbours are 1 h apart, opposites 2 h. */
 export const PLACES = ["docks", "oldtown", "uptown", "strip"] as const;
@@ -57,6 +64,7 @@ export const GOOD: Record<GoodId, Good> = {
   tapes: { base: 15, rate: 8, heat: 0.3, vol: 0.14, stockAtSource: 30, stockElsewhere: 8 },
   watches: { base: 50, rate: 4, heat: 0.6, vol: 0.14, stockAtSource: 12, stockElsewhere: 4 },
   fireworks: { base: 100, rate: 2, heat: 2.0, vol: 0.2, stockAtSource: 5, stockElsewhere: 1 },
+  ...testOnly(({ base, rate, heat, vol, stockAtSource, stockElsewhere }) => ({ base, rate, heat, vol, stockAtSource, stockElsewhere })),
 };
 
 export interface Place {
@@ -66,10 +74,10 @@ export interface Place {
 }
 
 export const PLACE: Record<PlaceId, Place> = {
-  docks: { factor: { smokes: 0.85, tapes: 1.0, watches: 0.85, fireworks: 0.85 }, police: 0.7 },
-  oldtown: { factor: { smokes: 1.0, tapes: 0.85, watches: 1.0, fireworks: 1.12 }, police: 1.0 },
-  uptown: { factor: { smokes: 1.15, tapes: 1.06, watches: 1.18, fireworks: 1.0 }, police: 1.4 },
-  strip: { factor: { smokes: 1.09, tapes: 1.18, watches: 1.03, fireworks: 1.18 }, police: 1.0 },
+  docks: { factor: { smokes: 0.85, tapes: 1.0, watches: 0.85, fireworks: 0.85, ...testOnly((g) => g.factor.docks) }, police: 0.7 },
+  oldtown: { factor: { smokes: 1.0, tapes: 0.85, watches: 1.0, fireworks: 1.12, ...testOnly((g) => g.factor.oldtown) }, police: 1.0 },
+  uptown: { factor: { smokes: 1.15, tapes: 1.06, watches: 1.18, fireworks: 1.0, ...testOnly((g) => g.factor.uptown) }, police: 1.4 },
+  strip: { factor: { smokes: 1.09, tapes: 1.18, watches: 1.03, fireworks: 1.18, ...testOnly((g) => g.factor.strip) }, police: 1.0 },
 };
 
 export const isSource = (place: PlaceId, good: GoodId): boolean =>
@@ -190,12 +198,15 @@ export const PINCH = {
 /** Cards: a shown card rests this many days; a chance's odds move this many points per skill level. */
 export const CARDS_RULES = { rest: 10, perLevel: 5 } as const;
 
+// The test catalogue's goods open at their neutral price and fresh stock.
+const day1 = (p: PlaceId) => testOnly((g) => Math.round(g.base * g.factor[p]));
+
 /** Day 1 fixture (docs/design.md): authored prices. Docks fireworks are sold out (stock 0). */
 export const DAY1_PRICES: Record<PlaceId, Record<GoodId, number>> = {
-  docks: { smokes: 7, tapes: 15, watches: 43, fireworks: 85 },
-  oldtown: { smokes: 8, tapes: 13, watches: 50, fireworks: 112 },
-  uptown: { smokes: 9, tapes: 16, watches: 59, fireworks: 100 },
-  strip: { smokes: 9, tapes: 18, watches: 52, fireworks: 118 },
+  docks: { smokes: 7, tapes: 15, watches: 43, fireworks: 85, ...day1("docks") },
+  oldtown: { smokes: 8, tapes: 13, watches: 50, fireworks: 112, ...day1("oldtown") },
+  uptown: { smokes: 9, tapes: 16, watches: 59, fireworks: 100, ...day1("uptown") },
+  strip: { smokes: 9, tapes: 18, watches: 52, fireworks: 118, ...day1("strip") },
 };
 
 export const DAY1_DOCKS_STOCK: Record<GoodId, number> = {
@@ -203,4 +214,5 @@ export const DAY1_DOCKS_STOCK: Record<GoodId, number> = {
   tapes: 8,
   watches: 6,
   fireworks: 0,
+  ...testOnly((g) => (g.factor.docks <= Math.min(...Object.values(g.factor)) ? g.stockAtSource : g.stockElsewhere)),
 };

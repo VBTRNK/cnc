@@ -168,6 +168,10 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
 
 export interface Brief {
   id: string;
+  /** Who it comes from, set in bold before the line: "Mags:". */
+  who: string;
+  /** The same, for its dismiss button's name. */
+  from: "mags" | "phone";
   line: string;
 }
 
@@ -188,13 +192,15 @@ function eventLine(e: WorldEvent): string {
 export function briefs(s: GameState): Brief[] {
   if (s.phase !== "day") return [];
   const out: Brief[] = [];
-  if (s.day === 1) out.push({ id: "d1-line", line: t("brief.day1") });
+  // The day's news is Mags's, from the kiosk; the phone's tip is the phone's.
+  const mags = t("brief.who.mags");
+  if (s.day === 1) out.push({ id: "d1-line", who: mags, from: "mags", line: t("brief.day1") });
   const today = s.events
     .filter((e) => e.activated && e.startDay === s.day)
     .sort((a, b) => b.startHour - a.startHour);
-  for (const e of today) out.push({ id: e.id, line: eventLine(e) });
+  for (const e of today) out.push({ id: e.id, who: mags, from: "mags", line: eventLine(e) });
   if (s.rumour?.via === "phone") {
-    out.push({ id: `d${s.day}-phone`, line: t("brief.phone", { line: rumourLine(s.rumour) }) });
+    out.push({ id: `d${s.day}-phone`, who: t("brief.who.phone"), from: "phone", line: rumourLine(s.rumour) });
   }
   return out;
 }
@@ -510,10 +516,9 @@ export function castLines(s: GameState): { who: "lenny" | "mags" | "reg"; name: 
   ];
 }
 
-/** How old a remembered price is, in words. */
+/** How old a remembered price is, as City's Seen row gives it: "now", "13:00", "day 8". */
 export function seenText(s: GameState, day: number, hour: number): string {
   if (day === s.day && hour === s.hour) return t("city.seenNow");
   if (day === s.day) return t("city.seenToday", { time: clock(hour) });
-  if (day === s.day - 1) return t("city.seenYesterday");
   return t("city.seenDay", { day });
 }
