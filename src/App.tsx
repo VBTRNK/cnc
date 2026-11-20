@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import type { CloudSaves } from "./game/cloudSaves.ts";
 import type { GameSession } from "./game/session.ts";
 import type { Conflict } from "./game/sync.ts";
@@ -14,7 +14,7 @@ import { PaperScreen } from "./ui/PaperScreen.tsx";
 import { People } from "./ui/People.tsx";
 import { CallDaySheet, JobSheet, TradeSheet, UpgradeSheet } from "./ui/Sheets.tsx";
 import { SaveSheet } from "./ui/SaveSheet.tsx";
-import { Status } from "./ui/Status.tsx";
+import { ResultStrip, Status } from "./ui/Status.tsx";
 import { StopCard } from "./ui/StopCard.tsx";
 import { Street } from "./ui/Street.tsx";
 import { t } from "./ui/text.ts";
@@ -40,6 +40,40 @@ export function App({ saves }: { saves: CloudSaves }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [tab]);
+
+  // A rail that would take much of the screen (very large text) scrolls away, as in the narrow
+  // layout; a result too long to pin (over 40% of the space above the tabs) scrolls with the
+  // page too, so play stays in view. What stays at the top (the rail, the strip alone, or
+  // nothing) sets --stick-h: City's table head sticks under it, and focus scrolling keeps
+  // controls clear of it.
+  const measureRail = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const root = document.documentElement;
+    const parts = [...el.children].filter((c): c is HTMLElement => c instanceof HTMLElement);
+    const strip = parts.at(-1);
+    const tabs = el.parentElement?.querySelector<HTMLElement>(".tabs");
+    const sticky = (e: HTMLElement) => {
+      const cs = getComputedStyle(e);
+      return cs.position === "sticky" && cs.display !== "contents";
+    };
+    const update = () => {
+      const height = parts.reduce((n, p) => n + p.offsetHeight, 0);
+      root.toggleAttribute("data-tall-rail", height > window.innerHeight * 0.4);
+      const below = tabs && getComputedStyle(tabs).position === "fixed" ? tabs.offsetHeight : 0;
+      root.toggleAttribute("data-tall-strip", !!strip && strip.offsetHeight > (window.innerHeight - below) * 0.4);
+      const stuck = sticky(el) ? height : strip && sticky(strip) ? strip.offsetHeight : 0;
+      root.style.setProperty("--stick-h", `${stuck}px`);
+    };
+    const ro = new ResizeObserver(update);
+    for (const p of parts) ro.observe(p);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+      root.removeAttribute("data-tall-rail");
+      root.removeAttribute("data-tall-strip");
+    };
+  }, []);
 
   if (mode === "future" || !state) return <FutureScreen onExport={() => exportSave(session, null)} />;
 
@@ -116,10 +150,16 @@ export function App({ saves }: { saves: CloudSaves }) {
     );
   }
 
+  // The latest result, on every screen, in the strip at the foot of the rail.
+  const lines = snap.refusal ? [t("result.refused")] : resultLines(snap.events, state);
+
   return (
     <div className="app">
       <div className="rail">
-        <Status state={state} />
+        <div className="top" ref={measureRail}>
+          <Status state={state} />
+          <ResultStrip lines={lines} />
+        </div>
         <nav className="tabs" aria-label={t("nav.label")}>
           {TABS.map((id) => (
             <button
@@ -140,7 +180,6 @@ export function App({ saves }: { saves: CloudSaves }) {
             <Street
               state={state}
               events={snap.events}
-              refusal={snap.refusal}
               dismissed={dismissed}
               onDismiss={(id) => setDismissed(new Set([...dismissed, id]))}
               onOpen={setOverlay}
@@ -148,16 +187,12 @@ export function App({ saves }: { saves: CloudSaves }) {
             />
           )}
           {tab === "city" && (
-            <City
-              state={state}
-              events={snap.events}
-              dispatch={travel}
-              onRing={() => session.dispatch({ type: "ringRound" })}
-            />
+            <City state={state} dispatch={travel} onCall={() => session.dispatch({ type: "ringRound" })} />
           )}
-          {tab === "people" && <People state={state} />}
           {tab === "me" && <Me state={state} save={snap.save} sync={cloud.sync} onOpen={setOverlay} />}
         </fieldset>
+        {/* People has no game actions, only the file's disclosure: a watching tab can read it. */}
+        {tab === "people" && <People state={state} />}
       </main>
 
       {choice ?? (state.pending?.kind === "stop" ? (

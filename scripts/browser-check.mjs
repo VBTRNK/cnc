@@ -5,6 +5,9 @@
 //   npm run build && npm run preview       (in one terminal)
 //   npm run browser-check [-- <outdir>]    (screenshots go to <outdir>, default: a temp dir)
 //
+// With --goods12 it checks the 12-good test catalogue's build instead (src/sim/catalogue.ts):
+//   npm run build:goods12 && npm run preview:goods12, then npm run browser-check -- --goods12
+//
 // BROWSER names a Chromium-based browser; the default is Edge on Windows. The page's
 // storage is cleared first, so run it against a profile of its own (it makes one).
 import { spawn } from "node:child_process";
@@ -13,9 +16,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const OUT = process.argv[2] ?? mkdtempSync(join(tmpdir(), "cnc-browser-check-"));
+const args = process.argv.slice(2);
+const GOODS12 = args.includes("--goods12");
+// The sim below must trade the same goods as the build under test, or its saves won't load.
+if (GOODS12) process.env.CNC_CATALOGUE = "test12";
+const OUT = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), "cnc-browser-check-"));
 const REPO = join(import.meta.dirname, "..");
-const URL0 = process.env.PREVIEW_URL ?? "http://localhost:4173/";
+const URL0 = process.env.PREVIEW_URL ?? (GOODS12 ? "http://localhost:4180/" : "http://localhost:4173/");
 const BROWSER = process.env.BROWSER ?? "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
 mkdirSync(OUT, { recursive: true });
 const DL = join(OUT, "downloads");
@@ -111,9 +118,61 @@ const key = async (k, code = k, keyCode = 0) => {
   await s("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: keyCode });
   await sleep(120);
 };
+const shiftTab = async () => {
+  await s("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, modifiers: 8 });
+  await s("Input.dispatchKeyEvent", { type: "keyUp", key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, modifiers: 8 });
+  await sleep(150);
+};
+/** Where the focused element sits: clear of what sticks at the top (the strip's foot) and of the
+ *  fixed tabs, and inside a sideways scroller, clear of its fixed goods column and its fade. */
+const FADE_SHOWN = `((f) => !!f && f.getClientRects().length > 0 && getComputedStyle(f).visibility !== "hidden")(document.querySelector(".table-fade"))`;
+const FOCUS_SPOT = `(() => {
+  const e = document.activeElement, r = e.getBoundingClientRect();
+  const name = e.tagName + " " + ((e.getAttribute("aria-label") || e.textContent || "").trim().slice(0, 28));
+  const top = Math.max(0, document.querySelector(".strip").getBoundingClientRect().bottom);
+  const tabs = document.querySelector(".tabs"), bottom = getComputedStyle(tabs).position === "fixed" ? tabs.getBoundingClientRect().top : innerHeight;
+  const bad = [];
+  // A stop taller than the space (the sideways table) only needs to be partly in view.
+  const tall = r.height > bottom - top;
+  if (tall ? r.bottom < top + 1 || r.top > bottom - 1 : r.top < top - 1 || r.bottom > bottom + 1) bad.push("y " + Math.round(r.top) + "-" + Math.round(r.bottom) + " outside " + Math.round(top) + "-" + Math.round(bottom));
+  const sc = e.closest(".table-scroll");
+  if (sc && sc !== e && sc.scrollWidth > sc.clientWidth) {
+    // The goods column and the fade count only where they are pinned and shown.
+    const stick = sc.querySelector("tbody .stick"), left = getComputedStyle(stick).position === "sticky" ? stick.getBoundingClientRect().right : sc.getBoundingClientRect().left;
+    const fade = document.querySelector(".table-fade"), right = ${FADE_SHOWN} ? fade.getBoundingClientRect().left : sc.getBoundingClientRect().right;
+    if (r.left < left - 1 || r.right > right + 1) bad.push("x " + Math.round(r.left) + "-" + Math.round(r.right) + " outside " + Math.round(left) + "-" + Math.round(right));
+  }
+  return { name, inMain: !!e.closest("main"), bad: bad.join(", ") };
+})()`;
+/** Tabs from the current tab button to `selector` and Shift+Tabs back, collecting focus stops in
+ *  the screen that aren't fully in view. */
+const focusWalk = async (selector) => {
+  await evaluate(`document.querySelector('.tabs [aria-current="page"]').focus()`);
+  const hidden = [];
+  let reached = false;
+  for (let i = 0; i < 40 && !reached; i++) {
+    await key("Tab", "Tab", 9);
+    const f = await evaluate(FOCUS_SPOT);
+    if (f.inMain && f.bad) hidden.push(`${f.name}: ${f.bad}`);
+    reached = await evaluate(`document.activeElement.matches(${JSON.stringify(selector)})`);
+  }
+  for (let i = 0; i < 40; i++) {
+    await shiftTab();
+    const f = await evaluate(FOCUS_SPOT);
+    if (!f.inMain) break;
+    if (f.bad) hidden.push(`back, ${f.name}: ${f.bad}`);
+  }
+  return { reached, hidden: [...new Set(hidden)] };
+};
 const text = (sel) => evaluate(`document.querySelector(${JSON.stringify(sel)})?.textContent ?? null`);
 const focused = () => evaluate(`(document.activeElement?.textContent || document.activeElement?.getAttribute("aria-label") || document.activeElement?.tagName || "").trim().slice(0, 60)`);
 const check = (name, ok, detail = "") => log.push(`${ok ? "PASS" : "FAIL"} ${name}${detail ? ` — ${detail}` : ""}`);
+/** The text lines each matching element wraps onto, as "name: n"; the good-names rule allows two. */
+const lineCounts = (selector) => evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].map((e) => {
+  const r = document.createRange(); r.selectNodeContents(e);
+  return e.textContent.trim() + ": " + new Set([...r.getClientRects()].map((x) => Math.round(x.top))).size;
+})`);
+const overTwoLines = (counts) => counts.filter((c) => Number(c.split(": ").pop()) > 2);
 
 try {
   // ---- First load, Street on a phone ------------------------------------------------
@@ -123,7 +182,7 @@ try {
   await snap("street-day1");
   check("Street renders the Docks", (await text(".place-name")) === "The Docks", await text(".place-name"));
   check("fonts loaded from this origin", await evaluate(`document.fonts.ready.then(() => [...document.fonts].filter(f => f.status === "loaded").map(f => f.family).join(","))`).then((f) => { log.push(`  fonts: ${f}`); return /Anton/.test(f) && /Newsreader/.test(f) && /Courier Prime/.test(f); }));
-  check("no horizontal scroll at 390px", await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`));
+  check("no horizontal scroll at 390px", await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`));
   check("manifest linked", (await evaluate(`fetch("/manifest.webmanifest").then(r => r.json()).then(m => m.icons.length)`)) === 4);
 
   // ---- Buy by touch -------------------------------------------------------------------
@@ -154,7 +213,7 @@ try {
   // ---- City, travel, sell ---------------------------------------------------------------
   await tap(".tabs button", "City");
   await snap("city");
-  await tap("button.go", "The Strip");
+  await tap("button.go", "the Strip");
   check("travel lands on Street at the Strip", (await text(".place-name")) === "The Strip", await text(".place-name"));
   check("focus on the place after travel", await evaluate(`document.activeElement?.classList.contains("place-name")`), await focused());
   await tap("button.good", "Untaxed smokes");
@@ -182,11 +241,14 @@ try {
   const banner = await evaluate(`document.querySelector(".banner")?.textContent ?? ""`, tab2.s);
   check("second tab only watches", banner.includes("another tab"), banner);
   check("second tab's controls are disabled", await evaluate(`[...document.querySelectorAll("main button.good")].every(b => b.matches(":disabled"))`, tab2.s));
+  await evaluate(`[...document.querySelectorAll(".tabs button")].find(b => b.textContent === "People").click()`, tab2.s);
+  await sleep(200);
+  check("a watching tab can still open Pinch's file", await evaluate(`!!document.querySelector(".board") && !document.querySelector(".board").closest(":disabled")`, tab2.s));
   await send("Target.closeTarget", { targetId: tab2.targetId });
 
   // ---- Paper -------------------------------------------------------------------------
   await tap(".tabs button", "Street");
-  await tap("button.action", "Call it a day");
+  await tap("button.row-button", "Call it a day");
   await tap("dialog .commit");
   await sleep(300);
   await snap("paper");
@@ -226,16 +288,18 @@ try {
   await tap(".cells .commit", "Spend the night");
   check("then the paper", /Fined \$\d+/.test(await text(".paper .story") ?? ""), await text(".paper .story"));
 
-  // ---- The phone: ring round from City ------------------------------------------------------
+  // ---- The phone: call around from City ------------------------------------------------------
   const phoned = sim.toSave({ ...sim.newGame(2, "phonecheck"), upgrades: ["phone"] });
   await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(phoned)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(phoned)})`);
   await reload();
   await tap(".tabs button", "City");
-  await tap(".ring .action", "Ring round");
-  await snap("city-rang");
-  check("ringing round gives a result line", /^Rang round/.test(await text(".ring .result") ?? ""), await text(".ring .result"));
-  check("ringing round notes every price", await evaluate(`[...document.querySelectorAll(".price-unknown")].length === 0`));
-  check("the next call costs more heat", /Heat \+10/.test(await text(".ring .action-chips") ?? ""), await text(".ring .action-chips"));
+  check("prices not yet seen show as unknown", (await evaluate(`document.querySelectorAll(".price-table .unknown").length`)) > 0);
+  await tap(".call .move", "Call around");
+  await snap("city-called");
+  check("calling around gives a result line in the strip", /^Called around/.test(await text(".strip .result") ?? ""), await text(".strip .result"));
+  check("calling around notes every price", await evaluate(`document.querySelectorAll(".price-table .unknown").length === 0`));
+  check("the next call costs more heat", /Heat \+10/.test(await text(".call .move-hours") ?? ""), await text(".call .move-hours"));
+  check("every place's column says when it was seen", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "now|now|now|now");
   await tap(".tabs button", "Street");
 
   // ---- A saved encounter card, Pinch himself at a stop, his board on People ----------------
@@ -251,7 +315,8 @@ try {
   await tap("dialog.card .choice-card", "Run");
   check("the card's choice leaves a line", /You run/.test(await text(".result") ?? ""), await text(".result"));
 
-  const op = { ...sim.newGame(4, "pinchcheck"), day: 7, held: { smokes: 5, tapes: 0, watches: 0, fireworks: 0 }, paid: { smokes: 30, tapes: 0, watches: 0, fireworks: 0 } };
+  const op0 = sim.newGame(4, "pinchcheck");
+  const op = { ...op0, day: 7, held: { ...op0.held, smokes: 5 }, paid: { ...op0.paid, smokes: 30 } };
   op.detective = { ...op.detective, case: { n: 1, place: "docks", habit: "oddJob", announced: 5, places: ["docks"], caught: false } };
   op.milestones = { firsts: { sale: 1, coat: 4, case: 5 }, best: { day: 3, takings: 640 }, cases: [], older: { closed: 0, cold: 0 } };
   const pinched = sim.step({ ...op, rng: testing.rngWhere(testing.below(0.001)) }, { type: "sell", good: "smokes", units: 1 });
@@ -264,14 +329,24 @@ try {
   await tap(".tabs button", "People");
   await snap("people");
   check("People shows his open case", /Operation Kipper: The Docks Odd-Job Syndicate/.test(await text(".board") ?? ""), await text(".board"));
-  check("and the exhibits", (await evaluate(`document.querySelectorAll(".exhibit").length`)) === 4);
+  check("the closed file shows the letters and the newest exhibit", (await text(".letters")) === "ExhibitsABCD" && /^Exhibit D · newest/.test(await text(".board .paper-note") ?? ""), `${await text(".letters")} / ${await text(".board .paper-note")}`);
+  check("and how many exhibits the file holds", /Open the file4 exhibits/.test(await text(".board .toggle") ?? ""), await text(".board .toggle"));
+  await tap(".board .toggle", "Open the file");
+  check("opened, the exhibits run newest first", (await evaluate(`[...document.querySelectorAll(".exhibit-mark")].map(e => e.textContent).join("")`)) === "DCBA");
+  check("the letters hide while it is open", await evaluate(`!document.querySelector(".letters") && document.querySelector(".board .toggle").getAttribute("aria-expanded") === "true"`));
+  check("opening moves focus to the first heading it reveals", await evaluate(`document.activeElement?.classList.contains("file-label")`), await focused());
+  await snap("people-open");
+  await tap(".board .toggle", "Close the file");
+  await sleep(200);
+  const closed = await evaluate(FOCUS_SPOT);
+  check("closing leaves focus on the toggle, in view", (await evaluate(`document.activeElement?.classList.contains("toggle")`)) && !closed.bad, `${closed.name} ${closed.bad}`);
   check("and the cast", (await evaluate(`document.querySelectorAll(".cast-member").length`)) === 3);
-  check("People: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`));
+  check("People: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`));
   await tap(".tabs button", "Street");
 
   // ---- Export -------------------------------------------------------------------------
   await tap(".tabs button", "Me");
-  await tap(".save-line button", "Save and run");
+  await tap(".save-button", "Cloud, export, new run");
   await snap("save-sheet");
   await tap("dialog .choice", "Export save");
   await sleep(1500);
@@ -295,7 +370,8 @@ try {
 
   // ---- Acceptance: every screen and sheet against M4 on a phone ------------------------------
   // Controls at least 48 px high (44 wide), no text under 14 px, text contrast 4.5:1 (3:1 when
-  // large), and reflow at 320 px without sideways scrolling. Inside an open modal only the
+  // large), and reflow at 320 px without sideways scrolling (against the client width: a phone
+// viewport in emulation widens to fit content that overflows it). Inside an open modal only the
   // dialog counts; disabled controls are exempt from contrast, as in WCAG.
   const PHONE = { width: 390, height: 844, deviceScaleFactor: 2, mobile: true };
   const AUDIT = `(() => {
@@ -353,7 +429,7 @@ try {
     check(`${screen}: text contrast`, a.faint.length === 0, a.faint.join("; "));
     await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
     await sleep(250);
-    check(`${screen}: reflows at 320 px`, await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), await evaluate(`document.documentElement.scrollWidth + "px"`));
+    check(`${screen}: reflows at 320 px`, await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), await evaluate(`document.documentElement.scrollWidth + "px"`));
     await s("Emulation.setDeviceMetricsOverride", PHONE);
     await sleep(150);
   };
@@ -370,12 +446,12 @@ try {
   await reload();
   await tap(".tabs button", "Me");
   await audit("Me");
-  await tap(".upgrade button", "$2,500");
+  await tap(".ad .buy", "$2,500");
   await snap("crown-sheet");
   check("the Crown sheet shows Old Reg", /Old Reg/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
   await audit("Crown sheet");
   await key("Escape", "Escape", 27);
-  await tap(".save-line button", "Save and run");
+  await tap(".save-button", "Cloud, export, new run");
   await audit("save sheet");
   await key("Escape", "Escape", 27);
   await tap(".tabs button", "People");
@@ -429,15 +505,19 @@ try {
   const v2 = JSON.stringify({ format: sim.SAVE_FORMAT, version: 2, state: v2state });
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
   await reload();
-  check("an old save opens where it was", (await text("button.good .held")) === "10", await text("button.good"));
+  const smokesHeld = `[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Untaxed smokes"))?.querySelector(".held")?.textContent ?? ""`;
+  check("an old save opens where it was", (await evaluate(smokesHeld)) === "1010 held", await evaluate(smokesHeld));
   check("and its original is kept", (await evaluate(`localStorage.getItem("cnc.save.kept")`)) === v2);
   check("and it is saved as the current version", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).version`)) === sim.SAVE_VERSION);
 
-  // A save from before ADR-012, its Old Town fireworks drift 1.8 (outside today's clamp), in both slots.
+  // A save from before ADR-012, its Old Town fireworks drift 1.8 (outside today's clamp), in both
+  // slots. It holds the game's four goods, so the 12-good build has no use for it.
+  if (!GOODS12) {
   const legacy = JSON.stringify(JSON.parse(readFileSync(join(REPO, "src/sim/fixtures/before-adr-012.json"), "utf8")).high);
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(legacy)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(legacy)})`);
   await reload();
   check("a save with the old drift range opens on its day", /Day 2/.test(await text(".daybar")) && !(await evaluate(`document.querySelector(".banner")?.textContent ?? ""`)).includes("couldn't be read"), await text(".daybar"));
+  }
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
   await reload();
 
@@ -453,6 +533,257 @@ try {
   await tap("dialog .commit");
   check("the next write clears it", await evaluate(`!document.querySelector(".banner-warn")`));
   check("and stores the run in play", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).state.cash`)) === Number((await text(".cash")).replace(/[^\d]/g, "")), await text(".cash"));
+
+  // ---- Layout: a long goods list and a thick file at two text sizes (#29) ---------------------
+  // Day 9 at 15:00 with the coat and phone: eight exhibits, two old cases and an open one on the
+  // Strip, a sweep in Old Town, prices seen at different times. With --goods12, twelve goods.
+  const L0 = sim.newGame(10, "layout");
+  const G = sim.GOODS;
+  const day9 = { ...L0, day: 9, hour: 15, cash: 1420, heat: 30, upgrades: ["coat", "phone"], xp: { patter: 30, nerve: 10, savvy: 25 } };
+  day9.held = { ...L0.held, [G[0]]: 3, [G[G.length - 1]]: 5 };
+  day9.paid = { ...L0.paid, [G[0]]: 3 * sim.price(L0, "docks", G[0]), [G[G.length - 1]]: 5 * sim.price(L0, "docks", G[G.length - 1]) };
+  const seenAt = (place, day, hour, keep = () => true) =>
+    Object.fromEntries(G.filter(keep).map((g) => [g, { price: sim.price(L0, place, g), day, hour }]));
+  day9.memory = {
+    ...L0.memory,
+    oldtown: { ...seenAt("oldtown", 9, 13), [G[2]]: { price: sim.price(L0, "oldtown", G[2]), day: 7, hour: 12 }, [G[3]]: { price: sim.price(L0, "oldtown", G[3]), day: 9, hour: 11 } },
+    uptown: seenAt("uptown", 8, 18, (g) => G.indexOf(g) % 3 !== 2),
+    strip: {},
+  };
+  day9.events = [
+    { id: "layout-sweep", slot: "midday", startDay: 8, startHour: 16, endDay: 9, activated: true, kind: "sweep", place: "oldtown" },
+    { id: "layout-short", slot: "morning", startDay: 9, startHour: 10, endDay: 10, activated: true, kind: "shortage", place: "docks", good: G[1] },
+    { id: "layout-glut", slot: "morning", startDay: 9, startHour: 10, endDay: 10, activated: true, kind: "glut", place: "uptown", good: G[3] },
+  ];
+  day9.detective = { ...L0.detective, case: { n: 3, place: "strip", habit: "fireworks", announced: 7, places: ["strip"], caught: false }, next: 12 };
+  day9.milestones = {
+    firsts: { sale: 1, grand: 4, coat: 5, case: 5, escape: 6, job: 8, phone: 9 },
+    best: { day: 7, takings: 900 },
+    cases: [{ n: 1, place: "docks", habit: "smokes", outcome: "closed", day: 6 }, { n: 2, place: "uptown", habit: "watches", outcome: "cold", day: 7 }],
+    older: { closed: 0, cold: 0 },
+  };
+  await s("Emulation.setDeviceMetricsOverride", PHONE);
+  await store(day9);
+  await reload();
+  check("layout: the day 9 run loads", (await text(".cash")) === "$1,420" && /Day 9/.test(await text(".daybar") ?? ""), `${await text(".cash")} ${await text(".daybar")}`);
+  check(`layout: Street lists ${G.length} goods by name`, await evaluate(`(() => { const n = [...document.querySelectorAll(".good-name")].map(e => e.textContent); return n.length === ${G.length} && n.every((x, i) => i === 0 || n[i - 1].localeCompare(x, "en") <= 0); })()`));
+  check("layout: a held count is named for screen readers", await evaluate(`[...document.querySelectorAll("button.good .held")].filter(e => e.textContent).every(e => e.textContent === e.firstChild.textContent + e.firstChild.textContent + " held" && e.firstChild.getAttribute("aria-hidden") === "true")`));
+  // A result to show in the strip: buy what the list starts with.
+  await tap("button.good");
+  await tap("dialog .commit");
+  check("layout: the result shows in the strip", /^Bought/.test(await text(".strip .result") ?? ""), await text(".strip .result"));
+  await evaluate(`window.scrollTo(0, 0)`);
+  await sleep(200);
+  const arrival = (sel) => evaluate(`(() => { const tabs = document.querySelector(".tabs").getBoundingClientRect().top;
+    return [...document.querySelectorAll(${JSON.stringify(sel)})].filter(e => e.getBoundingClientRect().bottom <= tabs).length; })()`);
+  log.push(`  layout 390: Street shows ${await arrival("button.good")} goods on arrival`);
+  check("layout 390: Street names fit two lines", overTwoLines(await lineCounts(".good-name")).length === 0, overTwoLines(await lineCounts(".good-name")).join("; "));
+  await snap("layout-390-street");
+  await evaluate(`window.scrollTo(0, 400)`);
+  await sleep(200);
+  check("layout 390: the rail and its result strip stay in view", await evaluate(`Math.abs(document.querySelector(".top").getBoundingClientRect().top) < 1 && document.querySelector(".strip").getBoundingClientRect().bottom > 0`));
+  await tap(".tabs button", "City");
+  check("layout 390: City's goods names fit two lines", overTwoLines(await lineCounts(".price-table tbody th")).length === 0, overTwoLines(await lineCounts(".price-table tbody th")).join("; "));
+  check("layout 390: the table fits without scrolling sideways", await evaluate(`(() => { const t = document.querySelector(".table-scroll"); return t.scrollWidth <= t.clientWidth; })()`));
+  check("layout 390: place warnings sit in the column heads", (await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`)) === "Sweep|Pinch", await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`));
+  check("layout 390: the Seen row", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "now|13:00|day 8|never", await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`));
+  check("layout 390: a price older than its column's says when, by day or by hour", await evaluate(`(() => { const h = [...document.querySelectorAll(".cell-hint")].map(e => e.textContent); return h.includes("11:00") && h.includes("day 7"); })()`),
+    await evaluate(`[...document.querySelectorAll(".cell-hint")].map(e => e.textContent).join("|")`));
+  check("layout 390: no repeated place names where the head sticks", (await evaluate(`document.querySelectorAll(".repeat-row").length`)) === 0);
+  const wide = await focusWalk(".call .move");
+  check("layout 390: Tab and Shift+Tab through City keep each control in view", wide.reached && wide.hidden.length === 0, wide.hidden.join("; "));
+  await evaluate(`(() => { document.activeElement.blur(); window.scrollTo(0, 0); })()`);
+  await sleep(200);
+  log.push(`  layout 390: City shows ${await arrival(".price-table tbody tr")} price rows on arrival`);
+  await snap("layout-390-city");
+  // Scroll the head up to 60 px past the rail, as far as the page goes.
+  const room = await evaluate(`(() => { const h = document.querySelector(".price-table thead").getBoundingClientRect(), r = document.querySelector(".top").getBoundingClientRect(), b = document.querySelector(".price-table tbody").getBoundingClientRect();
+    const max = document.documentElement.scrollHeight - innerHeight, by = Math.min(h.top - r.bottom + 60, max);
+    window.scrollTo(0, by); return { ok: h.top - window.scrollY < r.bottom - 10 && b.bottom - window.scrollY > r.bottom + h.height, by, max }; })()`);
+  await sleep(200);
+  if (room.ok) check("layout 390: the table head sticks under the rail", await evaluate(`Math.abs(document.querySelector(".price-table thead").getBoundingClientRect().top - document.querySelector(".top").getBoundingClientRect().bottom) < 2`),
+    await evaluate(`document.querySelector(".price-table thead").getBoundingClientRect().top + " / " + document.querySelector(".top").getBoundingClientRect().bottom`));
+  else log.push(`  layout 390: the table is too short to scroll its head under the rail (${JSON.stringify(room)})`);
+  await snap("layout-390-city-scrolled");
+  // A short screen (390 x 350): the rail scrolls away, and the head sticks under the strip alone.
+  await s("Emulation.setDeviceMetricsOverride", { ...PHONE, height: 350 });
+  await sleep(300);
+  const low = await evaluate(`(() => { const h = document.querySelector(".price-table thead").getBoundingClientRect(), max = document.documentElement.scrollHeight - innerHeight;
+    const by = Math.min(window.scrollY + h.top + 40, max); window.scrollTo(0, by); return by > window.scrollY - 1 && max > 0; })()`);
+  await sleep(250);
+  const under = `(() => { const h = document.querySelector(".price-table thead").getBoundingClientRect(), st = document.querySelector(".strip").getBoundingClientRect(); return { head: Math.round(h.top), strip: Math.round(st.top) + "-" + Math.round(st.bottom), stuck: Math.abs(st.top) < 1 && Math.abs(h.top - st.bottom) < 2 }; })()`;
+  if (low) { const u = await evaluate(under); check("layout 390x350: the head sticks under the strip, not behind it", u.stuck, JSON.stringify(u)); }
+  else log.push("  layout 390x350: too short to scroll the head");
+  await snap("layout-390x350-city");
+  await s("Emulation.setDeviceMetricsOverride", PHONE);
+  await sleep(250);
+  await tap(".tabs button", "People");
+  check("layout 390: the closed file counts eight exhibits", /8 exhibits/.test(await text(".board .toggle") ?? ""), await text(".board .toggle"));
+  await snap("layout-390-people");
+  await tap(".board .toggle", "Open the file");
+  check("layout 390: the open file lists them newest first", (await evaluate(`[...document.querySelectorAll(".exhibit-mark")].map(e => e.textContent).join("")`)) === "HGFEDCBA");
+  check("layout 390: and his earlier operations", (await evaluate(`document.querySelectorAll(".case").length`)) === 2);
+  await snap("layout-390-people-open");
+  await tap(".tabs button", "Me");
+  const short = `$${(2500 - Number((await text(".cash")).replace(/[^\d]/g, ""))).toLocaleString("en")} short`;
+  check("layout 390: the Crown's ad names what is short, with no Buy", (await text(".ad .ad-short")) === short && !(await evaluate(`!!document.querySelector(".ad .buy")`)), `${await text(".ad")} (want ${short})`);
+  await snap("layout-390-me");
+
+  // 356 px with text at 150 %: the browser's default text size, so rem media queries follow it
+  // as they do for a player's large-text setting. Without that setting, 150 % page zoom.
+  await s("Page.setFontSizes", { fontSizes: { standard: 24, fixed: 20 } }).catch(() => {});
+  await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 356, height: 760 });
+  await sleep(300);
+  let how = "default text 24 px";
+  if (!(await evaluate(`matchMedia("(max-width: 22.24rem)").matches`))) {
+    how = "150 % zoom (237 css px)";
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 237, height: 507, deviceScaleFactor: 3 });
+    await sleep(300);
+  }
+  log.push(`  layout 356/150 %: ${how}`);
+  check("layout 356/150 %: the narrow layout applies", await evaluate(`matchMedia("(max-width: 22.24rem)").matches`));
+  // Fewer, the number, More and Max each 48 px and inside the sheet; Max under the other three.
+  const STEPPER = `(() => {
+    const d = document.querySelector("dialog.sheet"), b = d.getBoundingClientRect();
+    const parts = [...d.querySelectorAll(".stepper button, .stepper input")].map((e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), inside: r.left >= b.left - 0.5 && r.right <= b.right + 0.5 }; });
+    const u = d.querySelector(".stepper-units").getBoundingClientRect(), m = d.querySelector(".stepper-max").getBoundingClientRect();
+    return { ok: d.scrollWidth <= d.clientWidth && parts.length === 4 && parts.every((p) => p.inside && p.w >= 47.5 && p.h >= 47.5), maxOwnLine: m.top >= u.bottom - 1, parts };
+  })()`;
+  const narrowAudit = async (screen) => {
+    const a = await evaluate(AUDIT);
+    check(`layout 356/150 % ${screen}: controls 48 px, text 14 px, contrast`, a.small.length + a.tiny.length + a.faint.length === 0, [...a.small, ...a.tiny, ...a.faint].join("; "));
+    check(`layout 356/150 % ${screen}: no sideways page scroll`, await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`));
+  };
+  await tap(".tabs button", "Street");
+  await evaluate(`window.scrollTo(0, 0)`);
+  await sleep(200);
+  check("layout 356/150 %: Street puts the market before the moves", await evaluate(`!!(document.querySelector(".market").compareDocumentPosition(document.querySelector(".moves")) & Node.DOCUMENT_POSITION_FOLLOWING)`));
+  log.push(`  layout 356/150 %: Street shows ${await arrival("button.good")} goods on arrival`);
+  check("layout 356/150 %: Street names fit two lines", overTwoLines(await lineCounts(".good-name")).length === 0, overTwoLines(await lineCounts(".good-name")).join("; "));
+  await narrowAudit("Street");
+  await snap("layout-356x150-street");
+  await evaluate(`window.scrollTo(0, 700)`);
+  await sleep(200);
+  check("layout 356/150 %: the rail scrolls away and the strip sticks", await evaluate(`document.querySelector(".status").getBoundingClientRect().bottom <= 0 && Math.abs(document.querySelector(".strip").getBoundingClientRect().top) < 1`));
+  await snap("layout-356x150-street-scrolled");
+  await tap("button.good");
+  const stepper = await evaluate(STEPPER);
+  check("layout 356/150 %: the stepper fits the sheet, Max on its own line", stepper.ok && stepper.maxOwnLine, JSON.stringify(stepper));
+  await snap("layout-356x150-trade");
+  await key("Escape", "Escape", 27);
+  await tap(".tabs button", "City");
+  check("layout 356/150 %: City puts the table before Call around", await evaluate(`!!(document.querySelector(".prices").compareDocumentPosition(document.querySelector(".call")) & Node.DOCUMENT_POSITION_FOLLOWING)`));
+  check("layout 356/150 %: the table scrolls sideways under a fade, the goods column pinned", await evaluate(`(() => { const t = document.querySelector(".table-scroll"); return t.scrollWidth > t.clientWidth && ${FADE_SHOWN} && getComputedStyle(document.querySelector("tbody .stick")).position === "sticky"; })()`));
+  check("layout 356/150 %: City's goods names fit two lines", overTwoLines(await lineCounts(".price-table tbody th")).length === 0, overTwoLines(await lineCounts(".price-table tbody th")).join("; "));
+  check("layout 356/150 %: place names come again above the last rows", await evaluate(`(() => { const rows = [...document.querySelectorAll(".price-table tbody tr")], i = rows.findIndex(r => r.classList.contains("repeat-row")); return document.querySelectorAll(".repeat-row").length === 1 && rows.length - 1 - i === Math.min(4, Math.floor((rows.length - 1) / 2)); })()`));
+  check("layout 356/150 %: the sideways table is a named keyboard stop", await evaluate(`(() => { const t = document.querySelector(".table-scroll"); return t.tabIndex === 0 && t.getAttribute("role") === "region" && !!t.getAttribute("aria-label"); })()`));
+  const narrowWalk = await focusWalk(".call .move");
+  check("layout 356/150 %: Tab and Shift+Tab through City keep each control in view", narrowWalk.reached && narrowWalk.hidden.length === 0, narrowWalk.hidden.join("; "));
+  await evaluate(`(() => { document.activeElement.blur(); document.querySelector(".table-scroll").scrollLeft = 0; window.scrollTo(0, 0); })()`);
+  await sleep(300);
+  log.push(`  layout 356/150 %: City shows ${await arrival(".price-table tbody tr")} price rows on arrival`);
+  await narrowAudit("City");
+  await snap("layout-356x150-city");
+  await evaluate(`(() => { const t = document.querySelector(".table-scroll"); t.scrollLeft = t.scrollWidth; })()`);
+  await sleep(300);
+  check("layout 356/150 %: the fade goes at the table's end", !(await evaluate(FADE_SHOWN)));
+  await snap("layout-356x150-city-end");
+  await tap(".tabs button", "People");
+  await narrowAudit("People");
+  await snap("layout-356x150-people");
+  await tap(".tabs button", "Me");
+  check("layout 356/150 %: Me's Form stacks", await evaluate(`getComputedStyle(document.querySelector(".form")).gridTemplateColumns.split(" ").length === 1`));
+  await narrowAudit("Me");
+  await snap("layout-356x150-me");
+
+  // 320 px with text at 200 %: the frame, the trade sheet and the file still fit.
+  await s("Page.setFontSizes", { fontSizes: { standard: 32, fixed: 26 } }).catch(() => {});
+  await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
+  await sleep(300);
+  if (await evaluate(`parseFloat(getComputedStyle(document.documentElement).fontSize) === 32`)) {
+    const fits = `(() => { const w = document.documentElement.clientWidth, out = [];
+      for (const e of document.querySelectorAll(".status *, .tabs button, main *")) { const r = e.getBoundingClientRect(); if (r.width && (r.left < -0.5 || r.right > w + 0.5)) out.push(e.tagName + "." + (e.getAttribute("class") ?? "") + " " + Math.round(r.left) + "-" + Math.round(r.right) + " " + (e.textContent ?? "").trim().slice(0, 16)); }
+      return { page: document.documentElement.scrollWidth <= w, out: [...new Set(out)].slice(0, 6) }; })()`;
+    await tap(".tabs button", "Street");
+    await evaluate(`window.scrollTo(0, 0)`);
+    await sleep(200);
+    const street = await evaluate(fits);
+    check("layout 320/200 %: the rail and the tabs fit", street.page && street.out.length === 0, JSON.stringify(street));
+    await snap("layout-320x200-street");
+    await tap("button.good");
+    const big = await evaluate(STEPPER);
+    check("layout 320/200 %: the stepper fits the sheet, Max on its own line", big.ok && big.maxOwnLine, JSON.stringify(big));
+    await snap("layout-320x200-trade");
+    await key("Escape", "Escape", 27);
+    await tap(".tabs button", "People");
+    await evaluate(`window.scrollTo(0, 0)`);
+    await sleep(200);
+    const people = await evaluate(fits);
+    check("layout 320/200 %: Pinch's file fits", people.page && people.out.length === 0, JSON.stringify(people));
+    await snap("layout-320x200-people");
+    await tap(".board .toggle", "Open the file");
+    await sleep(200);
+    const opened = await evaluate(fits);
+    check("layout 320/200 %: the open file fits, exhibits and past operations", opened.page && opened.out.length === 0 && (await evaluate(`document.querySelectorAll(".exhibit-row").length === 8 && document.querySelectorAll(".case").length === 2`)), JSON.stringify(opened));
+    await snap("layout-320x200-people-open");
+
+    // A long result (a bribe, a sale that empties demand, two skills up) isn't pinned over the
+    // screen: it is read in full and scrolls away. Day 9 at 12:00, eight watches held at the Docks.
+    const b0 = sim.newGame(11, "bribe");
+    const bribing = { ...b0, day: 9, hour: 12, cash: 4500, heat: 40, upgrades: ["coat", "phone"], xp: { ...b0.xp, patter: 9, nerve: 8 } };
+    bribing.held = { ...b0.held, watches: 8 };
+    bribing.paid = { ...b0.paid, watches: 120 };
+    bribing.market = { ...b0.market, docks: { ...b0.market.docks, watches: { ...b0.market.docks.watches, demand: 8 } } };
+    const stopped = sim.step({ ...bribing, rng: testing.rngWhere(testing.below(0.001), testing.below(0.1)) }, { type: "sell", good: "watches", units: 8 });
+    await store(stopped.state);
+    await reload();
+    await tap("dialog.card .choice-card", "Slip him");
+    await sleep(300);
+    const STRIP = `(() => { const st = document.querySelector(".strip"), r = st.getBoundingClientRect(), tabs = document.querySelector(".tabs").getBoundingClientRect().top;
+      return { top: Math.round(r.top), height: Math.round(r.height), tabs: Math.round(tabs), pinned: getComputedStyle(st).position === "sticky", whole: st.scrollHeight <= st.clientHeight + 1 }; })()`;
+    const long = await evaluate(STRIP);
+    check("layout 320/200 %: a long result is read in full, not pinned", !long.pinned && long.whole && /patter improves.*nerve hardens/.test(await text(".strip") ?? ""), `${JSON.stringify(long)} ${await text(".strip")}`);
+    await evaluate(`window.scrollTo(0, window.scrollY + document.querySelector(".strip").getBoundingClientRect().bottom + 40)`);
+    await sleep(250);
+    const past = await evaluate(STRIP);
+    check("layout 320/200 %: scrolled past it, the screen has the space above the tabs", past.top + past.height <= 0 && (await evaluate(`!!document.querySelector("main button.good") && [...document.querySelectorAll("main button.good")].some(b => { const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= ${past.tabs}; })`)), JSON.stringify(past));
+    await snap("layout-320x200-long-result");
+    // An ordinary result still sticks.
+    await evaluate(`window.scrollTo(0, 0)`);
+    await tap("button.good");
+    await tap("dialog .commit");
+    await sleep(300);
+    await evaluate(`window.scrollTo(0, 900)`);
+    await sleep(250);
+    const short = await evaluate(STRIP);
+    check("layout 320/200 %: an ordinary result still sticks", short.pinned && Math.abs(short.top) < 1 && /^Bought/.test(await text(".strip") ?? ""), `${JSON.stringify(short)} ${await text(".strip")}`);
+    await snap("layout-320x200-short-result");
+    // City: no room for a whole place column beside the pinned goods column and the fade, so
+    // the goods column scrolls too and the fade goes; each Go is shown whole when focused.
+    await tap(".tabs button", "City");
+    check("layout 320/200 %: City's goods column scrolls and the fade goes", await evaluate(`getComputedStyle(document.querySelector("tbody .stick")).position === "static" && !${FADE_SHOWN} && document.querySelectorAll("button.go").length >= 2`),
+      await evaluate(`document.querySelectorAll("button.go").length + " Go"`));
+    const bigWalk = await focusWalk(".call .move");
+    check("layout 320/200 %: Tab and Shift+Tab through City show each Go whole", bigWalk.reached && bigWalk.hidden.length === 0, bigWalk.hidden.join("; "));
+    await evaluate(`[...document.querySelectorAll("button.go")].at(-1).focus()`);
+    await sleep(200);
+    await snap("layout-320x200-city-go");
+  } else log.push("  layout 320/200 %: skipped, this browser ignores Page.setFontSizes");
+  await s("Page.setFontSizes", { fontSizes: { standard: 16, fixed: 13 } }).catch(() => {});
+  await s("Emulation.setDeviceMetricsOverride", PHONE);
+  await sleep(200);
+
+  // Each tip's dismiss button is named for its tip; dismissing one moves focus on, not away.
+  await store(day9);
+  await reload();
+  await tap(".tabs button", "Street");
+  const names = await evaluate(`[...document.querySelectorAll(".tip button")].map(b => b.getAttribute("aria-label"))`);
+  check("tips: each dismiss button is named for its tip", names.length === 2 && new Set(names).size === 2 && names.every((n) => /^Dismiss Mags's tip: /.test(n)), names.join(" | "));
+  await evaluate(`document.querySelector(".tip button").focus()`);
+  await key("Enter", "Enter", 13);
+  check("tips: focus moves to the next tip's button", await evaluate(`document.activeElement?.matches(".tip button") && document.querySelectorAll(".tip").length === 1`), await focused());
+  await key("Enter", "Enter", 13);
+  check("tips: after the last, focus moves to the first move", await evaluate(`!document.querySelector(".tip") && document.activeElement?.matches(".moves button")`), await focused());
 
   // ---- Desktop: the wide layout and a keyboard-only day ---------------------------------------
   await evaluate(`localStorage.clear()`);
@@ -481,13 +812,13 @@ try {
   await tabTo("dialog .commit"); await enter();
   check("keyboard: buy", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
   await tabTo(".tabs button", "City"); await enter();
-  await tabTo("button.go", "The Strip"); await enter();
+  await tabTo("button.go", "the Strip"); await enter();
   check("keyboard: travel", (await text(".place-name")) === "The Strip", await text(".place-name"));
   await tabTo("button.good", "Untaxed smokes"); await enter();
   await tabTo("dialog .commit"); await enter();
   if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand it over"); await enter(); }
   check("keyboard: sell", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
-  await tabTo("button.action", "Call it a day"); await enter();
+  await tabTo("button.row-button", "Call it a day"); await enter();
   await tabTo("dialog .commit"); await enter();
   await tabTo(".paper .commit", "Start day 2"); await enter();
   check("keyboard: a whole day to the next morning", /Day 2/.test(await text(".daybar")), await text(".daybar"));
@@ -502,7 +833,12 @@ try {
   await s("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   await evaluate(`document.documentElement.style.fontSize = "200%"`);
   await sleep(300);
-  check("200% text: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= window.innerWidth`), await evaluate(`document.documentElement.scrollWidth + "px"`));
+  check("200% text: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), await evaluate(`document.documentElement.scrollWidth + "px"`));
+  await evaluate(`window.scrollTo(0, 900)`);
+  await sleep(300);
+  check("200% text: the rail scrolls away and the result strip stays", await evaluate(`document.querySelector(".status").getBoundingClientRect().bottom <= 0 && Math.abs(document.querySelector(".strip").getBoundingClientRect().top) < 1`),
+    await evaluate(`document.querySelector(".status").getBoundingClientRect().bottom + " / " + document.querySelector(".strip").getBoundingClientRect().top`));
+  await evaluate(`window.scrollTo(0, 0)`);
   await snap("zoom-200");
 } catch (e) {
   log.push(`ERROR ${e.stack}`);

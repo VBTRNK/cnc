@@ -115,7 +115,7 @@ the same: what is the best use of my next few hours?
 - **No rerolling.** Baselines, stock, demand and the event schedule are rolled once from the
   saved generator. Revisits and reloads see the same values and what is already used up.
 - **Upgrades**, on Me, either order, never lost: **big coat** $800 (pockets 20 → 35) and
-  **burner phone** $1,200. The phone adds *Ring round* to City: it notes every place's
+  **burner phone** $1,200. The phone adds *Call around* to City: it notes every place's
   current price as seen now (not stock or demand) and adds heat, 5 × the call's number
   today (+5, +10, +15, ...; the count restarts each morning). Coppers listen in on a phone
   that is never thrown away. The third purchase is the Crown (see "The first chapter").
@@ -327,31 +327,88 @@ tally, and what people feel is in their authored lines.
 ## Look and feel
 
 - The game looks like a comic crime tabloid on newsprint, kept light: flat paper, thin ink
-  rules and plenty of empty space. No screen may feel crowded or heavy.
+  rules and plenty of empty space. No screen may feel crowded or heavy. Every screen is built
+  from the treatments below; nothing is invented per screen (ADR-013).
 - **Colour.** One light theme. Newsprint `#E6E3DA` is the ground and sheet `#F7F5EE` the
-  raised surface (sheets, choice buttons). Ink `#16140F` is for text and rules, muted ink
-  `#4A463C` for secondary text. Red `#A3140D` marks warnings and scarcity. Highlighter
-  yellow `#FFD400` sits behind the latest result or a phrase in a headline. Manila
-  `#DCC48F`, with stamp red `#8E110B`, belongs to the dossier only.
-- **Type.** Anton, in capitals, for place names, headlines, large counts and the committing
-  button. Newsreader for names and running text. Courier Prime for money, time and status
-  chips. Running text is 16 to 18 px and nothing is smaller than 14 px. The font files are
-  served from this origin.
-- **Weight and spacing.** Side margins are 20 px. Rules are 1.5 px ink and dividers 1 px
-  muted ink. Corners are square. The only shadow is the dossier's hard offset. A screen has
-  at most one filled ink button, the action that commits. Controls are at least 48 px high.
-- **Status.** Every play screen starts with cash, slim chips for pockets and heat, and a bar
-  showing how much of the day is used, with the hours left beside it.
-- **Street.** Goods are a plain, compact list: a large held count (blank when none), the
-  name, the price in a large right-aligned column, and at most a one-word price hint, never
-  a figure. A shortage shows as a short red note. Tapping a good opens a sheet from the
-  bottom with a buy or sell switch, a quantity stepper with a maximum shortcut, and one
-  button that names the trade and its total; for a sale also its hours, with the profit and
-  stop-risk chips ("Sell 6 for $288 · 2 h").
+  raised surface (the rail, the tabs, sheets, controls, paper). Ink `#16140F` is for text and
+  rules, muted ink `#4A463C` for secondary text, the rule tone `#837968` for dividers and
+  chip outlines. Red `#A3140D` marks warnings and scarcity, on the thing it warns about.
+  Highlighter yellow `#FFD400` is a text-sized mark for what is yours or now: the latest
+  result, Here, Yours, the newest exhibit; never a filled block. Manila `#DCC48F`, with stamp
+  red `#8E110B`, belongs to the dossier only.
+- **Type.** Anton, in capitals, for places, names of things, large counts and the committing
+  button. Newsreader for everything people read, the save line included. Courier Prime for
+  money, time, chips and kickers. Running text is 16 to 18 px and nothing is smaller than
+  14 px. The font files are served from this origin.
+- **Weight and spacing.** Side margins are 20 px. Rules are 1.5 px ink, dividers 1 px in the
+  rule tone. Corners are square. The only shadow is the dossier's hard offset. A screen has
+  at most one filled ink button, the action that commits.
+- **Frame.** The status rail is on top: cash, chips for pockets and heat, and the day's hours
+  as a bar (used hours filled, the rest tinted) with the hours left beside it. The last
+  move's result sits in a strip at the rail's foot, on every screen; the tabs are at the
+  bottom. Rail, strip and tabs are on sheet, the screen between them on newsprint, and only
+  the screen scrolls. Where the rail would take too much room (the narrow layout, a short
+  screen, or more than 40% of the height) it scrolls away and the strip sticks to the top
+  on its own; a result too long to pin (over 40% of the space above the tabs) scrolls with
+  the page too, read in full there. A focused control always scrolls clear of what sticks
+  and of the tabs.
+- **Narrow layout.** Below 22.25 rem wide (356 px at default text, or any phone with large
+  text) each screen leads with what the player came for, in reading and focus order alike.
+  Street: the market right under the place name, each good on two lines, then the moves in
+  one column, then the tips and the place's line. City: the price table first, then Call
+  around. Me: the Form stacks. Type never shrinks to fit; the layout changes instead. With
+  very large text on a small phone, portraits go above their lines, the trade stepper's
+  controls narrow to 48 px each, and the tabs sit two by two.
+- **Section break.** A 4 px double ink rule with a Courier kicker, a real heading naming the
+  section. Only where a screen has sections; never the screen's own name, a count or hours.
+- **Group and row.** A list starts on a 1.5 px ink rule and its rows split by dividers, with
+  no boxes around rows. A row that opens a sheet ends in a chevron. A held count leads its row
+  as a bare Anton numeral, read out as "3 held".
+- **Control.** 48 px high, a 1.5 px ink outline on sheet: only controls carry an ink outline.
+  The label left in Newsreader, the hours or money right in Courier, and at most one figure
+  line below (payout, odds, risk, heat; red when it warns). An action that ends something
+  or opens a sheet, like Call it a day, is a row with a chevron, not a box.
+- **Chip.** A label, never tappable: 26 px, a 1 px outline in the rule tone, no fill, Courier
+  14 px. Solid for a certain effect, dashed with a die for a chance, dashed with a question
+  mark for unknown; red when it warns.
+- **Paper.** Something to read, not tap: sheet fill, no outline, set apart by space (an
+  exhibit, an ad). On the manila dossier, lists are rows with dividers; stamps stay red.
+- **Good names.** At most 20 characters, no part over 12 between spaces or hyphens, so a name
+  fits two lines in City's goods column on a 390 px phone. A Vitest test holds every
+  catalogue to it and the browser check measures it.
+- **Street.** The place name, its line, today's tips (the speaker in bold, each dismissable
+  by a button named for its tip),
+  then Moves and the Market. The moves sit two by two (Ask around, Lie low, Odd job, Pull a
+  job), with Call it a day as a row below; a move with too few hours left is not shown. The
+  market lists the goods by name: held count, name, the price in a large right-aligned
+  column, at most a one-word hint (cheap, pricey, short, glut, sold out), never a figure.
+  Tapping a good, sold out or not, opens a sheet from the bottom with a buy or sell switch,
+  a quantity stepper with a maximum shortcut (on its own line when the row doesn't fit), and
+  one button that names the trade and its total; for a sale also its hours, with the profit
+  and stop-risk chips ("Sell 6 for $288 · 2 h").
+- **City.** With the phone, Call around comes first as a control with its heat figure, and
+  tomorrow's word under it. Then the prices: goods down and places across, each place's
+  column headed by its name and any warning (Sweep, Pinch), the way there (Go and its hours,
+  or the Here mark), and when its prices were seen ("now", "13:00", "day 8", "never"). An
+  unseen price is a question mark; under a price, one word for stock or an event, or its
+  own age when older than its column's. The goods column (5.75 rem) and the table's least
+  width (19.75 rem) are in rem: the head sticks under whatever sticks at the top (the rail,
+  or the strip alone) where the table fits; narrower, the table scrolls sideways under a
+  fixed goods column, a keyboard stop of its own, the last column in view cut under a fade,
+  with the place names again above the last rows (the last four, or the last half of a
+  shorter list). Where a whole place column can't fit beside the fixed goods column and the
+  fade (very large text on a small phone), the goods column scrolls too and the fade goes.
+- **People.** Pinch's file is closed by default: his line, the exhibits' letters (the newest
+  marked), the newest exhibit on paper and "Open the file" with the count. Opened, it lists
+  every exhibit newest first and his earlier operations with their stamps, and the letters
+  hide; focus moves to the first of them. The cast follows, one current line each.
+- **Me.** Form: Patter, Nerve and Savvy side by side, each a large level numeral over five
+  pips and what it does. The Classifieds: an ad for each upgrade not yet bought, with its
+  price and Buy, or how much is short; owned ones as rows marked Yours. The Small print: how
+  the run is saved and one button for the cloud, export and a new run.
 - **Event card.** The character and the situation sit in a dossier: a manila folder with a
   halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
-  carries its effects as chips: a solid chip is certain, a dashed chip with a die is a
-  chance, and a dashed chip with a question mark is unknown.
+  carries its effects as chips.
 - **Newspaper.** A masthead, one headline with a short story, a few one-line briefs, the
   day's totals as chips, and one button that starts the next day.
 - **Portraits** are tabloid-cartoon caricatures on a halftone ground in a thin ink frame:

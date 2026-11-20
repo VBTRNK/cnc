@@ -97,25 +97,28 @@ export function TradeSheet({ state, good, onClose, commit }: CommitProps & { goo
         <p className="why">{t(block)}</p>
       ) : (
         <>
+          {/* Max wraps onto its own line when the row doesn't fit (large text, narrow phones). */}
           <div className="stepper">
-            <button type="button" aria-label={t("trade.fewer")} disabled={units <= 1} onClick={() => setChosen(units - 1)}>
-              −
-            </button>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={max}
-              value={units}
-              aria-label={t("trade.units")}
-              onChange={(e) => {
-                const n = Math.floor(Number(e.target.value));
-                if (Number.isFinite(n)) setChosen(Math.min(Math.max(n, 1), max));
-              }}
-            />
-            <button type="button" aria-label={t("trade.more")} disabled={units >= max} onClick={() => setChosen(units + 1)}>
-              +
-            </button>
+            <div className="stepper-units">
+              <button type="button" aria-label={t("trade.fewer")} disabled={units <= 1} onClick={() => setChosen(units - 1)}>
+                −
+              </button>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={max}
+                value={units}
+                aria-label={t("trade.units")}
+                onChange={(e) => {
+                  const n = Math.floor(Number(e.target.value));
+                  if (Number.isFinite(n)) setChosen(Math.min(Math.max(n, 1), max));
+                }}
+              />
+              <button type="button" aria-label={t("trade.more")} disabled={units >= max} onClick={() => setChosen(units + 1)}>
+                +
+              </button>
+            </div>
             <button type="button" className="stepper-max" disabled={units === max} onClick={() => setChosen(max)}>
               {t("trade.max")}
             </button>

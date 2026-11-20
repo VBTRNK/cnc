@@ -1,5 +1,7 @@
 /* Crime & Crown: newsprint, kept light (docs/design.md, "Look and feel"). Sizes are in
-   rem so text zoom reflows the layout; nothing is smaller than 14 px (0.875rem). */
+   rem so text zoom reflows the layout; nothing is smaller than 14 px (0.875rem). Below
+   22.25rem wide (356 px at default text, any phone with large text) the narrow layout
+   applies: keep that query in step with NARROW in src/ui/bits.tsx. */
 
 :root {
   --newsprint: #e6e3da;
@@ -10,6 +12,9 @@
   --highlight: #ffd400;
   --manila: #dcc48f;
   --stamp: #8e110b;
+  /* Dividers and quiet outlines; the hours bar's empty marks. */
+  --rule-tone: #837968;
+  --tint: #d6d0c1;
 
   --display: "Anton", Impact, "Arial Narrow", sans-serif;
   --body: "Newsreader", Georgia, "Times New Roman", serif;
@@ -17,9 +22,11 @@
 
   --gutter: 1.25rem;
   --rule: 1.5px solid var(--ink);
-  --divider: 1px solid var(--ink-muted);
+  --divider: 1px solid var(--rule-tone);
   --control: 3rem;
   --tabs: 3.5rem;
+  /* The fixed tabs' height: one row, or two where four labels don't fit (large text). */
+  --tabs-h: var(--tabs);
 }
 
 *,
@@ -31,6 +38,15 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* A focused control scrolls clear of what sticks at the top (App sets --stick-h). */
+  scroll-padding-top: calc(var(--stick-h, 0px) + 0.5rem);
+}
+
+/* ...and clear of the fixed tabs at the bottom. */
+@media (max-width: 59.99rem) {
+  html {
+    scroll-padding-bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
 }
 
 body {
@@ -44,14 +60,17 @@ body {
 
 h1,
 h2,
+h3,
 p,
 ul,
+ol,
 dl,
 dd {
   margin: 0;
 }
 
-ul {
+ul,
+ol {
   padding: 0;
   list-style: none;
 }
@@ -99,23 +118,23 @@ fieldset.choices {
   font-family: var(--mono);
 }
 
+.warn {
+  color: var(--red);
+  font-style: normal;
+}
+
 /* ---- Layout ---------------------------------------------------------------------- */
 
 .app {
-  padding-bottom: calc(var(--tabs) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom, 0px));
 }
 
-.rail {
-  background: var(--newsprint);
-}
-
-/* The status stays in view while scrolling, unless large text leaves too little room. */
-@media (min-height: 36rem) {
-  .rail {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
+/* The frame: the rail (status, then the result strip at its foot) on top, the tabs at the
+   bottom, both on sheet; the screen between them on newsprint. */
+.top,
+.status,
+.strip {
+  background: var(--sheet);
 }
 
 .screen,
@@ -123,6 +142,64 @@ fieldset.choices {
   max-width: 38rem;
   margin: 0 auto;
   padding: 0 var(--gutter) var(--gutter);
+}
+
+/* On a phone the tabs are fixed, so the rail's parts take part in the page's own flow. */
+@media (max-width: 59.99rem) {
+  .rail {
+    display: contents;
+  }
+}
+
+/* Where it fits, the whole rail stays in view while the screen scrolls... */
+@media (min-width: 22.25rem) and (max-width: 59.99rem) and (min-height: 36rem) {
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+}
+
+/* ...otherwise (the narrow layout, a short screen, or a rail that would take more than 40% of
+   it: App sets data-tall-rail) the rail scrolls away and the result strip sticks on its own. */
+@media (max-width: 22.24rem), (max-width: 59.99rem) and (max-height: 35.99rem) {
+  .top {
+    display: contents;
+  }
+
+  .strip {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+}
+
+@media (max-width: 59.99rem) {
+  :root[data-tall-rail] .top {
+    position: static;
+    display: contents;
+  }
+
+  :root[data-tall-rail] .strip {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  :root[data-tall-rail] .price-table thead {
+    position: static;
+  }
+
+  /* A result too long to pin without crowding out play (App sets data-tall-strip) scrolls
+     with the page, rail and all, and is read in full there. */
+  :root[data-tall-strip] .top {
+    position: static;
+    display: contents;
+  }
+
+  :root[data-tall-strip] .strip {
+    position: static;
+  }
 }
 
 @media (min-width: 60rem) {
@@ -145,11 +222,18 @@ fieldset.choices {
   }
 }
 
-/* ---- Status ---------------------------------------------------------------------- */
+@media (min-width: 60rem) and (min-height: 36rem) {
+  .rail {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+}
+
+/* ---- Status and result strip ----------------------------------------------------- */
 
 .status {
-  padding: 0.75rem var(--gutter) 0.6rem;
-  border-bottom: var(--rule);
+  padding: 0.75rem var(--gutter) 0.375rem;
 }
 
 .status-top {
@@ -157,52 +241,65 @@ fieldset.choices {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.375rem 0.5rem;
 }
 
 .cash {
   font-size: 1.75rem;
   font-weight: 700;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .status-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.375rem;
 }
 
 .daybar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.25rem 0.625rem;
   margin-top: 0.5rem;
   font-family: var(--mono);
   font-size: 0.875rem;
   white-space: nowrap;
 }
 
+/* The day's hours: used ones filled in ink, the rest tinted. With very large text the
+   hours left wrap under the bar. */
 .hours {
   display: flex;
-  flex: 1;
+  flex: 1 1 4rem;
   gap: 2px;
 }
 
 .hours .mark {
   flex: 1;
-  height: 0.5rem;
-  border: 1px solid var(--ink);
+  height: 0.4375rem;
+  background: var(--tint);
 }
 
-.mark-on {
+.hours .mark-on {
   background: var(--ink);
 }
 
-@media (min-width: 60rem) {
-  .status {
-    padding: 0 0 0.75rem;
-  }
+/* The strip's lower rule is the rail's edge, with or without a result in it. */
+.strip {
+  padding: 0 var(--gutter);
+  border-bottom: var(--rule);
+}
 
+.strip .result {
+  margin: 0;
+  padding: 0.25rem 0 0.5rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+@media (min-width: 60rem) {
   .status-top {
     flex-direction: column;
     align-items: flex-start;
@@ -220,7 +317,7 @@ fieldset.choices {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--newsprint);
+  background: var(--sheet);
   border-top: var(--rule);
 }
 
@@ -238,6 +335,28 @@ fieldset.choices {
 .tabs button[aria-current="page"] {
   color: var(--ink);
   box-shadow: inset 0 4px 0 var(--ink);
+}
+
+/* Very large text on a small phone: the four labels don't fit one row, so two by two. */
+@media (max-width: 11.49rem) {
+  :root {
+    --tabs-h: calc(2 * var(--control));
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tabs button {
+    min-height: var(--control);
+  }
+
+  /* A bar between the rows would belong to either: underline the label itself. */
+  .tabs button[aria-current="page"] {
+    box-shadow: none;
+    text-decoration: underline 4px;
+    text-underline-offset: 0.2em;
+  }
 }
 
 @media (min-width: 60rem) {
@@ -262,13 +381,15 @@ fieldset.choices {
 
 /* ---- Chips ----------------------------------------------------------------------- */
 
+/* A label, never tappable: a quiet outline in the rule tone, no fill. Solid for a certain
+   effect, dashed with a die for a chance, dashed with ? for unknown; red when it warns. */
 .chip {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-height: 1.75rem;
-  padding: 0 0.5rem;
-  border: 1.5px solid var(--ink);
+  min-height: 1.625rem;
+  padding: 0 0.375rem;
+  border: 1px solid var(--rule-tone);
   font-family: var(--mono);
   font-size: 0.875rem;
   line-height: 1.2;
@@ -319,8 +440,7 @@ fieldset.choices {
   outline-offset: 3px;
 }
 
-.choice,
-.go {
+.choice {
   min-height: var(--control);
   padding: 0 1rem;
   border: var(--rule);
@@ -330,7 +450,7 @@ fieldset.choices {
 .choice:disabled,
 .commit:disabled,
 .choice-card:disabled,
-.action:disabled,
+.move:disabled,
 .good:disabled,
 .go:disabled {
   border-style: dashed;
@@ -384,12 +504,96 @@ fieldset.choices {
   border-left-width: 6px;
 }
 
+/* ---- Section kickers, controls and rows ------------------------------------------ */
+
+/* A section's kicker: a real heading on a double ink rule, only where a screen has sections. */
+.kicker {
+  margin-top: 1.25rem;
+  padding-top: 0.3125rem;
+  border-top: 4px double var(--ink);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.moves .kicker,
+.market .kicker,
+.prices .kicker,
+.plain > section:first-child > .kicker {
+  margin-top: 0.875rem;
+}
+
+/* A control: 48 px, ink outline on sheet. Name left, hours or money right, at most one
+   figure line below. */
+.move {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  align-items: baseline;
+  column-gap: 0.375rem;
+  row-gap: 1px;
+  min-height: var(--control);
+  padding: 0.375rem 0.625rem;
+  border: var(--rule);
+  background: var(--sheet);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.move-name {
+  font-weight: 600;
+}
+
+.move-hours {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.move-figure {
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
+  color: var(--ink-muted);
+}
+
+.move-figure .figure {
+  font-family: var(--mono);
+}
+
+.move-row {
+  width: 100%;
+}
+
+/* An action that ends something or opens a sheet: a row with a chevron, not a box. */
+.row-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: var(--control);
+  margin-top: 0.25rem;
+  padding: 0 0.25rem 0 0.625rem;
+  border: 0;
+  border-bottom: var(--divider);
+  background: none;
+  text-align: left;
+}
+
+.chev {
+  flex: none;
+  color: var(--ink-muted);
+}
+
 /* ---- Street ---------------------------------------------------------------------- */
 
 .place-name {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
   font-family: var(--display);
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -418,24 +622,41 @@ fieldset.choices {
   -webkit-box-decoration-break: clone;
 }
 
-.briefs {
-  margin-top: 0.75rem;
+.tips {
+  margin-top: 0.625rem;
 }
 
-.brief {
+.tip {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   border-top: var(--divider);
 }
 
-.brief p {
+.tip:last-child {
+  border-bottom: var(--divider);
+}
+
+.tip p {
   flex: 1;
-  padding: 0.5rem 0;
+  padding: 0.375rem 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.tip b {
+  font-weight: 600;
+}
+
+.move-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem;
+  margin-top: 0.5rem;
 }
 
 .goods {
-  margin-top: 1rem;
+  margin-top: 0.375rem;
   border-top: var(--rule);
 }
 
@@ -443,12 +664,12 @@ fieldset.choices {
   border-bottom: var(--divider);
 }
 
-/* Prices sit in one right-aligned column, large enough to scan down the list. */
+/* Held count, name, the price in a right-aligned column, a one-word hint, the chevron. */
 .good {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) 5.5rem 4.25rem;
+  grid-template-columns: 2rem minmax(0, 1fr) auto 3.5rem 0.75rem;
   align-items: center;
-  gap: 0.5rem;
+  column-gap: 0.375rem;
   width: 100%;
   min-height: var(--control);
   padding: 0.125rem 0;
@@ -459,12 +680,16 @@ fieldset.choices {
 
 .held {
   font-family: var(--display);
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   line-height: 1;
 }
 
+.good-name {
+  line-height: 1.25;
+}
+
 .good-price {
-  font-size: 1.375rem;
+  font-size: 1.1875rem;
   font-weight: 700;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -477,57 +702,47 @@ fieldset.choices {
   text-align: right;
 }
 
-.note {
-  color: var(--ink-muted);
-}
-
-.note-warn,
-.good-hint.note-warn {
+.good-hint.warn {
   color: var(--red);
   font-style: normal;
 }
 
-.actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 1.25rem;
-}
+/* Narrow: the moves in one column, each good on two lines (name; price and hint). */
+@media (max-width: 22.24rem) {
+  .move-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.action {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
-  min-height: 3.5rem;
-  padding: 0.5rem 0.75rem;
-  border: var(--rule);
-  background: var(--sheet);
-  text-align: left;
-}
+  .good {
+    grid-template-columns: 2rem auto minmax(0, 1fr) 0.75rem;
+    padding: 0.375rem 0;
+  }
 
-.action-label {
-  font-weight: 600;
-}
+  .held {
+    grid-row: 1 / 3;
+  }
 
-.action-detail {
-  color: var(--ink-muted);
-  font-size: 0.875rem;
-  line-height: 1.3;
-}
+  .good-name {
+    grid-column: 2 / 4;
+    grid-row: 1;
+  }
 
-.action-wide {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-}
+  .good-price {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+  }
 
-.action-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  .good-hint {
+    grid-column: 3;
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .good .chev {
+    grid-column: 4;
+    grid-row: 1 / 3;
+  }
 }
 
 /* ---- Sheets ---------------------------------------------------------------------- */
@@ -647,10 +862,21 @@ fieldset.choices {
   box-shadow: inset 0 -4px 0 var(--ink);
 }
 
+/* Max wraps onto its own line when the row doesn't fit. Fewer, the number and More stay
+   together and give way down to 48 px each (very large text on a small phone). */
 .stepper {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 1rem;
+}
+
+.stepper-units {
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: minmax(48px, var(--control)) minmax(48px, 5rem) minmax(48px, var(--control));
+  gap: min(0.5rem, 8px);
+  min-width: 0;
 }
 
 .stepper button {
@@ -661,8 +887,15 @@ fieldset.choices {
   font-size: 1.25rem;
 }
 
+.stepper-units button {
+  min-width: 0;
+  padding: 0;
+}
+
 .stepper input {
-  width: 5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   min-height: var(--control);
   border: var(--rule);
   background: var(--sheet);
@@ -757,191 +990,471 @@ fieldset.choices {
   text-transform: uppercase;
 }
 
+/* A choice's effects as chips, under its title. */
+.action-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .choice-after {
   line-height: 1.35;
 }
 
 /* ---- City ------------------------------------------------------------------------ */
 
-.ring {
+.call {
+  margin-top: 0.875rem;
+}
+
+.prices + .call {
   margin-top: 1.25rem;
 }
 
 .rumour {
-  margin-top: 1.25rem;
+  margin-top: 0.5rem;
   font-style: italic;
+  line-height: 1.4;
 }
 
-.places {
-  margin-top: 1rem;
+/* Goods down, places across. The goods column and the table's least width are in rem, so
+   large text widens them and the table scrolls sideways instead of squeezing. */
+.table-frame {
+  position: relative;
+  margin-top: 0.25rem;
 }
 
-.place-card {
-  padding: 0.75rem 0 1rem;
-  border-top: var(--rule);
+/* The containing block of the cells' visually hidden labels, so they scroll and clip with it. */
+.table-scroll {
+  position: relative;
 }
 
-.place-head {
+/* Separate borders, drawn by the cells, so the head's rule moves with it when it sticks. */
+.price-table {
+  width: 100%;
+  min-width: 19.75rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.col-goods {
+  width: 5.75rem;
+}
+
+/* The head stays in view where the table fits, under whatever sticks at the top: the rail,
+   or the strip alone (App sets --stick-h). */
+.price-table thead {
+  position: sticky;
+  top: var(--stick-h, 0px);
+  z-index: 1;
+  background: var(--newsprint);
+}
+
+.price-table th,
+.price-table td {
+  padding: 0;
+  text-align: right;
+  vertical-align: top;
+}
+
+.price-table .place-head {
+  padding-top: 0.375rem;
+  font-family: var(--display);
+  font-size: 0.875rem;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.head-note {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--red);
+}
+
+.price-table .go-cell {
+  padding: 0.25rem 0.125rem 0;
+  text-align: center;
+}
+
+.go {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.125rem 0;
+  border: var(--rule);
+  background: var(--sheet);
+  line-height: 1.15;
+}
+
+.go-word {
+  font-weight: 600;
+}
+
+.go-hours {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+}
+
+.here,
+.go-late {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: var(--control);
+  justify-content: center;
+  min-height: 3.25rem;
+  font-family: var(--mono);
+  font-size: 0.875rem;
 }
 
-.place-head h2 {
+.go-late {
+  color: var(--ink-muted);
+}
+
+/* Here: a text-sized mark, not a block. */
+.here mark {
+  padding: 1px 5px;
+  background: var(--highlight);
+  color: var(--ink);
+}
+
+.price-table .seen-row th,
+.price-table .seen-row td {
+  padding: 0.25rem 0.125rem 0.375rem;
+  border-bottom: var(--rule);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.price-table .seen-row th {
+  padding-left: 0;
+  text-align: left;
+}
+
+.price-table tbody th,
+.price-table tbody td {
+  border-bottom: var(--divider);
+}
+
+.price-table tbody th {
+  padding: 0.375rem 0.25rem 0.375rem 0;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.price-table tbody td {
+  padding: 0.375rem 0.25rem 0.375rem 0;
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.price-table .here-col {
+  background: var(--sheet);
+}
+
+.price-table .unknown {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.cell-hint {
+  display: block;
+  font-family: var(--body);
+  font-size: 0.875rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-muted);
+}
+
+.cell-hint.warn {
+  color: var(--red);
+  font-style: normal;
+}
+
+.price-table .repeat-row td {
+  padding: 0.5rem 0.125rem 0.125rem;
   font-family: var(--display);
-  font-size: 1.5rem;
+  font-size: 0.875rem;
   font-weight: 400;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  text-align: center;
+  color: var(--ink-muted);
 }
 
-.here {
-  font-family: var(--mono);
-  font-size: 0.875rem;
-  padding: 0.1rem 0.4rem;
-  background: var(--highlight);
+/* Narrow: the table scrolls sideways under a fixed goods column; the last column in view is
+   cut under a fade until the end is reached. */
+@media (max-width: 22.24rem) {
+  /* A keyboard stop of its own (City scrolls a focused Go clear of the goods column and fade). */
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  .price-table {
+    width: 24.5rem;
+  }
+
+  .price-table thead {
+    position: static;
+  }
+
+  .price-table .stick {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--newsprint);
+  }
 }
 
-.place-notes {
+.table-fade {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1rem;
-  font-size: 0.9375rem;
+  align-items: flex-start;
+  justify-content: flex-end;
+  width: 2.125rem;
+  padding-top: 2.75rem;
+  background: linear-gradient(to right, rgb(230 227 218 / 0), var(--newsprint) 80%);
+  pointer-events: none;
 }
 
-.prices {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+.table-fade .chev {
+  color: var(--ink);
 }
 
-.prices dt {
-  color: var(--ink-muted);
-  font-size: 0.875rem;
+.table-fade:not([data-more]) {
+  visibility: hidden;
 }
 
-.prices .money {
-  display: block;
-  font-size: 1.125rem;
-  font-weight: 700;
-}
+/* Where a whole place column can't fit beside the fixed goods column and the fade (very large
+   text on a small phone), the goods column scrolls with the rest and the fade goes, so a
+   focused Go and its label always fit the scroller. */
+@media (max-width: 14.8rem) {
+  .price-table .stick {
+    position: static;
+  }
 
-.price-unknown .money {
-  color: var(--ink-muted);
-}
-
-.price-hint {
-  display: block;
-  min-height: 1.3em;
-  font-size: 0.875rem;
-  font-style: italic;
-  color: var(--ink-muted);
-  line-height: 1.3;
-}
-
-.seen {
-  margin-top: 0.4rem;
-  color: var(--ink-muted);
-  font-size: 0.875rem;
-}
-
-@media (max-width: 22rem) {
-  .prices {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .table-fade {
+    display: none;
   }
 }
 
 /* ---- Me -------------------------------------------------------------------------- */
 
-.skills {
-  margin-top: 1.25rem;
+/* Form: the three skills as one group, side by side; stacked in the narrow layout. */
+.form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0.375rem;
   border-top: var(--rule);
-}
-
-.skill {
-  padding: 0.75rem 0;
   border-bottom: var(--divider);
 }
 
-.skill-head {
+.skill {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.5rem 0.625rem 0.625rem;
 }
 
-.skill h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
+.skill:first-child {
+  padding-left: 0;
 }
 
-.skill p {
-  color: var(--ink-muted);
+.skill + .skill {
+  border-left: var(--divider);
+}
+
+.skill-name {
+  font-family: var(--display);
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.skill-level {
+  font-family: var(--display);
+  font-size: 2.5rem;
+  line-height: 1;
 }
 
 .pips {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  margin-top: 0.25rem;
 }
 
 .pips .mark {
-  width: 1.25rem;
-  height: 0.75rem;
+  flex: 1;
+  height: 0.625rem;
   border: 1.5px solid var(--ink);
 }
 
-.upgrades {
-  margin-top: 1.5rem;
+.pips .mark-on {
+  background: var(--ink);
 }
 
-.upgrade {
+.skill-what {
+  margin-top: 0.375rem;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 22.24rem) {
+  .form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .skill {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 0.625rem;
+    padding: 0.5rem 0 0.625rem;
+  }
+
+  .skill + .skill {
+    border-left: 0;
+    border-top: var(--divider);
+  }
+
+  .skill-level {
+    font-size: 1.625rem;
+  }
+
+  .pips {
+    max-width: 5.625rem;
+    margin-top: 0;
+  }
+
+  .skill-what {
+    grid-column: 1 / -1;
+    margin-top: 2px;
+  }
+}
+
+/* Paper: something to read, not tap. Sheet fill, no outline, set apart by space. */
+.paper-note {
+  padding: 0.5rem 0.75rem;
+  background: var(--sheet);
+}
+
+.ad {
+  margin-top: 0.5rem;
+  padding: 0.625rem 0.75rem 0.75rem;
+}
+
+.ad-name {
+  font-family: var(--display);
+  font-size: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.ad-what {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.ad-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem 0;
+  gap: 0.375rem 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.ad-cost {
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ad-short {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  color: var(--ink-muted);
+}
+
+.buy {
+  min-height: var(--control);
+  padding: 0 1.125rem;
+  border: var(--rule);
+  background: var(--newsprint);
+  font-weight: 600;
+}
+
+.owned-list {
+  margin-top: 0.5rem;
   border-top: var(--rule);
 }
 
-.upgrade > div {
-  flex: 1 1 14rem;
+.owned-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: var(--control);
+  border-bottom: var(--divider);
 }
 
-.upgrade h2 {
+.owned-name {
   font-family: var(--display);
-  font-size: 1.375rem;
-  font-weight: 400;
+  font-size: 1.0625rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-.upgrade p {
+.owned-what {
+  font-size: 0.9375rem;
   color: var(--ink-muted);
 }
 
-.owned {
-  font-family: var(--mono);
-  padding: 0.1rem 0.4rem;
+.yours {
+  flex: none;
+  padding: 2px 6px;
   background: var(--highlight);
+  font-family: var(--mono);
+  font-size: 0.875rem;
 }
 
 .save-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: var(--rule);
+  margin-top: 0.375rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
 }
 
-.save-line p {
-  flex: 1 1 14rem;
-  color: var(--ink-muted);
+.save-button {
+  display: block;
+  width: 100%;
+  margin-top: 0.625rem;
 }
 
 /* ---- Cloud save ------------------------------------------------------------------ */
@@ -1130,51 +1643,134 @@ fieldset.choices {
   }
 }
 
-/* ---- People: Pinch's board and the cast ------------------------------------------- */
+/* ---- People: Pinch's file and the cast ------------------------------------------- */
 
 .board {
-  margin-top: 1.25rem;
-  padding: 1rem;
+  margin: 1.125rem 0.375rem 0 0;
+  padding: 0.875rem;
   background: var(--manila);
   box-shadow: 6px 6px 0 var(--ink);
 }
 
+/* The portrait beside his name and line; under them when there is no room (very large text). */
 .board-head {
-  display: grid;
-  grid-template-columns: 5.5rem minmax(0, 1fr);
-  gap: 1rem;
-}
-
-.board-head h1 {
-  font-family: var(--body);
-  font-size: 1.125rem;
-  font-weight: 600;
-}
-
-.exhibits,
-.cases {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 0;
-  list-style: none;
+  align-items: flex-start;
 }
 
-.exhibit,
-.case {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--ink-muted);
-  background: var(--sheet);
+.board-head .portrait {
+  flex: 0 0 4.5rem;
 }
 
-.exhibit-letter {
+.board-head > div {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.board-who {
+  font-family: var(--body);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.board-head p {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+/* The closed file: the exhibits' letters, the newest marked, and the newest on paper. */
+.letters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 0.75rem;
+  margin-top: 0.875rem;
   font-family: var(--display);
+  font-size: 1.125rem;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  color: var(--ink-muted);
+}
+
+.letter-new {
+  padding: 0 2px;
+  color: var(--ink);
+  box-shadow: inset 0 -0.45em 0 var(--highlight);
+}
+
+.board .paper-note {
+  margin-top: 0.625rem;
+}
+
+.paper-note p,
+.exhibit-row p {
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
+
+.paper-note .exhibit-letter {
+  font-family: var(--display);
+  font-size: 0.9375rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
-.exhibit-reading {
+.exhibit-row .exhibit-reading,
+.paper-note .exhibit-reading {
   font-style: italic;
+}
+
+/* The open file: every exhibit newest first, then his earlier operations, as rows. */
+.file-label {
+  margin-top: 0.875rem;
+}
+
+.file-label:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.exhibit-rows,
+.cases {
+  margin-top: 0.375rem;
+  border-top: var(--rule);
+}
+
+.exhibit-row {
+  display: grid;
+  grid-template-columns: 1.875rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+  padding: 0.4375rem 0;
+  border-bottom: 1px solid rgb(22 20 15 / 0.45);
+}
+
+.exhibit-mark {
+  font-family: var(--display);
+  font-size: 1.25rem;
+  line-height: 1.2;
+  color: var(--ink-muted);
+}
+
+.exhibit-mark-new {
+  color: var(--ink);
+}
+
+.exhibit-mark-new span {
+  padding: 0 3px;
+  background: var(--highlight);
 }
 
 .case {
@@ -1183,6 +1779,15 @@ fieldset.choices {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgb(22 20 15 / 0.45);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.case .stamp {
+  flex: none;
+  font-size: 1.0625rem;
 }
 
 .cases-older {
@@ -1190,31 +1795,64 @@ fieldset.choices {
   font-style: italic;
 }
 
-.case .stamp {
-  font-size: 1.125rem;
+.toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+  width: 100%;
+  min-height: var(--control);
+  margin-top: 0.75rem;
+  padding: 0.375rem 0.75rem;
+  border: var(--rule);
+  background: var(--sheet);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
 }
 
-.cast {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1.5rem;
+.toggle-figure {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+  font-weight: 400;
 }
 
 .cast-member {
-  display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  align-items: start;
+  align-items: center;
+  padding: 0.625rem 0;
+  border-bottom: var(--divider);
 }
 
-.cast-member h2 {
-  font-family: var(--body);
+.cast-member .portrait {
+  flex: 0 0 3.25rem;
+}
+
+.cast-member > div {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.cast-member h3 {
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.3;
+}
+
+.cast-member p {
+  font-size: 1rem;
+  line-height: 1.35;
 }
 
 .portrait-small {
-  padding: 0.3rem 0.3rem 0;
+  padding: 3px 3px 0;
 }
 
 .byline {

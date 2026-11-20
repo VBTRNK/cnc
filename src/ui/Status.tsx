@@ -22,3 +22,19 @@ export function Status({ state }: { state: GameState }) {
     </header>
   );
 }
+
+/**
+ * The last move's result at the foot of the rail. It stays in view: with the rail where the
+ * rail sticks, on its own where the rail scrolls away (docs/design.md, "Look and feel").
+ */
+export function ResultStrip({ lines }: { lines: readonly string[] }) {
+  return (
+    <div className="strip" role="status">
+      {lines.length > 0 && (
+        <p className="result">
+          <mark>{lines.join(" ")}</mark>
+        </p>
+      )}
+    </div>
+  );
+}

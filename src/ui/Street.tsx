@@ -1,6 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
-  GOODS,
   RULES,
   canAskAround,
   hoursLeft,
@@ -8,46 +7,41 @@ import {
   price,
   priceHint,
   quoteJob,
+  riskWord,
   type Action,
   type DomainEvent,
   type GameState,
   type GoodId,
-  type Refusal,
 } from "../sim/index.ts";
-import { Chip, RiskChip } from "./bits.tsx";
+import { Chevron, CloseIcon, useNarrow } from "./bits.tsx";
 import { eventAt, sweepAt } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
-import { codename, goodName, money, placeName, t } from "./text.ts";
-import { briefs, oddsText, resultLines } from "./words.ts";
+import { codename, goodName, goodsByName, money, placeName, t, upper } from "./text.ts";
+import { briefs, oddsText } from "./words.ts";
 
 interface StreetProps {
   state: GameState;
   events: readonly DomainEvent[];
-  refusal: Refusal | null;
   dismissed: ReadonlySet<string>;
   onDismiss: (id: string) => void;
   onOpen: (overlay: Overlay) => void;
   dispatch: (action: Action) => void;
 }
 
-/** Where you stand: the result of the last move, today's news, goods and actions. */
-export function Street({ state, events, refusal, dismissed, onDismiss, onOpen, dispatch }: StreetProps) {
-  const lines = refusal ? [t("result.refused")] : resultLines(events, state);
+/**
+ * Where you stand: the place, today's tips, the moves and the market. In the narrow layout
+ * the market comes first, then the moves, then the tips and the place's line.
+ */
+export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }: StreetProps) {
+  const narrow = useNarrow();
   const news = briefs(state)
     .map((b) => ({ ...b, id: `${state.runId}:${b.id}` }))
     .filter((b) => !dismissed.has(b.id));
-  const left = hoursLeft(state);
-  const job = quoteJob(state);
   const flavour = operationOn(state, state.place)
     ? t("street.flavour.operation", { Codename: codename(state.detective.case?.n ?? 1) })
     : sweepAt(state, state.place)
       ? t("street.flavour.sweep")
       : t(`street.flavour.${state.place}`);
-
-  const resultRef = useRef<HTMLParagraphElement>(null);
-  useEffect(() => {
-    if (events.length > 0 || refusal) resultRef.current?.scrollIntoView({ block: "nearest" });
-  }, [events, refusal]);
 
   // Travelling or a new day removes the control that had focus; keep it on the page.
   const headRef = useRef<HTMLHeadingElement>(null);
@@ -61,84 +55,132 @@ export function Street({ state, events, refusal, dismissed, onDismiss, onOpen, d
     if (!document.activeElement || document.activeElement === document.body) headRef.current?.focus();
   }, [where]);
 
-  return (
-    <>
-      <h1 ref={headRef} tabIndex={-1} className="place-name">
-        {placeName(state.place)}
-      </h1>
-      <p className="flavour">{flavour}</p>
+  // A dismissed tip's button goes with it: focus moves to the next tip's (or the one before),
+  // else to the control beside the tips, the first move (or, narrow, Call it a day above them).
+  const tipsRef = useRef<HTMLUListElement>(null);
+  const focusAfter = useRef<string | null>(null);
+  const dismiss = (i: number) => {
+    focusAfter.current = (news[i + 1] ?? news[i - 1])?.id ?? "";
+    onDismiss(news[i]!.id);
+  };
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (id === null) return;
+    focusAfter.current = null;
+    const next = id
+      ? [...(tipsRef.current?.querySelectorAll<HTMLElement>("[data-tip]") ?? [])].find((e) => e.dataset.tip === id)
+      : document.querySelector<HTMLElement>(narrow ? ".moves .row-button" : ".moves button");
+    next?.focus();
+  }, [news.length, narrow]);
 
-      <div className="result-slot" role="status">
-        {lines.length > 0 && (
-          <p ref={resultRef} className="result">
-            <mark>{lines.join(" ")}</mark>
+  const place = <p className="flavour">{flavour}</p>;
+  const tips = news.length > 0 && (
+    <ul className="tips" ref={tipsRef}>
+      {news.map((b, i) => (
+        <li key={b.id} className="tip">
+          <p>
+            <b>{b.who}</b> {b.line}
           </p>
-        )}
-      </div>
-
-      {news.length > 0 && (
-        <ul className="briefs">
-          {news.map((b) => (
-            <li key={b.id} className="brief">
-              <p>{b.line}</p>
-              <button type="button" className="icon-button" aria-label={t("dismiss")} onClick={() => onDismiss(b.id)}>
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
+          <button
+            type="button"
+            className="icon-button"
+            data-tip={b.id}
+            aria-label={t(`tip.dismiss.${b.from}`, { line: b.line })}
+            onClick={() => dismiss(i)}
+          >
+            <CloseIcon />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+  const moves = <Moves state={state} onOpen={onOpen} dispatch={dispatch} />;
+  const market = (
+    <section className="market" aria-labelledby="k-market">
+      <h2 className="kicker" id="k-market">
+        {t("street.market")}
+      </h2>
       <ul className="goods">
-        {GOODS.map((g) => (
+        {goodsByName().map((g) => (
           <li key={g}>
             <GoodRow state={state} good={g} onOpen={() => onOpen({ kind: "trade", good: g })} />
           </li>
         ))}
       </ul>
+    </section>
+  );
 
-      <div className="actions">
+  return (
+    <>
+      <h1 ref={headRef} tabIndex={-1} className="place-name">
+        {placeName(state.place)}
+      </h1>
+      {narrow ? (
+        <>
+          {market}
+          {moves}
+          {tips}
+          {place}
+        </>
+      ) : (
+        <>
+          {place}
+          {tips}
+          {moves}
+          {market}
+        </>
+      )}
+    </>
+  );
+}
+
+/** Ask around, Lie low, Odd job and Pull a job two by two; Call it a day a row below them. */
+function Moves({ state, onOpen, dispatch }: Pick<StreetProps, "state" | "onOpen" | "dispatch">) {
+  const left = hoursLeft(state);
+  const job = quoteJob(state);
+  const risk = typeof job === "string" ? null : riskWord(job.stopChance);
+  return (
+    <section className="moves" aria-labelledby="k-moves">
+      <h2 className="kicker" id="k-moves">
+        {t("street.moves")}
+      </h2>
+      <div className="move-grid">
         {left >= RULES.askHours && canAskAround(state) && (
-          <ActionButton
-            label={t("action.ask")}
-            detail={t("action.ask.detail")}
-            hours={RULES.askHours}
-            onClick={() => dispatch({ type: "askAround" })}
-          />
+          <Move label={t("action.ask")} hours={RULES.askHours} onClick={() => dispatch({ type: "askAround" })} />
         )}
         {left >= RULES.lieLowHours && (
-          <ActionButton
-            label={t("action.lieLow")}
-            detail={t("action.lieLow.detail")}
-            hours={RULES.lieLowHours}
-            onClick={() => dispatch({ type: "lieLow" })}
-          />
+          <Move label={t("action.lieLow")} hours={RULES.lieLowHours} onClick={() => dispatch({ type: "lieLow" })} />
         )}
         {left >= RULES.oddJobHours && (
-          <ActionButton
-            label={t("action.oddJob")}
-            detail={t("action.oddJob.detail", { pay: money(RULES.oddJobPay) })}
-            hours={RULES.oddJobHours}
-            onClick={() => dispatch({ type: "oddJob" })}
-          />
+          <Move label={t("action.oddJob")} hours={RULES.oddJobHours} onClick={() => dispatch({ type: "oddJob" })}>
+            <span className="figure">{t("chip.gain", { amount: money(RULES.oddJobPay) })}</span>
+          </Move>
         )}
-        <ActionButton
-          label={t("action.callDay")}
-          detail={t("action.callDay.detail")}
-          onClick={() => onOpen({ kind: "callDay" })}
-        />
-        {typeof job !== "string" && (
-          <button type="button" className="action action-wide" onClick={() => onOpen({ kind: "job" })}>
-            <span className="action-label">{t("action.job")}</span>
-            <span className="action-chips">
-              <Chip kind="chance">{oddsText(job.success)}</Chip>
-              <RiskChip chance={job.stopChance} />
-              <Chip>{t("hours", { n: job.hours })}</Chip>
+        {typeof job !== "string" && risk && (
+          <Move label={t("action.job")} hours={job.hours} onClick={() => onOpen({ kind: "job" })}>
+            {upper(oddsText(job.success))} ·{" "}
+            <span className={risk === "real" || risk === "high" ? "warn" : undefined}>
+              {t("risk.figure", { word: t(`risk.${risk}`) })}
             </span>
-          </button>
+          </Move>
         )}
       </div>
-    </>
+      <button type="button" className="row-button" onClick={() => onOpen({ kind: "callDay" })}>
+        <span>{t("action.callDay")}</span>
+        <Chevron />
+      </button>
+    </section>
+  );
+}
+
+/** A move: its name and hours, and at most one figure line below (payout, odds, risk). */
+function Move({ label, hours, onClick, children }: { label: string; hours: number; onClick: () => void; children?: ReactNode }) {
+  return (
+    <button type="button" className="move" onClick={onClick}>
+      <span className="move-name">{label}</span>
+      <span className="move-hours">{t("hours", { n: hours })}</span>
+      {children && <span className="move-figure">{children}</span>}
+    </button>
   );
 }
 
@@ -152,24 +194,21 @@ function GoodRow({ state, good, onOpen }: { state: GameState; good: GoodId; onOp
   else if (event === "shortage") note = { text: t("note.short"), warn: true };
   else if (event === "glut") note = { text: t("note.glut"), warn: false };
 
+  // Sold out stays tappable: the sheet can still sell, and says why it can't buy.
   return (
     <button type="button" className="good" onClick={onOpen}>
-      <span className="held">{held > 0 ? held : ""}</span>
+      <span className="held">
+        {held > 0 && (
+          <>
+            <span aria-hidden="true">{held}</span>
+            <span className="visually-hidden">{t("street.held", { n: held })}</span>
+          </>
+        )}
+      </span>
       <span className="good-name">{goodName(good)}</span>
       <span className="good-price">{money(price(state, state.place, good))}</span>
-      <span className={note?.warn ? "good-hint note-warn" : "good-hint"}>
-        {note ? note.text : hint ? t(`hint.${hint}`) : ""}
-      </span>
-    </button>
-  );
-}
-
-function ActionButton({ label, detail, hours, onClick }: { label: string; detail: string; hours?: number; onClick: () => void }) {
-  return (
-    <button type="button" className="action" onClick={onClick}>
-      <span className="action-label">{label}</span>
-      <span className="action-detail">{detail}</span>
-      {hours !== undefined && <Chip>{t("hours", { n: hours })}</Chip>}
+      <span className={note?.warn ? "good-hint warn" : "good-hint"}>{note ? note.text : hint ? t(`hint.${hint}`) : ""}</span>
+      <Chevron />
     </button>
   );
 }
