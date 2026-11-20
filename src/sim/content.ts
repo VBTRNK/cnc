@@ -53,27 +53,27 @@ export interface Good {
 }
 
 export const GOOD: Record<GoodId, Good> = {
-  smokes: { base: 8, rate: 10, heat: 0.3, vol: 0.12, stockAtSource: 40, stockElsewhere: 12 },
-  tapes: { base: 15, rate: 8, heat: 0.3, vol: 0.18, stockAtSource: 30, stockElsewhere: 8 },
-  watches: { base: 50, rate: 4, heat: 0.6, vol: 0.18, stockAtSource: 12, stockElsewhere: 4 },
-  fireworks: { base: 100, rate: 2, heat: 2.0, vol: 0.3, stockAtSource: 5, stockElsewhere: 1 },
+  smokes: { base: 8, rate: 10, heat: 0.3, vol: 0.1, stockAtSource: 40, stockElsewhere: 12 },
+  tapes: { base: 15, rate: 8, heat: 0.3, vol: 0.14, stockAtSource: 30, stockElsewhere: 8 },
+  watches: { base: 50, rate: 4, heat: 0.6, vol: 0.14, stockAtSource: 12, stockElsewhere: 4 },
+  fireworks: { base: 100, rate: 2, heat: 2.0, vol: 0.2, stockAtSource: 5, stockElsewhere: 1 },
 };
 
 export interface Place {
-  /** Price factor per good; 0.75 marks a source. */
+  /** Price factor per good; the place with the lowest factor for a good is its source. */
   factor: Record<GoodId, number>;
   police: number;
 }
 
 export const PLACE: Record<PlaceId, Place> = {
-  docks: { factor: { smokes: 0.75, tapes: 1.0, watches: 0.75, fireworks: 0.75 }, police: 0.7 },
-  oldtown: { factor: { smokes: 1.0, tapes: 0.75, watches: 1.0, fireworks: 1.2 }, police: 1.0 },
-  uptown: { factor: { smokes: 1.25, tapes: 1.1, watches: 1.3, fireworks: 1.0 }, police: 1.4 },
-  strip: { factor: { smokes: 1.15, tapes: 1.3, watches: 1.05, fireworks: 1.3 }, police: 1.0 },
+  docks: { factor: { smokes: 0.85, tapes: 1.0, watches: 0.85, fireworks: 0.85 }, police: 0.7 },
+  oldtown: { factor: { smokes: 1.0, tapes: 0.85, watches: 1.0, fireworks: 1.12 }, police: 1.0 },
+  uptown: { factor: { smokes: 1.15, tapes: 1.06, watches: 1.18, fireworks: 1.0 }, police: 1.4 },
+  strip: { factor: { smokes: 1.09, tapes: 1.18, watches: 1.03, fireworks: 1.18 }, police: 1.0 },
 };
 
 export const isSource = (place: PlaceId, good: GoodId): boolean =>
-  PLACE[place].factor[good] <= 0.75;
+  PLACE[place].factor[good] <= Math.min(...PLACES.map((p) => PLACE[p].factor[good]));
 
 export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200, crown: 2500 };
 
@@ -88,14 +88,14 @@ export const RULES = {
   arrestStart: 14,
 
   driftReversion: 0.5,
-  driftMin: 0.6,
-  driftMax: 1.8,
+  driftMin: 0.7,
+  driftMax: 1.5,
   stockNoise: [0.7, 1.3] as const,
   demandNoise: [0.8, 1.2] as const,
   demandHours: 4,
 
-  shortage: { price: 1.7, stock: 0.3, demand: 1.5 },
-  glut: { price: 0.55 },
+  shortage: { price: 1.4, stock: 0.3, demand: 1.5 },
+  glut: { price: 0.7 },
   sweepPolice: 2,
   morningEventChance: 0.5,
   /** Midday item kinds, a third each: market event, sweep, harmless. */
@@ -192,10 +192,10 @@ export const CARDS_RULES = { rest: 10, perLevel: 5 } as const;
 
 /** Day 1 fixture (docs/design.md): authored prices. Docks fireworks are sold out (stock 0). */
 export const DAY1_PRICES: Record<PlaceId, Record<GoodId, number>> = {
-  docks: { smokes: 6, tapes: 15, watches: 38, fireworks: 75 },
-  oldtown: { smokes: 8, tapes: 11, watches: 50, fireworks: 120 },
-  uptown: { smokes: 10, tapes: 16, watches: 65, fireworks: 100 },
-  strip: { smokes: 10, tapes: 20, watches: 53, fireworks: 130 },
+  docks: { smokes: 7, tapes: 15, watches: 43, fireworks: 85 },
+  oldtown: { smokes: 8, tapes: 13, watches: 50, fireworks: 112 },
+  uptown: { smokes: 9, tapes: 16, watches: 59, fireworks: 100 },
+  strip: { smokes: 9, tapes: 18, watches: 52, fireworks: 118 },
 };
 
 export const DAY1_DOCKS_STOCK: Record<GoodId, number> = {

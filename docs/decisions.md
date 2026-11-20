@@ -326,3 +326,59 @@ Date: 2026-11-19. Builds `docs/design.md` "The detective, events and cast".
   log's `pub` and best sale, and the paper's Pinch items, case, firsts and
   Crown. Version 2 saves migrate with firsts recovered from the papers kept
   (an upgrade is dated to the day of the migration).
+
+## ADR-012 — Tighter price swings within a city
+
+Date: 2026-11-20. Issue #28; the larger margins belong to intercity trade (#19).
+
+- Money came in too quickly in the phone playtest: fireworks stood at $46 in
+  the Docks and $147 in Old Town on one day, a glut on the Docks' 0.75 factor
+  against a shortage on Old Town's 1.2.
+- Place factors move 40% of the way to 1 (sources 0.75 → 0.85, the highest
+  1.3 → 1.18), the daily drift's noise falls to 10 / 14 / 14 / 20% (from 12 /
+  18 / 18 / 30%) with its clamp 0.7-1.5 (from 0.6-1.8), a shortage is ×1.4
+  and a glut ×0.7 (from ×1.7 and ×0.55). The day-1 prices are tightened to
+  match. A source is the place with a good's lowest factor.
+- At neutral drift and before rounding, that glut-against-shortage pairing
+  falls from 4.9 to 1 (1.2 × 1.7 against 0.75 × 0.55) to 2.6 to 1 (1.12 ×
+  1.4 against 0.85 × 0.7). With both drifts at their clamp's ends it could
+  reach 14.8 to 1 and now 5.6 to 1.
+- Measured with `npm run strategies` (400 seeds × 20 days, `trader`), cash
+  and wealth at each day's end, each change alone on the old rules, then
+  together (medians; the neighbourhood row includes its day-1 prices):
+
+  | Change | Cash d5 / d10 | Wealth d5 / d10 / d20 | Coat / phone | Crown by d20 |
+  | --- | --- | --- | --- | --- |
+  | None (before) | $789 / 1,121 | $1,479 / 2,769 / 6,203 | d4 / d9 | 315 of 400 |
+  | Drift noise and clamp | $725 / 1,021 | $1,351 / 2,456 / 5,153 | d5 / d10 | 236 |
+  | Place factors | $801 / 920 | $1,221 / 2,319 / 5,096 | d5 / d10 | 222 |
+  | Shortage and glut | $742 / 1,040 | $1,374 / 2,557 / 5,232 | d4 / d10 | 239 |
+  | All (now) | $843 / 858 | $997 / 1,802 / 3,642 | d7 / d14 | 35 |
+
+  Place factors do the most alone. Together, wealth is 33 / 35 / 41% lower on
+  day 5 / 10 / 20; liquid cash is $54 higher on day 5 (the coat comes later)
+  and $263 lower on day 10. Trade profit per hour fell from $48 to $32.
+- The Crown: the median trader bought it on day 17 before; now on day 27 (a
+  30-day run, 299 of 400 by then). Bought first (`crownFirst`) it comes on
+  day 17 (was 11), with the coat and phone after day 20.
+- Heavier tuning broke the balance: with every swing cut harder, a daily job
+  out-earned trading. At this setting trading and `dailyJob` end about level
+  (median $3,642 and $3,725 on day 20), with `dailyJob` arrested six times as
+  often (2.08 a run against 0.35). Odd jobs alone stay at $2,200; the fixed
+  Docks-to-Strip `shuttle` fell from $3,821 to $1,830.
+- A short playtest on a phone viewport (production preview, seed 2): on day
+  1, 20 smokes from the Docks to the Strip made $40 in three hours with the
+  walk and 20 tapes from Old Town to Uptown $60 in four; on day 2, after the
+  advertised shortage, three fireworks bought in the Docks at $88 sold in Old
+  Town at $218, $390 in all. Small local trades still pay and an event
+  rewards a planned trip. A short session reaches no upgrade; their timing is
+  from the runs above.
+- Saves keep their drift: one written before this change may hold 0.6-1.8,
+  which loading still accepts, and its next roll comes inside the new clamp.
+  A market already rolled is not rerolled. A shortage or glut running when
+  the change lands takes its new multiplier at once (seed 2's day-2 Old Town
+  fireworks: $213 → $175); a price remembered stays as seen, with its time,
+  and a quote frozen in a pending stop pays as quoted. Chosen over a save
+  format change for a one-time effect.
+- The Crown's price and the 17-day target (ADR-011) are not retuned here; they
+  wait for the playtest and #19.

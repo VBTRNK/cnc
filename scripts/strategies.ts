@@ -305,6 +305,8 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
 
 interface Run {
   wealth: number[];
+  /** Liquid cash at the end of each day. */
+  cash: number[];
   arrests: number;
   stops: number;
   upgradeDay: Partial<Record<UpgradeId, number>>;
@@ -330,6 +332,7 @@ function runOne(name: string, p: Policy, seed: number): Run {
   const queue: Action[] = [];
   const out: Run = {
     wealth: [],
+    cash: [],
     arrests: 0,
     stops: 0,
     upgradeDay: {},
@@ -345,8 +348,9 @@ function runOne(name: string, p: Policy, seed: number): Run {
     tradeHours: 0,
     cards: new Map(),
   };
-  const wealth = () => s.cash + book.atCost() + s.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
-  let lastGood = wealth();
+  // The book already includes the step's events, so wealth reads the state after the step too.
+  const wealth = (st: GameState) => st.cash + book.atCost() + st.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
+  let lastGood = wealth(s);
   let open: { day: number; before: number; i: number } | null = null;
   let guard = 0;
   let refusals = 0;
@@ -382,7 +386,8 @@ function runOne(name: string, p: Policy, seed: number): Run {
       if (e.type === "job") out.jobs[e.outcome] = (out.jobs[e.outcome] ?? 0) + 1;
       if (e.type === "upgraded") out.upgradeDay[e.upgrade] = s.day;
       if (e.type === "dayEnded") {
-        out.wealth[e.paper.day] = wealth();
+        out.wealth[e.paper.day] = wealth(r.state);
+        out.cash[e.paper.day] = r.state.cash;
         for (const item of e.paper.pinch) {
           if (item.kind === "announced") out.cases += 1;
           if (item.kind === "closed") out.closed += 1;
@@ -517,18 +522,21 @@ if (process.env.CARDS) {
   process.exit(0);
 }
 
-console.log(`days=${DAYS} seeds=${SEEDS}; wealth = cash + goods at cost + upgrades at cost; medians unless noted`);
 console.log(
-  ["policy".padEnd(15), "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "crown", "cases", "trade$/h", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
+  `days=${DAYS} seeds=${SEEDS}; wealth = cash + goods at cost + upgrades at cost, at the end of the day; medians unless noted; >dN = fewer than half by day N`,
+);
+console.log(
+  ["policy".padEnd(15), "cash d5/d10", "d5", "d10", `d${DAYS} p10/med/p90`.padStart(20), "arrests", "stops", "coat", "phone", "crown", "crowned", "cases", "trade$/h", "topRoute med/p90", "trade/job/odd%", "acts/day", "timed/day"].join("  "),
 );
 for (const [name, p] of Object.entries(POLICIES)) {
   if (process.env.ONLY && !process.env.ONLY.split(",").includes(name)) continue;
   const runs = Array.from({ length: SEEDS }, (_, i) => runOne(name, p, (i + 1) * 7919));
   const col = (d: number) => runs.map((r) => r.wealth[Math.min(d, DAYS)] ?? 0);
+  const cash = (d: number) => runs.map((r) => r.cash[Math.min(d, DAYS)] ?? 0);
   const upDay = (u: UpgradeId) => {
     const days = runs.map((r) => r.upgradeDay[u] ?? Infinity);
     const m = pct(days, 0.5);
-    return Number.isFinite(m) ? `d${m}` : "-";
+    return Number.isFinite(m) ? `d${m}` : `>d${DAYS}`;
   };
   const e = runs.reduce((a, r) => ({ trade: a.trade + r.earned.trade, job: a.job + r.earned.job, odd: a.odd + r.earned.odd }), { trade: 0, job: 0, odd: 0 });
   const all = e.trade + e.job + e.odd || 1;
@@ -536,6 +544,7 @@ for (const [name, p] of Object.entries(POLICIES)) {
   console.log(
     [
       name.padEnd(15),
+      `${k(pct(cash(5), 0.5))}/${k(pct(cash(10), 0.5))}`.padStart(11),
       k(pct(col(5), 0.5)).padStart(5),
       k(pct(col(10), 0.5)).padStart(5),
       `${k(pct(col(DAYS), 0.1))}/${k(pct(col(DAYS), 0.5))}/${k(pct(col(DAYS), 0.9))}`.padStart(20),
@@ -544,6 +553,7 @@ for (const [name, p] of Object.entries(POLICIES)) {
       upDay("coat").padStart(4),
       upDay("phone").padStart(5),
       upDay("crown").padStart(5),
+      String(runs.filter((r) => r.upgradeDay.crown).length).padStart(7),
       (runs.reduce((a, r) => a + r.cases, 0) / SEEDS).toFixed(2).padStart(5),
       k(pct(runs.map((r) => r.earned.trade / Math.max(1, r.tradeHours)), 0.5)).padStart(8),
       `${(100 * pct(route, 0.5)).toFixed(0)}%/${(100 * pct(route, 0.9)).toFixed(0)}%`.padStart(16),

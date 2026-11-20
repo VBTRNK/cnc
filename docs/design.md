@@ -76,15 +76,15 @@ the same: what is the best use of my next few hours?
 
   | | Smokes | Tapes | Watches | Fireworks | Police |
   | --- | --- | --- | --- | --- | --- |
-  | The Docks | 0.75 (source) | 1.0 | 0.75 (source) | 0.75 (source) | 0.7 |
-  | Old Town | 1.0 | 0.75 (source) | 1.0 | 1.2 | 1.0 |
-  | Uptown | 1.25 | 1.1 | 1.3 | 1.0 | 1.4 |
-  | The Strip | 1.15 | 1.3 | 1.05 | 1.3 | 1.0 |
+  | The Docks | 0.85 (source) | 1.0 | 0.85 (source) | 0.85 (source) | 0.7 |
+  | Old Town | 1.0 | 0.85 (source) | 1.0 | 1.12 | 1.0 |
+  | Uptown | 1.15 | 1.06 | 1.18 | 1.0 | 1.4 |
+  | The Strip | 1.09 | 1.18 | 1.03 | 1.18 | 1.0 |
 
 - **Prices.** Each place and good has one price at a time, used for buying and selling. The
   day-end roll sets tomorrow's baseline: base × place factor × a local drift, which reverts
-  halfway to 1 each day plus roughly normal noise (standard deviation 12% for smokes, 18%
-  for tapes and watches, 30% for fireworks), clamped to 0.6-1.8. The current price is the
+  halfway to 1 each day plus roughly normal noise (standard deviation 10% for smokes, 14%
+  for tapes and watches, 20% for fireworks), clamped to 0.7-1.5. The current price is the
   baseline × any active event's multiplier. Every price, total, bribe and fine is rounded to
   whole dollars, at least $1.
 - **Stock and demand** per place and good per day. Stock: at a source smokes 40, tapes 30,
@@ -92,7 +92,7 @@ the same: what is the best use of my next few hours?
   rate × 4 × place factor × 0.8-1.2, rounded, at least 1. Trades use them up until the next
   day's roll. A sale's maximum is the least of units held, demand left and what fits in the
   hours left.
-- **Events.** A shortage multiplies price by 1.7; a glut by 0.55. When one starts, it changes
+- **Events.** A shortage multiplies price by 1.4; a glut by 0.7. When one starts, it changes
   what is left today (R stock, Rd demand) and later days' fresh totals (B stock, D demand):
 
   | | Stock when it starts | Stock later | Demand when it starts | Demand later |
@@ -200,10 +200,10 @@ the same: what is the best use of my next few hours?
 
   | | Smokes | Tapes | Watches | Fireworks |
   | --- | --- | --- | --- | --- |
-  | The Docks | $6 | $15 | $38 | sold out |
-  | Old Town | $8 | $11 | $50 | $120 |
-  | Uptown | $10 | $16 | $65 | $100 |
-  | The Strip | $10 | $20 | $53 | $130 |
+  | The Docks | $7 | $15 | $43 | sold out |
+  | Old Town | $8 | $13 | $50 | $112 |
+  | Uptown | $9 | $16 | $59 | $100 |
+  | The Strip | $9 | $18 | $52 | $118 |
 
 - **Difficulty.** The first release (local first playable and persistent MVP) has one
   forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
@@ -320,9 +320,9 @@ tally, and what people feel is in their authored lines.
   false trails, bribes and a margin; further purchases come with #18, #19 and #7.
 - **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
   card's value per choice): three cases in 20 days; ignoring an operation costs a trader no
-  wealth but about one arrest in four runs; the Crown on day 16-17 for a median trader;
-  every encounter a real choice in some state and none a dominant earner. The numbers are in
-  ADR-011.
+  wealth but about one arrest in four runs; every encounter a real choice in some state and
+  none a dominant earner (ADR-011). Since the tighter prices of ADR-012 a median trader buys
+  the Crown on day 27, or on day 17 when it comes first; the 17-day target waits for #19.
 
 ## Look and feel
 
