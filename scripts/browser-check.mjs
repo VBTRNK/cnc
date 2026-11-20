@@ -8,7 +8,7 @@
 // BROWSER names a Chromium-based browser; the default is Edge on Windows. The page's
 // storage is cleared first, so run it against a profile of its own (it makes one).
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -432,6 +432,14 @@ try {
   check("an old save opens where it was", (await text("button.good .held")) === "10", await text("button.good"));
   check("and its original is kept", (await evaluate(`localStorage.getItem("cnc.save.kept")`)) === v2);
   check("and it is saved as the current version", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).version`)) === sim.SAVE_VERSION);
+
+  // A save from before ADR-012, its Old Town fireworks drift 1.8 (outside today's clamp), in both slots.
+  const legacy = JSON.stringify(JSON.parse(readFileSync(join(REPO, "src/sim/fixtures/before-adr-012.json"), "utf8")).high);
+  await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(legacy)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(legacy)})`);
+  await reload();
+  check("a save with the old drift range opens on its day", /Day 2/.test(await text(".daybar")) && !(await evaluate(`document.querySelector(".banner")?.textContent ?? ""`)).includes("couldn't be read"), await text(".daybar"));
+  await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
+  await reload();
 
   await evaluate(`window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); }`);
   await tap("button.good", "Bootleg tapes");

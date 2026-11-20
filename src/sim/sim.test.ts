@@ -40,14 +40,14 @@ describe("day 1 fixture", () => {
     const s = fresh();
     const prices = Object.fromEntries(PLACES.map((p) => [p, GOODS.map((g) => price(s, p, g))]));
     expect(prices).toEqual({
-      docks: [6, 15, 38, 75],
-      oldtown: [8, 11, 50, 120],
-      uptown: [10, 16, 65, 100],
-      strip: [10, 20, 53, 130],
+      docks: [7, 15, 43, 85],
+      oldtown: [8, 13, 50, 112],
+      uptown: [9, 16, 59, 100],
+      strip: [9, 18, 52, 118],
     });
     expect(GOODS.map((g) => s.market.docks[g].stock)).toEqual([40, 8, 6, 0]);
     expect(GOODS.map((g) => s.market.oldtown[g].stock)).toEqual([12, 30, 4, 1]);
-    expect(GOODS.map((g) => s.market.strip[g].demand)).toEqual([46, 42, 17, 10]);
+    expect(GOODS.map((g) => s.market.strip[g].demand)).toEqual([44, 38, 16, 9]);
   });
 
   it("starts at the Docks at 10:00 with $250, a midday sweep and a day-2 shortage scheduled", () => {
@@ -60,9 +60,9 @@ describe("day 1 fixture", () => {
   });
 
   it("supports the design's first choice: 20 smokes, or 17 smokes and 3 watches", () => {
-    expect(play(fresh(), { type: "buy", good: "smokes", units: 20 }).state.cash).toBe(130);
+    expect(play(fresh(), { type: "buy", good: "smokes", units: 20 }).state.cash).toBe(110);
     const mixed = play(fresh(), { type: "buy", good: "smokes", units: 17 }, { type: "buy", good: "watches", units: 3 });
-    expect(mixed.state.cash).toBe(34);
+    expect(mixed.state.cash).toBe(2);
   });
 });
 
@@ -108,9 +108,9 @@ describe("trading", () => {
     const s = { ...state, place: "strip" as const, rng: noStop };
     expect(types(events)).toEqual(["bought", "bought"]);
     const sold = play(s, { type: "sell", good: "smokes", units: 17 });
-    expect(find(sold.events, "sold")).toMatchObject({ units: 17, proceeds: 170, hours: 2 });
+    expect(find(sold.events, "sold")).toMatchObject({ units: 17, proceeds: 153, hours: 2 });
     expect(sold.state.hour).toBe(12);
-    expect(sold.state.market.strip.smokes.demand).toBe(46 - 17);
+    expect(sold.state.market.strip.smokes.demand).toBe(44 - 17);
     expect(sold.state.xp.patter).toBe(2);
     expect(sold.state.heat).toBeCloseTo(17 * 0.3);
   });
@@ -133,7 +133,7 @@ describe("trading", () => {
       { type: "travel", to: "docks" },
     ).state;
     expect(s.market.docks.smokes.stock).toBe(30);
-    expect(price(s, "docks", "smokes")).toBe(6);
+    expect(price(s, "docks", "smokes")).toBe(7);
   });
 });
 
@@ -144,11 +144,11 @@ describe("timing", () => {
       s.events[0] = middayShortage("strip", "tapes");
     });
     const { state, events } = play(s, { type: "sell", good: "tapes", units: 16 });
-    expect(find(events, "sold")?.proceeds).toBe(16 * 20);
+    expect(find(events, "sold")?.proceeds).toBe(16 * 18);
     expect(state.hour).toBe(17);
     expect(types(events)).toContain("eventStarted");
-    expect(price(state, "strip", "tapes")).toBe(34);
-    expect(state.market.strip.tapes.demand).toBe(Math.round(1.5 * (42 - 16)));
+    expect(price(state, "strip", "tapes")).toBe(25);
+    expect(state.market.strip.tapes.demand).toBe(Math.round(1.5 * (38 - 16)));
     expect(state.market.strip.tapes.stock).toBe(Math.floor(0.3 * 8));
   });
 
@@ -160,7 +160,7 @@ describe("timing", () => {
     const { state, events } = play(s, { type: "sell", good: "tapes", units: 8 });
     expect(state.hour).toBe(16);
     expect(find(events, "eventStarted")?.event.id).toBe("d1-midday");
-    expect((quoteSale(state, "tapes", 1) as { proceeds: number }).proceeds).toBe(34);
+    expect((quoteSale(state, "tapes", 1) as { proceeds: number }).proceeds).toBe(25);
   });
 
   it("a sale ending at 22:00 that crossed 16:00 leads the paper with the midday item", () => {
@@ -170,7 +170,7 @@ describe("timing", () => {
       s.market.strip.watches.demand = 40;
     });
     const { state, events } = play(s, { type: "sell", good: "watches", units: 28 });
-    expect(find(events, "sold")?.proceeds).toBe(28 * 53);
+    expect(find(events, "sold")?.proceeds).toBe(28 * 52);
     expect(find(events, "dayEnded")?.cause).toBe("clock");
     expect(state.paper?.unseenMidday?.id).toBe("d1-midday");
     expect(state.phase).toBe("night");
@@ -197,7 +197,7 @@ describe("timing", () => {
     expect(state.paper?.unseenMidday?.kind).toBe("sweep");
     const next = play(state, { type: "startDay" }).state;
     expect([next.day, next.hour]).toEqual([2, 14]);
-    expect(price(next, "oldtown", "fireworks")).toBe(Math.round(next.market.oldtown.fireworks.baseline * 1.7));
+    expect(price(next, "oldtown", "fireworks")).toBe(Math.round(next.market.oldtown.fireworks.baseline * 1.4));
     expect(police(next, "strip")).toBe(2);
   });
 
@@ -220,7 +220,7 @@ describe("police stops", () => {
 
   it("a stop blocks every action, zero-hour ones included, and the clock stands still", () => {
     const { state, events } = play(carrying(stopped), { type: "sell", good: "smokes", units: 17 });
-    expect(find(events, "stopped")?.stop.bribe).toBe(Math.ceil(40 + 0.25 * 170));
+    expect(find(events, "stopped")?.stop.bribe).toBe(Math.ceil(40 + 0.25 * 153));
     expect(state.hour).toBe(11);
     for (const a of [{ type: "buy", good: "smokes", units: 1 }, { type: "callItADay" }, { type: "lieLow" }] as Action[]) {
       expect(step(state, a)).toEqual({ ok: false, reason: "pending" });
@@ -232,7 +232,7 @@ describe("police stops", () => {
     expect(s.pending?.kind === "stop" && s.pending.bribeOdds).toBe(80);
     const { state, events } = play(s, { type: "resolveStop", choice: "bribe" });
     expect(types(events)).toEqual(["bribed", "sold"]);
-    expect(state.cash).toBe(250 - 83 + 170);
+    expect(state.cash).toBe(250 - 79 + 153);
     expect(state.heat).toBeCloseTo(10 + 17 * 0.3);
     expect(state.xp.nerve).toBe(2);
     expect(state.hour).toBe(13);
@@ -273,7 +273,7 @@ describe("police stops", () => {
     const { state, events } = play(carrying(stopped), { type: "sell", good: "smokes", units: 17 }, { type: "resolveStop", choice: "handOver" });
     expect(find(events, "handedOver")).toMatchObject({ saleOff: true, seized: { smokes: 17 } });
     expect(types(events)).not.toContain("sold");
-    expect([state.hour, state.cash, state.heat, state.market.strip.smokes.demand]).toEqual([11, 250, 0, 46]);
+    expect([state.hour, state.cash, state.heat, state.market.strip.smokes.demand]).toEqual([11, 250, 0, 44]);
   });
 
   it("handing it over before a job still runs the job", () => {
@@ -365,8 +365,8 @@ describe("tips", () => {
     const { state, events } = play(s, { type: "askAround" }, { type: "askAround" });
     const tips = events.filter((e) => e.type === "tip").map((e) => (e as { tip: unknown }).tip);
     expect(tips[0]).toMatchObject({ kind: "rumour", truthful: true, claim: { kind: "shortage", place: "oldtown", good: "fireworks" } });
-    expect(tips[1]).toEqual({ kind: "price", place: "oldtown", good: "fireworks", price: 120 });
-    expect(state.memory.oldtown.fireworks?.price).toBe(120);
+    expect(tips[1]).toEqual({ kind: "price", place: "oldtown", good: "fireworks", price: 112 });
+    expect(state.memory.oldtown.fireworks?.price).toBe(112);
     expect(state.xp.savvy).toBe(2);
     expect(step(state, { type: "askAround" })).toEqual({ ok: false, reason: "noTips" });
   });
@@ -424,16 +424,16 @@ describe("the burner phone", () => {
 describe("cost and profit", () => {
   it("a sale's cost is its share of what the held units cost", () => {
     const bought = play(at("docks", 10), { type: "buy", good: "smokes", units: 10 }).state;
-    expect(bought.paid.smokes).toBe(60);
+    expect(bought.paid.smokes).toBe(70);
     const s = at("strip", 11, noStop, (s) => {
       s.held = bought.held;
       s.paid = bought.paid;
     });
     const half = play(s, { type: "sell", good: "smokes", units: 4 });
-    expect(find(half.events, "sold")).toMatchObject({ proceeds: 40, cost: 24 });
-    expect(half.state.paid.smokes).toBe(36);
+    expect(find(half.events, "sold")).toMatchObject({ proceeds: 36, cost: 28 });
+    expect(half.state.paid.smokes).toBe(42);
     const rest = play({ ...half.state, rng: noStop }, { type: "sell", good: "smokes", units: 6 });
-    expect(find(rest.events, "sold")).toMatchObject({ proceeds: 60, cost: 36 });
+    expect(find(rest.events, "sold")).toMatchObject({ proceeds: 54, cost: 42 });
     expect(rest.state.paid.smokes).toBe(0);
   });
 });
@@ -448,7 +448,7 @@ describe("upgrades", () => {
   it("the coat gives 35 pockets", () => {
     const s = play(rich(), { type: "buyUpgrade", upgrade: "coat" }, { type: "buy", good: "smokes", units: 35 }).state;
     expect(s.held.smokes).toBe(35);
-    expect(s.cash).toBe(10_000 - 800 - 35 * 6);
+    expect(s.cash).toBe(10_000 - 800 - 35 * 7);
   });
 
   it("an upgrade is bought once", () => {

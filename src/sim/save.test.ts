@@ -1,7 +1,10 @@
-import { SAVE_FORMAT, SAVE_VERSION, loadSave, toSave, type Migration } from "./save.ts";
+import { readFileSync } from "node:fs";
+import { RULES } from "./content.ts";
+import { price } from "./market.ts";
+import { SAVE_FORMAT, SAVE_VERSION, loadSave, toSave, type Migration, type SaveDocument } from "./save.ts";
 import { newGame, step } from "./sim.ts";
 import type { GameState } from "./state.ts";
-import { play } from "./testing.ts";
+import { below, play, rngWhere } from "./testing.ts";
 
 const midRun = (): GameState =>
   play(
@@ -64,6 +67,7 @@ describe("loading refuses", () => {
     ["more goods than pockets", (s: Record<string, unknown>) => ((s.held as Record<string, number>).smokes = 99)],
     ["an unknown event kind", (s: Record<string, unknown>) => ((s.events as Record<string, unknown>[])[0]!.kind = "meteor")],
     ["a day phase at 22:00", (s: Record<string, unknown>) => (s.hour = 22)],
+    ["drift beyond any saved range", (s: Record<string, unknown>) => ((s.drift as Record<string, Record<string, number>>).docks!.smokes = 1.9)],
   ])("invalid data: %s", (_, edit) => {
     expect(loadSave(docWith(edit))).toMatchObject({ ok: false, error: "invalid" });
   });
@@ -122,8 +126,8 @@ describe("version 1 saves", () => {
     const loaded = loadSave(asVersion1(night));
     expect(loaded).toMatchObject({ ok: true, migratedFrom: 1 });
     if (!loaded.ok) return;
-    // 20 smokes at the usual $8.30 (base $8 × the mean place factor).
-    expect(loaded.state.paid).toEqual({ smokes: 166, tapes: 0, watches: 0, fireworks: 0 });
+    // 20 smokes at the usual $8.20 (base $8 × the mean place factor).
+    expect(loaded.state.paid).toEqual({ smokes: 164, tapes: 0, watches: 0, fireworks: 0 });
     expect(loaded.state.calls).toBe(0);
     expect(loaded.state.paper?.log).toMatchObject({ fine: 0, seized: 0 });
     expect(loaded.state.news.every((p) => p.log.fine === 0 && p.log.seized === 0)).toBe(true);
@@ -194,5 +198,49 @@ describe("version 2 saves", () => {
     delete doc.state.paid;
     delete doc.state.calls;
     expect(loadSave(JSON.stringify(doc))).toMatchObject({ ok: true, migratedFrom: 1 });
+  });
+});
+
+describe("saves from before ADR-012", () => {
+  // Written by the simulation before the drift clamp tightened from 0.6-1.8 to 0.7-1.5.
+  const legacy = JSON.parse(readFileSync("src/sim/fixtures/before-adr-012.json", "utf8")) as Record<
+    "high" | "low" | "stopped",
+    SaveDocument
+  >;
+  const load = (key: keyof typeof legacy): GameState => {
+    const loaded = loadSave(JSON.stringify(legacy[key]));
+    if (!loaded.ok) throw new Error(loaded.detail);
+    expect(loaded.migratedFrom).toBeNull();
+    return loaded.state;
+  };
+
+  // Baselines rolled then: $100 × the old place factor (Old Town 1.2, Uptown 1.0) × drift.
+  it.each([
+    ["high", "oldtown", 1.8, 216],
+    ["low", "uptown", 0.6, 60],
+  ] as const)("load at the old range's %s end with the run and today's market as saved", (key, place, drift, baseline) => {
+    const s = load(key);
+    expect(s).toEqual(legacy[key].state);
+    expect(s.drift[place].fireworks).toBe(drift);
+    expect(s.market[place].fireworks.baseline).toBe(baseline);
+  });
+
+  it.each(["high", "low"] as const)("roll the next day inside the new clamp (%s)", (key) => {
+    const next = play(load(key), { type: "callItADay" }, { type: "startDay" }).state;
+    const drifts = Object.values(next.drift).flatMap((d) => Object.values(d));
+    expect(Math.min(...drifts)).toBeGreaterThanOrEqual(RULES.driftMin);
+    expect(Math.max(...drifts)).toBeLessThanOrEqual(RULES.driftMax);
+  });
+
+  it("reprice a running shortage at the new multiplier, keeping the price seen and the frozen quote", () => {
+    const s = load("stopped");
+    const cell = s.market.oldtown.fireworks;
+    expect(s.memory.oldtown.fireworks).toEqual({ price: 213, day: 2, hour: 12 });
+    expect(price(s, "oldtown", "fireworks")).toBe(Math.round(cell.baseline * RULES.shortage.price));
+    expect(price(s, "oldtown", "fireworks")).toBe(175);
+    expect(s.pending).toMatchObject({ kind: "stop", quote: { type: "sell", units: 3, proceeds: 639 } });
+    const { state, events } = play({ ...s, rng: rngWhere(below(0.01)) }, { type: "resolveStop", choice: "legIt" });
+    expect(events.find((e) => e.type === "sold")).toMatchObject({ units: 3, proceeds: 639 });
+    expect(state.cash).toBe(s.cash + 639);
   });
 });

@@ -217,6 +217,11 @@ const all =
   };
 
 const MAX_CASH = 1e12;
+/**
+ * New rolls clamp drift to RULES.driftMin-driftMax, but saves from before ADR-012 hold drift
+ * rolled within 0.6-1.8; the next roll brings it inside the new clamp.
+ */
+const savedDrift = num(Math.min(RULES.driftMin, 0.6), Math.max(RULES.driftMax, 1.8));
 const day = int(1, 1_000_000);
 const hour = int(RULES.dayStart, RULES.dayEnd);
 const goods = keyed(GOODS, int(0, 10_000));
@@ -366,7 +371,7 @@ const gameState = shape({
   upgrades: all(list(oneOf(UPGRADES), UPGRADES.length), (x, path) =>
     new Set(x as unknown[]).size === (x as unknown[]).length ? null : `${path}: duplicate`,
   ),
-  drift: keyed(PLACES, keyed(GOODS, num(RULES.driftMin, RULES.driftMax))),
+  drift: keyed(PLACES, keyed(GOODS, savedDrift)),
   market: keyed(PLACES, keyed(GOODS, cell)),
   events: list(worldEvent, 20),
   jobDone: bool,
