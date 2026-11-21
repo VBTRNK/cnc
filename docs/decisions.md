@@ -421,7 +421,46 @@ are the source, `docs/design.md` "Look and feel" the contract.
   `CNC_CATALOGUE=test12` in Node), never deployed: the production bundle
   holds none of it, and it is guest-only even with cloud settings, since its
   saves hold goods the game doesn't know. Its eight extra goods are
-  placeholders; #18 chooses the real catalogue and its numbers.
+  placeholders; #18 chooses the real catalogue and its numbers. (Retired by
+  ADR-014: the game's own twelve goods carry the layout checks now.)
 - Not taken from the owner's own Street redesign: system fonts and shifted
   inks, 12-13 px type, a double rule under the rail, a Buy 1 / Sell 1
   dialog, greyed-out moves without a reason, a yellow mark on held counts.
+
+## ADR-014 — Twelve goods, dealt or not, and save format 4
+
+Date: 2026-11-21. Issue #18; builds `docs/design.md` "The loop" (goods).
+
+- Context: more goods raise income by themselves: the city's daily stock ×
+  margin grows and the best spread improves. #29's test catalogue put the
+  trader at $100 an hour and the Crown on day 10.
+- Twelve goods, the owner's lineup: the first four keep their IDs and prices;
+  eight join (gum, soda, alibi, trainers, phones, brie, bingo, ebikes). Price
+  × rate stays in a band ($80-240 an hour), so dear goods sell slowly; heat
+  per selling hour sets a good's character. Display text holds the names.
+- A place deals in a good or never does: each place deals in ten. One rule
+  covers trades (`noBuyers`), prices seen, tips, Call around, events,
+  rumours, card sales, the usual price and the bribe (an undealt good at its
+  usual price). Undealt pairs draw nothing in the market roll.
+- Stock is split across the goods, then trimmed: the owner chose profile RG
+  of the measured candidates (the reviewed numbers gave the Crown on day 14).
+  Demand covers 3 selling hours, not 4. Stops: (0.3% + 0.07% × heat) × police,
+  to keep arrests near one a month.
+- Measured (400 seeds × 30 days, `trader`): Crown day 16, $44.62 trade an
+  hour, $10,463 median wealth on day 30, 0.82 arrests a run, each good 3.9-15.2%
+  of market-sale profit, top route 11.6%; mean fresh stock at every source on
+  seeded days 2-30 at least 1.00. `dailyJob` $7,649, `oddJobsOnly` $3,100,
+  `avoidOps` 0.23 arrests. A run sees 24.7 market events; the trader trades
+  on 11.0.
+- Card values on these rules: every choice's mean is at most $39, except Old
+  mate's loan at $63 (measured to the day after the repayment, n = 1,277).
+  The owner accepted that as an exception to ADR-011's ~$50 cap (2026-11-21):
+  a once-a-run card whose stated return is most of it, with wide outcomes
+  (p10 −$374, p90 $516). Terms unchanged: lend $100, get $150 and a tip.
+- Save format 4 adds the eight goods to a format 3 save's market as rolled
+  (neutral price, base stock and demand, no draw) and changes nothing else; the
+  new catalogue applies from the next roll. Validation holds the dealt-pair
+  rule. A capacity fixture (30 full papers, 100 cases, every dealt price, a
+  pending stop) measures 49,277 bytes of `jsonb::text`; the test keeps 15%
+  under the 65,536 cap.
+- ADR-013's 12-good test catalogue, its build mode and scripts are retired.

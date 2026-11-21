@@ -1,7 +1,5 @@
-import { TEST12 } from "../sim/goods12.ts";
 import { GOODS } from "../sim/index.ts";
-import { TEST12_NAMES } from "./goods12.ts";
-import { GAME_GOOD_NAMES, goodName } from "./text.ts";
+import { GOOD_NAMES, caseLabel, goodName } from "./text.ts";
 
 // The good-names rule (docs/design.md, "Look and feel"): a name fits two lines in City's goods
 // column on a 390 px phone. The browser check measures the same on the page.
@@ -16,19 +14,18 @@ const problems = (name: string): string[] => {
 };
 
 describe("good names", () => {
-  it.each(Object.entries(GAME_GOOD_NAMES).map(([id, n]) => [id, n.name]))("the game's %s (%s) keeps to the rule", (_, name) => {
+  it.each(Object.entries(GOOD_NAMES).map(([id, n]) => [id, n.name]))("%s (%s) keeps to the rule", (_, name) => {
     expect(problems(name)).toEqual([]);
   });
 
-  it.each(Object.entries(TEST12_NAMES).map(([id, n]) => [id, n.name]))("the test catalogue's %s (%s) keeps to the rule", (_, name) => {
-    expect(problems(name)).toEqual([]);
-  });
-
-  it("names every good of both catalogues, each name once", () => {
-    expect(Object.keys(TEST12_NAMES).sort()).toEqual(TEST12.map((g) => g.id).sort());
-    const all = [...Object.values(GAME_GOOD_NAMES), ...Object.values(TEST12_NAMES)].map((n) => n.name);
-    expect(new Set(all).size).toBe(all.length);
-    expect(GOODS.map(goodName)).toEqual(GOODS.map((g) => GAME_GOOD_NAMES[g].name));
+  it("names every good once, with a tagline and a case label of its own", () => {
+    expect(Object.keys(GOOD_NAMES).sort()).toEqual([...GOODS].sort());
+    const names = GOODS.map(goodName);
+    expect(new Set(names).size).toBe(names.length);
+    for (const g of GOODS) expect(GOOD_NAMES[g].tagline.length).toBeGreaterThan(0);
+    const labels = GOODS.map((g) => caseLabel("uptown", g));
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(caseLabel("uptown", "bingo")).toBe("the Uptown Bingo Ball Syndicate");
   });
 
   it("catches a name that breaks the rule", () => {

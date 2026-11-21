@@ -31,8 +31,6 @@ npm run preview  # the production build under the real security headers
 npm run strategies -- 20 400  # strategy runs: days, seeds (ONLY=trader,... to pick)
 npm run browser-check  # with preview running: phone and keyboard flows, saves, CSP and an
                        # accessibility audit of every screen, in headless Edge
-npm run build:goods12; npm run preview:goods12  # a local build with a 12-good test
-npm run browser-check -- --goods12              # catalogue, and the same checks on it
 ```
 
 Cloud saves need `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (see

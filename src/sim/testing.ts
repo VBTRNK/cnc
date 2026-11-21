@@ -1,8 +1,12 @@
 // Helpers for tests and strategy runs; never imported by the app.
 
+import { GOODS } from "./content.ts";
 import { Rng } from "./rng.ts";
 import { step, type Action, type DomainEvent } from "./sim.ts";
-import type { GameState } from "./state.ts";
+import type { GameState, PerGood } from "./state.ts";
+
+/** Zero of every good, for building a goods record in a test. */
+export const noGoods = (): PerGood<number> => Object.fromEntries(GOODS.map((g) => [g, 0])) as PerGood<number>;
 
 /** Applies actions in order and fails loudly on a refusal. */
 export function play(state: GameState, ...actions: Action[]): { state: GameState; events: DomainEvent[] } {

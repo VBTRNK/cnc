@@ -2,6 +2,7 @@ import { Fragment, useCallback, useState } from "react";
 import {
   PLACES,
   callHeat,
+  deals,
   has,
   hoursLeft,
   operationOn,
@@ -223,6 +224,14 @@ function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean
 }
 
 function PriceCell({ state, col, good }: { state: GameState; col: Column; good: GoodId }) {
+  if (!deals(col.place, good)) {
+    return (
+      <td className={["undealt", col.here && "here-col"].filter(Boolean).join(" ")}>
+        <span aria-hidden="true">{t("city.undealtPrice")}</span>
+        <span className="visually-hidden">{t("city.undealtLabel")}</span>
+      </td>
+    );
+  }
   const v = knownPrice(state, col.place, good);
   const hint = cellHint(state, col, good, v);
   const cls = [col.here && "here-col", v.price === null && "unknown"].filter(Boolean).join(" ");

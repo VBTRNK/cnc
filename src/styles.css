@@ -831,6 +831,13 @@ fieldset.choices {
   color: var(--ink-muted);
 }
 
+/* The good's one line under its name: wraps at large text. */
+.tagline {
+  margin-top: 0.25rem;
+  font-family: var(--body);
+  font-style: italic;
+}
+
 .facts {
   margin-top: 0.25rem;
   color: var(--ink-muted);
@@ -1169,7 +1176,8 @@ fieldset.choices {
   background: var(--sheet);
 }
 
-.price-table .unknown {
+.price-table .unknown,
+.price-table .undealt {
   color: var(--ink-muted);
   font-weight: 400;
 }

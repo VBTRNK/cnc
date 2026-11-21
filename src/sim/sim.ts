@@ -14,6 +14,7 @@ import {
   SKILLS,
   UPGRADES,
   UPGRADE_COST,
+  deals,
   type GoodId,
   type MilestoneId,
   type PlaceId,
@@ -39,6 +40,7 @@ import {
   scheduleMidday,
   scheduleMorning,
   skill,
+  usualPrice,
 } from "./market.ts";
 import { Rng, seedState } from "./rng.ts";
 import type {
@@ -82,6 +84,7 @@ export type Refusal =
   | "noCash"
   | "noPockets"
   | "noDemand"
+  | "noBuyers"
   | "noGoods"
   | "samePlace"
   | "jobDone"
@@ -245,6 +248,7 @@ export function quoteSale(s: GameState, good: GoodId, units: number): SaleQuote 
   if (!GOODS.includes(good)) return "unknown";
   if (!Number.isInteger(units) || units < 1) return "badUnits";
   if (s.held[good] < units) return "noGoods";
+  if (!deals(s.place, good)) return "noBuyers";
   if (s.market[s.place][good].demand < units) return "noDemand";
   if (unitsIn(s, good, hoursLeft(s)) < units) return "noTime";
   const hours = saleHours(s, good, units);
@@ -284,7 +288,7 @@ function nextPriceTip(s: GameState): { place: PlaceId; good: GoodId } | null {
     (a, b) => ringDistance(s.place, a) - ringDistance(s.place, b) || PLACES.indexOf(a) - PLACES.indexOf(b),
   );
   for (const good of tipGoods(s)) {
-    const place = places.find((p) => !s.priceTips.includes(`${p}:${good}`));
+    const place = places.find((p) => deals(p, good) && !s.priceTips.includes(`${p}:${good}`));
     if (place) return { place, good };
   }
   return null;
@@ -304,7 +308,7 @@ function cardTip(s: GameState): { place: PlaceId; good: GoodId } {
   let best: { place: PlaceId; good: GoodId } | null = null;
   for (const good of tipGoods(s)) {
     for (const place of PLACES) {
-      if (place === s.place) continue;
+      if (place === s.place || !deals(place, good)) continue;
       if (!best || age(place, good) < age(best.place, best.good)) best = { place, good };
     }
   }
@@ -340,6 +344,7 @@ export function check(s: GameState, a: Action): Refusal | null {
     case "buy": {
       if (!isGood(a.good)) return "unknown";
       if (!isUnits(a.units)) return "badUnits";
+      if (!deals(s.place, a.good)) return "noStock";
       const cell = s.market[s.place][a.good];
       if (cell.stock < a.units) return "noStock";
       if (s.cash < a.units * price(s, s.place, a.good)) return "noCash";
@@ -472,7 +477,7 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
       const heat = callHeat(s);
       s.calls += 1;
       addHeat(s, heat);
-      for (const p of PLACES) for (const g of GOODS) s.memory[p][g] = { price: price(s, p, g), day: s.day, hour: s.hour };
+      for (const p of PLACES) for (const g of GOODS) if (deals(p, g)) s.memory[p][g] = { price: price(s, p, g), day: s.day, hour: s.hour };
       out.push({ type: "rangRound", heat });
       return;
     }
@@ -495,7 +500,8 @@ function commitChecked(s: GameState, rng: Rng, quote: Quote, out: DomainEvent[])
     out.push({ type: "pattedDown" });
     return run(s, rng, quote, out);
   }
-  const value = GOODS.reduce((sum, g) => sum + s.held[g] * price(s, s.place, g), 0);
+  // Goods nobody here deals in are valued at the city's usual price.
+  const value = GOODS.reduce((sum, g) => sum + s.held[g] * (deals(s.place, g) ? price(s, s.place, g) : usualPrice(g)), 0);
   const bribe = Math.ceil(RULES.bribeBase + RULES.bribeShare * value + RULES.bribePerHeat * s.heat);
   // Inside his operation the stop is Pinch himself, who can't be bribed.
   const refusal = operationOn(s, s.place) ? "pinch" : s.heat >= RULES.bribeMaxHeat ? "wanted" : s.cash < bribe ? "short" : null;
@@ -702,9 +708,9 @@ function startDay(s: GameState, rng: Rng, out: DomainEvent[]): void {
   }
 }
 
-/** Records the prices where the player stands. */
+/** Records the prices where the player stands, for the goods it deals in. */
 function remember(s: GameState): void {
-  for (const g of GOODS) s.memory[s.place][g] = { price: price(s, s.place, g), day: s.day, hour: s.hour };
+  for (const g of GOODS) if (deals(s.place, g)) s.memory[s.place][g] = { price: price(s, s.place, g), day: s.day, hour: s.hour };
 }
 
 /** Every sale, at market or on a card, goes through here: the log, the best sale, the first. */
@@ -772,11 +778,18 @@ export function gainOf(s: GameState, e: Extract<Effect, { kind: "gain" }>): { un
   return { units, cost: Math.round((e.cost * units) / e.units) };
 }
 
-/** What a card's sale pays: the current price there × its factor. */
-export const cardSale = (s: GameState, e: Extract<Effect, { kind: "sell" }>): number =>
-  Math.round(e.units * price(s, s.place, e.good) * e.factor);
+/** A card sells only held units, and only where the good is dealt. */
+export const cardSells = (s: GameState, e: Extract<Effect, { kind: "sell" }>): boolean =>
+  deals(s.place, e.good) && s.held[e.good] >= e.units;
 
-/** Why a choice can't be taken now. Only its certain effects count; a chance's loss is capped by the cash. */
+/** What a card's sale pays: the current price there × its factor; null where it can't sell. */
+export const cardSale = (s: GameState, e: Extract<Effect, { kind: "sell" }>): number | null =>
+  cardSells(s, e) ? Math.round(e.units * price(s, s.place, e.good) * e.factor) : null;
+
+/**
+ * Why a choice can't be taken now. Only its certain effects count; a chance's loss is capped by
+ * the cash. A card sells only where the good is dealt.
+ */
 export function choiceBlock(s: GameState, choice: Choice): "noCash" | "noPockets" | "noGoods" | null {
   let cost = 0;
   for (const e of choice.effects) {
@@ -786,7 +799,7 @@ export function choiceBlock(s: GameState, choice: Choice): "noCash" | "noPockets
       if (g.units === 0) return "noPockets";
       cost += g.cost;
     }
-    if (e.kind === "sell" && s.held[e.good] < e.units) return "noGoods";
+    if (e.kind === "sell" && !cardSells(s, e)) return "noGoods";
   }
   return s.cash < cost ? "noCash" : null;
 }
@@ -859,7 +872,9 @@ function settle(
         break;
       }
       case "sell": {
+        // Checked again here: a chance's or a report's effects skip choiceBlock.
         const proceeds = cardSale(s, e);
+        if (proceeds === null) break;
         const cost = saleCost(s, e.good, e.units);
         s.paid[e.good] -= cost;
         s.held[e.good] -= e.units;

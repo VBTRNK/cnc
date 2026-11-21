@@ -4,6 +4,7 @@ import {
   RULES,
   UPGRADE_COST,
   carried,
+  deals,
   hoursLeft,
   maxBuy,
   maxSale,
@@ -21,7 +22,7 @@ import {
 import { Chip, RiskChip } from "./bits.tsx";
 import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { goodName, money, t, upgradeName, type TextKey } from "./text.ts";
+import { goodName, goodTagline, money, t, upgradeName, type TextKey } from "./text.ts";
 import { oddsText } from "./words.ts";
 
 interface CommitProps {
@@ -47,7 +48,25 @@ function sellBlock(s: GameState, good: GoodId): TextKey | null {
   return null;
 }
 
-export function TradeSheet({ state, good, onClose, commit }: CommitProps & { good: GoodId }) {
+export function TradeSheet(props: CommitProps & { good: GoodId }) {
+  return deals(props.state.place, props.good) ? <DealtSheet {...props} /> : <UndealtSheet {...props} />;
+}
+
+/** A held good nobody here deals in: what you carry and what it cost, and nothing to trade. */
+function UndealtSheet({ state, good, onClose }: CommitProps & { good: GoodId }) {
+  return (
+    <Sheet label={goodName(good)} onClose={onClose}>
+      <div className="sheet-head">
+        <h2>{goodName(good)}</h2>
+      </div>
+      <p className="tagline">{goodTagline(good)}</p>
+      <p className="facts">{t("trade.undealt.facts", { held: state.held[good], paid: money(state.paid[good]) })}</p>
+      <p className="why">{t("trade.why.noBuyers")}</p>
+    </Sheet>
+  );
+}
+
+function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: GoodId }) {
   const canSell = maxSale(state, good) > 0;
   const [mode, setMode] = useState<"buy" | "sell">(canSell ? "sell" : "buy");
   const max = mode === "buy" ? maxBuy(state, good) : maxSale(state, good);
@@ -71,6 +90,7 @@ export function TradeSheet({ state, good, onClose, commit }: CommitProps & { goo
           {hint && <span className="hint-word">{t(`hint.${hint}`)}</span>}
         </p>
       </div>
+      <p className="tagline">{goodTagline(good)}</p>
       <p className="facts">
         {t("trade.facts", {
           held: state.held[good],

@@ -3,7 +3,6 @@
 // owns; `step` in sim.ts clones before calling in.
 
 import {
-  DAY1_DOCKS_STOCK as DAY1_DOCKS,
   DAY1_PRICES as DAY1,
   GOOD,
   GOODS,
@@ -12,6 +11,10 @@ import {
   PLACE,
   PLACES,
   RULES,
+  day1DocksStock,
+  deals,
+  dealers,
+  factor,
   isSource,
   type GoodId,
   type PlaceId,
@@ -73,9 +76,11 @@ export function operationOn(s: GameState, place: PlaceId): boolean {
 export const police = (s: GameState, place: PlaceId): number =>
   PLACE[place].police * (sweepOn(s, place) ? RULES.sweepPolice : operationOn(s, place) ? PINCH.police : 1);
 
-/** The city's usual price for a good: base × the mean place factor. Hints compare against it. */
-export const usualPrice = (good: GoodId): number =>
-  (GOOD[good].base * PLACES.reduce((sum, p) => sum + PLACE[p].factor[good], 0)) / PLACES.length;
+/** The city's usual price for a good: base × the mean factor of the places that deal in it. Hints compare against it. */
+export const usualPrice = (good: GoodId): number => {
+  const at = dealers(good);
+  return (GOOD[good].base * at.reduce((sum, p) => sum + factor(p, good), 0)) / at.length;
+};
 
 export function priceHint(s: GameState, place: PlaceId, good: GoodId): "cheap" | "pricey" | null {
   const ratio = price(s, place, good) / usualPrice(good);
@@ -108,10 +113,26 @@ function applyEffect(cell: Cell, kind: MarketKind): void {
   }
 }
 
-const baseStock = (place: PlaceId, good: GoodId): number =>
-  isSource(place, good) ? GOOD[good].stockAtSource : GOOD[good].stockElsewhere;
-const baseDemand = (place: PlaceId, good: GoodId): number =>
-  GOOD[good].rate * RULES.demandHours * PLACE[place].factor[good];
+/** Base stock and demand of a dealt pair (an undealt one has neither). */
+export const baseStock = (place: PlaceId, good: GoodId): number =>
+  !deals(place, good) ? 0 : isSource(place, good) ? GOOD[good].stockAtSource : GOOD[good].stockElsewhere;
+const baseDemand = (place: PlaceId, good: GoodId): number => GOOD[good].rate * RULES.demandHours * factor(place, good);
+/** A dealt pair's demand before noise: `RULES.demandHours` of selling, at least one unit. */
+export const neutralDemand = (place: PlaceId, good: GoodId): number => (deals(place, good) ? atLeast1(baseDemand(place, good)) : 0);
+/** A dealt pair's price at drift 1, no event. */
+export const neutralPrice = (place: PlaceId, good: GoodId): number => atLeast1(GOOD[good].base * factor(place, good));
+
+/**
+ * An undealt pair's cell: no stock, no demand. Its baseline is never shown or traded at; it
+ * holds the usual price so every cell stays a valid price.
+ */
+export const undealtCell = (good: GoodId): Cell => ({
+  baseline: atLeast1(usualPrice(good)),
+  freshStock: 0,
+  freshDemand: 0,
+  stock: 0,
+  demand: 0,
+});
 
 function perPlace<T>(make: (p: PlaceId) => T): PerPlace<T> {
   return Object.fromEntries(PLACES.map((p) => [p, make(p)])) as PerPlace<T>;
@@ -124,19 +145,24 @@ export function perGood<T>(make: (g: GoodId) => T): PerGood<T> {
 export function fixtureMarket(): PerPlace<PerGood<Cell>> {
   return perPlace((p) =>
     perGood((g) => {
-      const freshStock = p === "docks" ? DAY1_DOCKS[g] : baseStock(p, g);
-      const freshDemand = atLeast1(baseDemand(p, g));
-      return { baseline: DAY1[p][g], freshStock, freshDemand, stock: freshStock, demand: freshDemand };
+      if (!deals(p, g)) return undealtCell(g);
+      const freshStock = (p === "docks" ? day1DocksStock(g) : null) ?? baseStock(p, g);
+      const freshDemand = neutralDemand(p, g);
+      return { baseline: DAY1[p][g] ?? neutralPrice(p, g), freshStock, freshDemand, stock: freshStock, demand: freshDemand };
     }),
   );
 }
 
 export const flatDrift = (): PerPlace<PerGood<number>> => perPlace(() => perGood(() => 1));
 
-/** Rolls `day`'s baseline, stock and demand; events still running that day apply at once. */
+/** Rolls `day`'s baseline, stock and demand; events still running that day apply at once. Undealt pairs draw nothing. */
 export function rollMarket(s: GameState, rng: Rng, day: number): void {
   for (const p of PLACES) {
     for (const g of GOODS) {
+      if (!deals(p, g)) {
+        s.market[p][g] = undealtCell(g);
+        continue;
+      }
       const drift = clamp(
         1 + RULES.driftReversion * (s.drift[p][g] - 1) + rng.normal() * GOOD[g].vol,
         RULES.driftMin,
@@ -146,7 +172,7 @@ export function rollMarket(s: GameState, rng: Rng, day: number): void {
       const freshStock = Math.max(0, Math.round(baseStock(p, g) * rng.range(...RULES.stockNoise)));
       const freshDemand = atLeast1(baseDemand(p, g) * rng.range(...RULES.demandNoise));
       s.market[p][g] = {
-        baseline: atLeast1(GOOD[g].base * PLACE[p].factor[g] * drift),
+        baseline: atLeast1(GOOD[g].base * factor(p, g) * drift),
         freshStock,
         freshDemand,
         stock: freshStock,
@@ -170,6 +196,7 @@ function freePairs(s: GameState, start: number, end: number): { place: PlaceId; 
   const out: { place: PlaceId; good: GoodId }[] = [];
   for (const place of PLACES) {
     for (const good of GOODS) {
+      if (!deals(place, good)) continue;
       const taken = s.events.some(
         (e) =>
           (e.kind === "shortage" || e.kind === "glut") &&

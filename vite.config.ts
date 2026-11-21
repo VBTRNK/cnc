@@ -30,11 +30,6 @@ export default defineConfig(({ mode, command, isPreview }) => {
   });
   return {
     plugins: [react()],
-    // The goods catalogue (src/sim/catalogue.ts): the 12-good test one only for
-    // `--mode goods12`, a local layout check that is never deployed.
-    define: {
-      __CNC_CATALOGUE__: JSON.stringify(mode === "goods12" ? "test12" : "game"),
-    },
     build: {
       // Inlined assets would need `data:` in more CSP directives; keep every
       // script, style and font a same-origin file.

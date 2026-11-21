@@ -1,4 +1,4 @@
-import { GOODS, PLACES, RULES } from "./content.ts";
+import { GOODS, PLACES, RULES, deals } from "./content.ts";
 import { price, police } from "./market.ts";
 import { Rng } from "./rng.ts";
 import { loadSave, toSave } from "./save.ts";
@@ -38,16 +38,32 @@ const middayShortage = (place: GameState["place"], good: (typeof GOODS)[number])
 describe("day 1 fixture", () => {
   it("matches the design's market", () => {
     const s = fresh();
-    const prices = Object.fromEntries(PLACES.map((p) => [p, GOODS.map((g) => price(s, p, g))]));
+    const four = GOODS.slice(0, 4);
+    const prices = Object.fromEntries(PLACES.map((p) => [p, four.map((g) => price(s, p, g))]));
     expect(prices).toEqual({
       docks: [7, 15, 43, 85],
       oldtown: [8, 13, 50, 112],
       uptown: [9, 16, 59, 100],
       strip: [9, 18, 52, 118],
     });
-    expect(GOODS.map((g) => s.market.docks[g].stock)).toEqual([40, 8, 6, 0]);
-    expect(GOODS.map((g) => s.market.oldtown[g].stock)).toEqual([12, 30, 4, 1]);
-    expect(GOODS.map((g) => s.market.strip[g].demand)).toEqual([44, 38, 16, 9]);
+    expect(four.map((g) => s.market.docks[g].stock)).toEqual([20, 3, 2, 0]);
+    expect(four.map((g) => s.market.oldtown[g].stock)).toEqual([6, 12, 1, 1]);
+    expect(four.map((g) => s.market.strip[g].demand)).toEqual([33, 28, 12, 7]);
+  });
+
+  it("opens the other goods at their neutral price and base stock, and leaves undealt pairs empty", () => {
+    const s = fresh();
+    const docks = (["soda", "alibi", "phones", "brie", "bingo", "ebikes"] as const).map((g) => [price(s, "docks", g), s.market.docks[g].stock]);
+    expect(docks).toEqual([[17, 10], [35, 2], [168, 1], [233, 1], [354, 0], [495, 0]]);
+    expect(s.market.docks.ebikes.demand).toBe(2);
+    for (const p of PLACES) {
+      for (const g of GOODS) {
+        if (deals(p, g)) continue;
+        expect(s.market[p][g]).toMatchObject({ freshStock: 0, stock: 0, freshDemand: 0, demand: 0 });
+        expect(s.memory[p][g]).toBeUndefined();
+      }
+    }
+    expect(PLACES.map((p) => GOODS.filter((g) => deals(p, g)).length)).toEqual([10, 10, 10, 10]);
   });
 
   it("starts at the Docks at 10:00 with $250, a midday sweep and a day-2 shortage scheduled", () => {
@@ -59,18 +75,20 @@ describe("day 1 fixture", () => {
     ]);
   });
 
-  it("supports the design's first choice: 20 smokes, or 17 smokes and 3 watches", () => {
+  it("supports the design's first choice: 20 smokes, or 18 smokes and 2 watches", () => {
     expect(play(fresh(), { type: "buy", good: "smokes", units: 20 }).state.cash).toBe(110);
-    const mixed = play(fresh(), { type: "buy", good: "smokes", units: 17 }, { type: "buy", good: "watches", units: 3 });
-    expect(mixed.state.cash).toBe(2);
+    const mixed = play(fresh(), { type: "buy", good: "smokes", units: 18 }, { type: "buy", good: "watches", units: 2 });
+    expect(mixed.state.cash).toBe(38);
   });
 });
 
 describe("refusals", () => {
   const cases: [string, GameState, Action][] = [
     ["more than the stock", fresh(), { type: "buy", good: "fireworks", units: 1 }],
-    ["more than the cash", fresh(), { type: "buy", good: "watches", units: 7 }],
-    ["more than the pockets", fresh(), { type: "buy", good: "smokes", units: 21 }],
+    ["more than the cash", at("docks", 10, noStop, (s) => (s.cash = 100)), { type: "buy", good: "smokes", units: 20 }],
+    ["more than the pockets", at("docks", 10, noStop, (s) => (s.held.tapes = 20)), { type: "buy", good: "smokes", units: 1 }],
+    ["a good the place doesn't deal in", fresh(), { type: "buy", good: "gum", units: 1 }],
+    ["selling where nobody deals in it", at("docks", 10, noStop, (s) => (s.held.gum = 2)), { type: "sell", good: "gum", units: 1 }],
     ["zero units", fresh(), { type: "buy", good: "smokes", units: 0 }],
     ["fractional units", fresh(), { type: "sell", good: "smokes", units: 1.5 }],
     ["selling what isn't held", fresh(), { type: "sell", good: "smokes", units: 1 }],
@@ -102,7 +120,7 @@ describe("trading", () => {
     const { state, events } = play(
       fresh(),
       { type: "buy", good: "smokes", units: 17 },
-      { type: "buy", good: "watches", units: 3 },
+      { type: "buy", good: "watches", units: 2 },
     );
     expect(state.hour).toBe(10);
     const s = { ...state, place: "strip" as const, rng: noStop };
@@ -110,7 +128,7 @@ describe("trading", () => {
     const sold = play(s, { type: "sell", good: "smokes", units: 17 });
     expect(find(sold.events, "sold")).toMatchObject({ units: 17, proceeds: 153, hours: 2 });
     expect(sold.state.hour).toBe(12);
-    expect(sold.state.market.strip.smokes.demand).toBe(44 - 17);
+    expect(sold.state.market.strip.smokes.demand).toBe(33 - 17);
     expect(sold.state.xp.patter).toBe(2);
     expect(sold.state.heat).toBeCloseTo(17 * 0.3);
   });
@@ -132,7 +150,7 @@ describe("trading", () => {
       { type: "travel", to: "oldtown" },
       { type: "travel", to: "docks" },
     ).state;
-    expect(s.market.docks.smokes.stock).toBe(30);
+    expect(s.market.docks.smokes.stock).toBe(10);
     expect(price(s, "docks", "smokes")).toBe(7);
   });
 });
@@ -148,8 +166,8 @@ describe("timing", () => {
     expect(state.hour).toBe(17);
     expect(types(events)).toContain("eventStarted");
     expect(price(state, "strip", "tapes")).toBe(25);
-    expect(state.market.strip.tapes.demand).toBe(Math.round(1.5 * (38 - 16)));
-    expect(state.market.strip.tapes.stock).toBe(Math.floor(0.3 * 8));
+    expect(state.market.strip.tapes.demand).toBe(Math.round(1.5 * (28 - 16)));
+    expect(state.market.strip.tapes.stock).toBe(Math.floor(0.3 * 3));
   });
 
   it("an action ending exactly at 16:00 already shows the midday item", () => {
@@ -273,7 +291,7 @@ describe("police stops", () => {
     const { state, events } = play(carrying(stopped), { type: "sell", good: "smokes", units: 17 }, { type: "resolveStop", choice: "handOver" });
     expect(find(events, "handedOver")).toMatchObject({ saleOff: true, seized: { smokes: 17 } });
     expect(types(events)).not.toContain("sold");
-    expect([state.hour, state.cash, state.heat, state.market.strip.smokes.demand]).toEqual([11, 250, 0, 44]);
+    expect([state.hour, state.cash, state.heat, state.market.strip.smokes.demand]).toEqual([11, 250, 0, 33]);
   });
 
   it("handing it over before a job still runs the job", () => {
@@ -365,8 +383,9 @@ describe("tips", () => {
     const { state, events } = play(s, { type: "askAround" }, { type: "askAround" });
     const tips = events.filter((e) => e.type === "tip").map((e) => (e as { tip: unknown }).tip);
     expect(tips[0]).toMatchObject({ kind: "rumour", truthful: true, claim: { kind: "shortage", place: "oldtown", good: "fireworks" } });
-    expect(tips[1]).toEqual({ kind: "price", place: "oldtown", good: "fireworks", price: 112 });
-    expect(state.memory.oldtown.fireworks?.price).toBe(112);
+    // Nothing held: the dearest good, at the nearest unseen place that deals in it (Old Town doesn't).
+    expect(tips[1]).toEqual({ kind: "price", place: "strip", good: "ebikes", price: 473 });
+    expect(state.memory.strip.ebikes?.price).toBe(473);
     expect(state.xp.savvy).toBe(2);
     expect(step(state, { type: "askAround" })).toEqual({ ok: false, reason: "noTips" });
   });
@@ -403,12 +422,14 @@ describe("the burner phone", () => {
     expect(step(at("docks", 12), { type: "ringRound" })).toEqual({ ok: false, reason: "noPhone" });
   });
 
-  it("takes no time, notes every place's price now, and each call today costs more heat", () => {
+  it("takes no time, notes every dealt price now, and each call today costs more heat", () => {
     const one = play(owner(), { type: "ringRound" });
     expect(find(one.events, "rangRound")).toEqual({ type: "rangRound", heat: 5 });
     expect([one.state.hour, one.state.heat, one.state.calls]).toEqual([12, 5, 1]);
     for (const p of PLACES) {
-      for (const g of GOODS) expect(one.state.memory[p][g]).toEqual({ price: price(one.state, p, g), day: 1, hour: 12 });
+      for (const g of GOODS) {
+        expect(one.state.memory[p][g]).toEqual(deals(p, g) ? { price: price(one.state, p, g), day: 1, hour: 12 } : undefined);
+      }
     }
     const two = play(one.state, { type: "ringRound" }, { type: "ringRound" });
     expect([two.state.heat, two.state.calls]).toEqual([30, 3]);
@@ -446,9 +467,9 @@ describe("upgrades", () => {
     });
 
   it("the coat gives 35 pockets", () => {
-    const s = play(rich(), { type: "buyUpgrade", upgrade: "coat" }, { type: "buy", good: "smokes", units: 35 }).state;
-    expect(s.held.smokes).toBe(35);
-    expect(s.cash).toBe(10_000 - 800 - 35 * 7);
+    const s = play(rich(), { type: "buyUpgrade", upgrade: "coat" }, { type: "buy", good: "smokes", units: 20 }, { type: "buy", good: "soda", units: 10 }, { type: "buy", good: "tapes", units: 3 }, { type: "buy", good: "watches", units: 2 }).state;
+    expect(s.held.smokes + s.held.soda + s.held.tapes + s.held.watches).toBe(35);
+    expect(step(s, { type: "buy", good: "alibi", units: 1 })).toEqual({ ok: false, reason: "noPockets" });
   });
 
   it("an upgrade is bought once", () => {

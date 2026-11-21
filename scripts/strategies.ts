@@ -1,21 +1,25 @@
 // Strategy runs over many seeds, on the real simulation (docs/design.md, "To verify").
 // Usage: node scripts/strategies.ts [days=20] [seeds=400]   ONLY=name,name to pick policies;
-// DETAIL=1 adds arrests, jobs, Pinch's cases and each card's value per choice.
-// CARDS=1 instead forks every encounter (see `cardValues` below) and prints what each choice is worth.
+// DETAIL=1 adds arrests, jobs, Pinch's cases, each card's value per choice, each good's share of
+// the trade profit (before and after the coat, and by day), supply at each source, and events.
+// CARDS=1 instead forks every choice encounter (AT5, see `cardValues` below) and prints what each choice is worth.
 // The planner is greedy and one trip deep and knows only what a player could see: prices
 // where it stands, prices last seen elsewhere (tips, ringing round with the phone). A person can beat it.
 
+import { marketEventOn } from "../src/sim/market.ts";
 import {
   CARDS,
   GOOD,
   GOODS,
-  PLACE,
   PLACES,
   RULES,
   UPGRADE_COST,
   carried,
   choiceBlock,
+  deals,
+  factor,
   has,
+  isSource,
   hoursLeft,
   maxBuy,
   maxSale,
@@ -25,7 +29,9 @@ import {
   price,
   quoteJob,
   ringDistance,
+  saleHours,
   step,
+  usualPrice,
   type Action,
   type CardId,
   type DomainEvent,
@@ -91,12 +97,19 @@ const POLICIES: Record<string, Policy> = {
 
 // ---- What the player knows ----------------------------------------------------------
 
-function known(s: GameState, place: PlaceId, good: GoodId): number {
+/** The price a player would expect: live here, last seen elsewhere, else neutral. Null where the good isn't dealt. */
+function known(s: GameState, place: PlaceId, good: GoodId): number | null {
+  if (!deals(place, good)) return null;
   if (place === s.place) return price(s, place, good);
-  return s.memory[place][good]?.price ?? Math.round(GOOD[good].base * PLACE[place].factor[good]);
+  return s.memory[place][good]?.price ?? Math.round(GOOD[good].base * factor(place, good));
 }
+/** Buyers left here; elsewhere the live rule's neutral demand. */
 const expectedDemand = (s: GameState, place: PlaceId, good: GoodId): number =>
-  place === s.place ? s.market[place][good].demand : Math.round(GOOD[good].rate * 4 * PLACE[place].factor[good]);
+  !deals(place, good)
+    ? 0
+    : place === s.place
+      ? s.market[place][good].demand
+      : Math.max(1, Math.round(GOOD[good].rate * RULES.demandHours * factor(place, good)));
 
 // ---- Book-keeping: lots with their origin, for cost basis and route profit ----------
 
@@ -106,9 +119,24 @@ interface Lot {
   from: PlaceId;
 }
 
+/** When a market sale was committed: with or without the coat, and in which part of the run. */
+interface SaleTag {
+  coat: boolean;
+  day: number;
+}
+const BINS = [
+  ["d1-5", 5],
+  ["d6-15", 15],
+  ["d16+", Infinity],
+] as const;
+const bin = (day: number): string => BINS.find(([, last]) => day <= last)![0];
+
 class Book {
-  lots: Record<GoodId, Lot[]> = { smokes: [], tapes: [], watches: [], fireworks: [] };
+  lots = Object.fromEntries(GOODS.map((g) => [g, [] as Lot[]])) as Record<GoodId, Lot[]>;
+  /** Signed market-sale profit by route ("from>to:good"); encounter sales are not routes. */
   routes = new Map<string, number>();
+  /** Signed market-sale profit by "coat|nocoat:good" and by "bin:good". */
+  tagged = new Map<string, number>();
   earned = { trade: 0, job: 0, odd: 0 };
 
   basis(g: GoodId): number {
@@ -130,15 +158,21 @@ class Book {
       if (lot.units === 0) this.lots[g].shift();
     }
   }
-  record(e: DomainEvent, at: PlaceId): void {
+  private add(map: Map<string, number>, key: string, v: number): void {
+    map.set(key, (map.get(key) ?? 0) + v);
+  }
+  record(e: DomainEvent, at: PlaceId, tag?: SaleTag): void {
     if (e.type === "bought") this.lots[e.good].push({ units: e.units, cost: e.cost / e.units, from: at });
     else if (e.type === "sold") {
       const unit = e.proceeds / e.units;
       this.take(e.good, e.units, (lot, n) => {
         const profit = n * (unit - lot.cost);
         this.earned.trade += profit;
-        const key = `${lot.from}>${at}:${e.good}`;
-        this.routes.set(key, (this.routes.get(key) ?? 0) + profit);
+        this.add(this.routes, `${lot.from}>${at}:${e.good}`, profit);
+        if (tag) {
+          this.add(this.tagged, `${tag.coat ? "coat" : "nocoat"}:${e.good}`, profit);
+          this.add(this.tagged, `${bin(tag.day)}:${e.good}`, profit);
+        }
       });
     } else if (e.type === "arrested" || e.type === "handedOver" || e.type === "bribeRefused") {
       // Seizure takes carried goods; the lots don't know pockets from the lock-up, so take the oldest.
@@ -183,10 +217,13 @@ function plan(s: GameState, book: Book): Plan | null {
     const buys: Partial<Record<GoodId, number>> = {};
     const toSell: [GoodId, number, number][] = []; // good, units, unit cost
     for (const g of GOODS) {
-      if (s.held[g] > 0 && (known(s, to, g) > book.basis(g) * 1.05 || left <= 2)) toSell.push([g, s.held[g], book.basis(g)]);
+      const there = known(s, to, g);
+      if (s.held[g] > 0 && there !== null && (there > book.basis(g) * 1.05 || left <= 2)) toSell.push([g, s.held[g], book.basis(g)]);
     }
     if (to !== s.place) {
-      const options = GOODS.map((g) => ({ g, here: price(s, s.place, g), there: known(s, to, g) }))
+      // Only pairs dealt at both ends: bought here, sold there.
+      const options = GOODS.filter((g) => deals(s.place, g) && deals(to, g))
+        .map((g) => ({ g, here: price(s, s.place, g), there: known(s, to, g)! }))
         .filter((o) => o.there - o.here > 0.15 * o.here)
         .sort((a, b) => (b.there - b.here) * GOOD[b.g].rate - (a.there - a.here) * GOOD[a.g].rate);
       for (const { g, here } of options) {
@@ -199,13 +236,29 @@ function plan(s: GameState, book: Book): Plan | null {
         }
       }
     }
-    for (const [g, units, cost] of toSell) {
-      const n = Math.min(units, expectedDemand(s, to, g), Math.floor(left * unitsPerHour(s, g)));
-      if (n <= 0) continue;
-      const h = Math.ceil(n / unitsPerHour(s, g));
+    // Selling time is limited. As the policy will on arrival, sell next whatever earns most per
+    // whole selling hour for the units that fit the hours and buyers left; ties in simulation order.
+    const demandLeft = Object.fromEntries(GOODS.map((g) => [g, expectedDemand(s, to, g)])) as Record<GoodId, number>;
+    const pending = [...toSell];
+    for (;;) {
+      let pick: { i: number; n: number; h: number; perHour: number } | null = null;
+      pending.forEach(([g, units, cost], i) => {
+        const n = Math.min(units, demandLeft[g], Math.floor(left * unitsPerHour(s, g)));
+        if (n <= 0) return;
+        const h = saleHours(s, g, n);
+        const perHour = (n * (known(s, to, g)! - cost)) / h;
+        const better =
+          !pick || perHour > pick.perHour || (perHour === pick.perHour && GOODS.indexOf(g) < GOODS.indexOf(pending[pick.i]![0]));
+        if (better) pick = { i, n, h, perHour };
+      });
+      if (!pick) break;
+      const { i, n, h } = pick as { i: number; n: number; h: number };
+      const [g, , cost] = pending[i]!;
+      pending.splice(i, 1);
+      demandLeft[g] -= n;
       left -= h;
       hours += h;
-      gain += n * (known(s, to, g) - cost);
+      gain += n * (known(s, to, g)! - cost);
     }
     if (hours === 0) continue;
     const score = gain / hours;
@@ -257,14 +310,17 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
   }
   if (p.order.length === 0) return hoursLeft(s) >= RULES.oddJobHours ? { type: "oddJob" } : { type: "callItADay" };
 
-  // Sell what pays here.
-  for (const g of GOODS) {
+  // Sell what pays here: the sale that would earn most per selling hour, for the units it would
+  // actually commit and their whole sale hours; ties in simulation order (a stable sort).
+  const sales = GOODS.filter(
+    (g) => deals(s.place, g) && maxSale(s, g) > 0 && (price(s, s.place, g) > book.basis(g) * 1.05 || hoursLeft(s) <= 2),
+  ).map((g) => {
     const max = maxSale(s, g);
-    if (max > 0 && (price(s, s.place, g) > book.basis(g) * 1.05 || hoursLeft(s) <= 2)) {
-      const units = p.split ? Math.min(max, Math.max(1, Math.floor(unitsPerHour(s, g)))) : max;
-      return { type: "sell", good: g, units };
-    }
-  }
+    const units = p.split ? Math.min(max, Math.max(1, Math.floor(unitsPerHour(s, g)))) : max;
+    return { g, units, perHour: (units * (price(s, s.place, g) - book.basis(g))) / saleHours(s, g, units) };
+  });
+  const sale = sales.sort((a, b) => b.perHour - a.perHour)[0];
+  if (sale) return { type: "sell", good: sale.g, units: sale.units };
 
   if (p.shuttle) {
     if (s.place === "docks") {
@@ -280,7 +336,8 @@ function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Action {
 
   if (has(s, "phone")) {
     const other = PLACES.find((q) => q !== s.place) as PlaceId;
-    const fresh = GOODS.every((g) => s.memory[other][g]?.day === s.day && s.memory[other][g]?.hour === s.hour);
+    // A call notes every dealt pair; undealt ones stay blank.
+    const fresh = GOODS.every((g) => !deals(other, g) || (s.memory[other][g]?.day === s.day && s.memory[other][g]?.hour === s.hour));
     const due =
       p.ring === "everyMove" ? !fresh : s.calls === 0 || (p.ring === "twice" && s.calls === 1 && s.hour >= RULES.midday);
     if (due) return { type: "ringRound" };
@@ -322,9 +379,18 @@ interface Run {
   tradeHours: number;
   /** Per card and choice: times taken and the summed immediate value (cash, goods at the usual price). */
   cards: Map<string, { n: number; value: number }>;
+  book: Book;
+  /** Fresh stock at each good's source on seeded days (2 on), as rolled: sum and days counted. */
+  supply: Record<GoodId, number>;
+  supplyDays: number;
+  /** Market events (distinct IDs) that started during the run, and those traded on. */
+  eventsStarted: number;
+  /** Traded on the day the event started, or only on a later day. */
+  tradedSameDay: number;
+  tradedLater: number;
 }
 
-const usual = (g: GoodId): number => (GOOD[g].base * PLACES.reduce((n, q) => n + PLACE[q].factor[g], 0)) / PLACES.length;
+const usual = usualPrice;
 
 function runOne(name: string, p: Policy, seed: number): Run {
   let s = newGame(seed, `${name}-${seed}`);
@@ -347,6 +413,24 @@ function runOne(name: string, p: Policy, seed: number): Run {
     pinchStops: 0,
     tradeHours: 0,
     cards: new Map(),
+    book,
+    supply: Object.fromEntries(GOODS.map((g) => [g, 0])) as Record<GoodId, number>,
+    supplyDays: 0,
+    eventsStarted: 0,
+    tradedSameDay: 0,
+    tradedLater: 0,
+  };
+  const started = new Set<string>();
+  const traded = new Set<string>();
+  /** The event active on a sale's pair when it was committed, carried over a stop. */
+  type Committed = { event: { id: string; startDay: number } | null; tag: SaleTag };
+  let pendingSale: Committed | null = null;
+  const source = Object.fromEntries(GOODS.map((g) => [g, PLACES.find((q) => isSource(q, g))!])) as Record<GoodId, PlaceId>;
+  const tradedOn = (ev: { id: string; startDay: number } | null | undefined, day: number) => {
+    if (!ev || traded.has(ev.id)) return;
+    traded.add(ev.id);
+    if (day === ev.startDay) out.tradedSameDay += 1;
+    else out.tradedLater += 1;
   };
   // The book already includes the step's events, so wealth reads the state after the step too.
   const wealth = (st: GameState) => st.cash + book.atCost() + st.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
@@ -370,8 +454,24 @@ function runOne(name: string, p: Policy, seed: number): Run {
     out.actions += 1;
     refusals = 0;
     if (r.state.hour > before.hour || r.state.day > before.day) out.timed += 1;
+    // A sale is committed by its sell action; one that is stopped goes ahead (or not) when the stop resolves.
+    const committed: Committed | null =
+      action.type === "sell"
+        ? { event: marketEventOn(before, before.place, action.good) ?? null, tag: { coat: has(before, "coat"), day: before.day } }
+        : action.type === "resolveStop"
+          ? pendingSale
+          : null;
+    if (action.type === "sell" || action.type === "resolveStop") pendingSale = null;
     for (const e of r.events) {
-      book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
+      book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place, e.type === "sold" ? committed?.tag : undefined);
+      if (e.type === "bought") tradedOn(marketEventOn(before, before.place, e.good), before.day);
+      if (e.type === "sold") tradedOn(committed?.event, committed?.tag.day ?? before.day);
+      if (e.type === "stopped" && e.stop.quote.type === "sell") pendingSale = committed;
+      if (e.type === "eventStarted" && (e.event.kind === "shortage" || e.event.kind === "glut") && e.event.startDay <= DAYS) started.add(e.event.id);
+      if (e.type === "dayStarted" && e.day >= 2 && e.day <= DAYS) {
+        out.supplyDays += 1;
+        for (const g of GOODS) out.supply[g] += r.state.market[source[g]][g].freshStock;
+      }
       if (e.type === "stopped") out.stops += 1;
       if (e.type === "stopped" && e.stop.bribeRefusal === "pinch") out.pinchStops += 1;
       if (e.type === "sold" || e.type === "travelled") out.tradeHours += e.hours;
@@ -410,6 +510,7 @@ function runOne(name: string, p: Policy, seed: number): Run {
   const routes = [...book.routes.values()].filter((v) => v > 0);
   const total = routes.reduce((a, b) => a + b, 0);
   out.topRoute = total > 0 ? Math.max(...routes) / total : 0;
+  out.eventsStarted = started.size;
   return out;
 }
 
@@ -426,34 +527,76 @@ const cloneBook = (b: Book): Book => Object.assign(new Book(), structuredClone({
 const worth = (s: GameState): number =>
   s.cash + GOODS.reduce((v, g) => v + s.held[g] * usual(g), 0) + s.upgrades.reduce((n, u) => n + UPGRADE_COST[u], 0);
 
-/** Plays `s` on with policy `p` to the end of day `until`, and returns what the run is worth then. */
-function playOn(s: GameState, p: Policy, book: Book, until: number): number {
+/** How a played-on fork ended: at its intended endpoint, on the step guard, or on a step that failed. */
+type Ending = "endpoint" | "guard" | "failed";
+interface Played {
+  value: number;
+  end: Ending;
+  /** The day the repayment report showed, when watched for. */
+  repaid: number | null;
+}
+
+/**
+ * Plays `s` on with policy `p` to the end of day `until` and returns what the run is worth then
+ * and how it ended. With `repay`, it also watches for Old mate's repayment and then stops at
+ * the end of the day after it (never past `until`, the cutoff).
+ */
+function playOn(s: GameState, p: Policy, book: Book, until: number, repay = false): Played {
   const queue: Action[] = [];
-  for (let guard = 0; guard < 400 && !(s.phase === "night" && s.day >= until); guard++) {
+  let end = until;
+  let repaid: number | null = null;
+  const limit = 200 * (until - s.day + 2);
+  for (let guard = 0; guard < limit; guard++) {
+    if (s.phase === "night" && s.day >= end) return { value: worth(s), end: "endpoint", repaid };
     const before = s;
     let r = step(s, decide(s, p, book, queue));
     if (!r.ok) {
       queue.length = 0;
       r = step(s, s.pending ? decide(s, { ...p, cards: "pass" }, book, queue) : { type: "callItADay" });
-      if (!r.ok) break;
+      if (!r.ok) return { value: worth(s), end: "failed", repaid };
     }
-    for (const e of r.events) book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
+    for (const e of r.events) {
+      book.record(e, e.type === "sold" || e.type === "bought" ? before.place : r.state.place);
+      if (repay && repaid === null && e.type === "cardResolved" && e.card === "oldMatePays") {
+        repaid = r.state.phase === "night" ? r.state.paper!.day : r.state.day;
+        end = Math.min(until, repaid + 1);
+      }
+    }
     s = r.state;
   }
-  return worth(s);
+  // The last permitted step may have reached the endpoint.
+  return { value: worth(s), end: s.phase === "night" && s.day >= end ? "endpoint" : "guard", repaid };
 }
 
+/** Where a card showed, as the report prints a representative fork. */
+const stateAt = (s: GameState): string => {
+  const held = GOODS.filter((g) => s.held[g] > 0).map((g) => `${s.held[g]} ${g}`);
+  return `${s.place} $${s.cash} ${pockets(s) - carried(s)} free${held.length ? ` (${held.join(", ")})` : ""}`;
+};
+
+interface Fork {
+  diff: number;
+  state: string;
+  free: number;
+}
+type LoanGroup = "measured" | "outstanding" | "cutShort";
+
 /**
- * Forks the `trader` run at every encounter: each open choice is taken, the run played on with
- * the same policy to the end of the next day, and the choice's value is its worth then minus the
- * worth after the card's last choice (pass, walk on, not now, or the cheapest way out). The
- * markets, demand, selling hours and stops are the real ones from that state.
+ * AT5: forks the `trader` run at every choice encounter (the false trail aside; the repayment is
+ * a report). Each open choice is taken and compared with the card's stated last choice (Pass,
+ * Walk on, Not now, Run, Brazen it out). Both forks play on from the same generator position to
+ * the same game day: the end of the next day, or for Old mate's loan the end of the day after the
+ * lending fork's repayment, cut off at the end of day + 14 and never past the run's last day.
+ * Only forks where both sides reached their endpoint count; the others are reported.
  */
 const FORKS = 4;
+const LOAN_CUTOFF = 14;
 
 function cardValues(): void {
   const p = POLICIES.trader!;
-  const values = new Map<string, number[]>();
+  const forks = new Map<string, Fork[]>();
+  const ended = new Map<string, Record<Ending, number>>();
+  const loans: Record<LoanGroup, number[]> = { measured: [], outstanding: [], cutShort: [] };
   for (let i = 0; i < SEEDS; i++) {
     const seed = (i + 1) * 7919;
     let s = newGame(seed, `cards-${seed}`);
@@ -461,31 +604,46 @@ function cardValues(): void {
     const queue: Action[] = [];
     for (let guard = 0; s.day <= DAYS && guard < DAYS * 200; guard++) {
       if (s.pending?.kind === "card" && !s.pending.card.startsWith("falseTrail")) {
-        const card = CARDS[s.pending.card];
+        const id = s.pending.card;
+        const card = CARDS[id];
         const open = card.choices.filter((c) => !choiceBlock(s, c));
-        const base = card.choices.at(-1)!;
-        const until = s.day + 1;
+        const last = card.choices.at(-1)!;
+        const loan = id === "oldMate";
+        const cutoff = Math.min(s.day + LOAN_CUTOFF, DAYS);
         // Common random numbers: after the choice, both forks play on from the same generator
         // position, over several positions, so the difference is the choice and not the dice.
-        const value = (id: string, after: number) => {
-          const r = step(s, { type: "resolveCard", choice: id });
-          if (!r.ok) return null;
+        // A choice the sim refuses here ends its comparison as a failed step.
+        const fork = (choice: string, after: number, until: number, repay: boolean): Played => {
+          const r = step(s, { type: "resolveCard", choice });
+          if (!r.ok) return { value: 0, end: "failed", repaid: null };
           const b = cloneBook(book);
           for (const e of r.events) b.record(e, s.place);
-          return playOn({ ...r.state, rng: after }, p, b, until);
+          return playOn({ ...r.state, rng: after }, p, b, until, repay);
         };
         for (const c of open) {
-          if (c.id === base.id) continue;
-          const diffs: number[] = [];
+          if (c.id === last.id) continue;
+          const key = `${id}:${c.id}`;
+          const ends = ended.get(key) ?? { endpoint: 0, guard: 0, failed: 0 };
+          ended.set(key, ends);
+          if (!forks.has(key)) forks.set(key, []);
           for (let k = 0; k < FORKS; k++) {
             const after = (seed * 31 + s.day * 997 + k * 7919) | 0;
-            const v = value(c.id, after);
-            const zero = value(base.id, after);
-            if (v !== null && zero !== null) diffs.push(v - zero);
+            const take = fork(c.id, after, loan ? cutoff : s.day + 1, loan);
+            // The loan's comparison day: the day after the repayment, else the cutoff.
+            const until = loan && take.repaid !== null ? Math.min(cutoff, take.repaid + 1) : loan ? cutoff : s.day + 1;
+            const base = take.end === "failed" ? take : fork(last.id, after, until, false);
+            const end: Ending = take.end !== "endpoint" ? take.end : base.end;
+            ends[end] += 1;
+            if (end !== "endpoint") continue;
+            const diff = take.value - base.value;
+            if (loan) {
+              const group: LoanGroup =
+                s.day + 4 >= DAYS || take.repaid === cutoff ? "cutShort" : take.repaid !== null ? "measured" : "outstanding";
+              loans[group].push(diff);
+              if (group !== "measured") continue;
+            }
+            forks.get(key)!.push({ diff, state: stateAt(s), free: pockets(s) - carried(s) });
           }
-          if (diffs.length === 0) continue;
-          const key = `${s.pending.card}:${c.id}`;
-          values.set(key, [...(values.get(key) ?? []), diffs.reduce((x, y) => x + y, 0) / diffs.length]);
         }
       }
       const before = s;
@@ -499,22 +657,94 @@ function cardValues(): void {
       s = r.state;
     }
   }
-  console.log(`card values: trader, ${SEEDS} seeds × ${DAYS} days; each choice against the card's last choice, played on to the end of the next day`);
-  console.log(["choice".padEnd(28), "shows", "mean", "p50", "p90", "max", "share > $100"].join("  "));
-  for (const [key, xs] of [...values.entries()].sort()) {
-    const big = xs.filter((x) => x > 100).length / xs.length;
+  const mean = (xs: number[]) => (xs.length === 0 ? NaN : xs.reduce((a, b) => a + b, 0) / xs.length);
+  console.log(
+    `AT5 card values: trader, ${SEEDS} seeds × ${DAYS} days, ${FORKS} forks a showing; each choice minus the card's last choice, both played on to the end of the next day (the loan: the day after its repayment, cut off at day + ${LOAN_CUTOFF})`,
+  );
+  console.log(["choice".padEnd(24), "forks", "mean", "p10", "p50", "p90", "take/tie/last", "not at endpoint"].join("  "));
+  // Every choice attempted is listed, with no measured forks if none reached the endpoint.
+  for (const [key, fs] of [...forks.entries()].sort()) {
+    const xs = fs.map((f) => f.diff);
+    const e = ended.get(key)!;
+    const share = (f: (x: number) => boolean) => (xs.length === 0 ? "-" : `${Math.round((100 * xs.filter(f).length) / xs.length)}%`);
     console.log(
       [
-        key.padEnd(28),
+        key.padEnd(24),
         String(xs.length).padStart(5),
-        k(xs.reduce((a, b) => a + b, 0) / xs.length).padStart(4),
+        k(mean(xs)).padStart(4),
+        k(pct(xs, 0.1)).padStart(4),
         k(pct(xs, 0.5)).padStart(4),
         k(pct(xs, 0.9)).padStart(4),
-        k(Math.max(...xs)).padStart(4),
-        `${Math.round(100 * big)}%`.padStart(12),
+        `${share((x) => x > 0)}/${share((x) => x === 0)}/${share((x) => x < 0)}`.padStart(13),
+        `guard ${e.guard}, failed ${e.failed}`,
       ].join("  "),
     );
+    // A representative fork on each side: the median of those where taking won, and of those where the last choice did.
+    for (const [side, pick] of [
+      ["takes", (f: Fork) => f.diff > 0],
+      ["passes", (f: Fork) => f.diff < 0],
+    ] as const) {
+      const side_ = fs.filter(pick).sort((a, b) => a.diff - b.diff);
+      const mid = side_[Math.floor(side_.length / 2)];
+      if (mid) console.log(`      ${side} best (${side_.length}), median at $${Math.round(mid.diff)}: ${mid.state}`);
+    }
+    // Purchases: does a card's gain crowd out better goods? Its value by free pockets.
+    const [card, choice] = key.split(":") as [CardId, string];
+    if (CARDS[card].choices.find((c) => c.id === choice)?.effects.some((x) => x.kind === "gain")) {
+      const buckets = [
+        ["<10", (f: Fork) => f.free < 10],
+        ["10-19", (f: Fork) => f.free >= 10 && f.free < 20],
+        ["20+", (f: Fork) => f.free >= 20],
+      ] as const;
+      console.log(
+        `      by free pockets: ${buckets.map(([name, inBucket]) => `${name} ${k(mean(fs.filter(inBucket).map((f) => f.diff)))} (${fs.filter(inBucket).length})`).join(" · ")}`,
+      );
+    }
   }
+  console.log(
+    `   loans: measured ${loans.measured.length} (mean ${k(mean(loans.measured))}); outstanding at the cutoff ${loans.outstanding.length} (value without the $150 back: mean ${k(mean(loans.outstanding))}); cut short ${loans.cutShort.length}`,
+  );
+}
+
+/** Sums a per-run map over the runs. */
+function summed(runs: Run[], pick: (r: Run) => Map<string, number>): Map<string, number> {
+  const all = new Map<string, number>();
+  for (const r of runs) for (const [key, v] of pick(r)) all.set(key, (all.get(key) ?? 0) + v);
+  return all;
+}
+
+/** Totals by good of a profit map keyed "head:good" (only the given head, if any). */
+function shares(map: Map<string, number>, head?: string): { total: number; by: Record<GoodId, number> } {
+  const by = Object.fromEntries(GOODS.map((g) => [g, 0])) as Record<GoodId, number>;
+  for (const [key, v] of map) {
+    const [h, good] = key.split(":") as [string, GoodId];
+    if (head === undefined || h === head) by[good] += v;
+  }
+  return { total: GOODS.reduce((n, g) => n + by[g], 0), by };
+}
+const shareLine = ({ total, by }: ReturnType<typeof shares>): string =>
+  GOODS.map((g) => `${g} ${total === 0 ? "-" : ((100 * by[g]) / total).toFixed(1)}%`).join(" · ");
+
+/** AT2, CE2, AT7 and AT8: each good's share of market-sale profit, supply at the sources, events. */
+function goodsReport(runs: Run[]): void {
+  // Route keys are "from>to:good"; by good, the routes' sum is the signed market-sale profit.
+  const byGood = shares(summed(runs, (r) => new Map([...r.book.routes].map(([key, v]) => [`all:${key.split(":")[1]!}:${key}`, v]))));
+  const lo = Math.min(...GOODS.map((g) => byGood.by[g])) / byGood.total;
+  const hi = Math.max(...GOODS.map((g) => byGood.by[g])) / byGood.total;
+  console.log(`   AT2 profit by good (signed market sales, all seeds): ${shareLine(byGood)}; min ${(100 * lo).toFixed(1)}% max ${(100 * hi).toFixed(1)}%`);
+  const tagged = summed(runs, (r) => r.book.tagged);
+  for (const tag of ["nocoat", "coat", ...BINS.map(([name]) => name)]) {
+    const s = shares(tagged, tag);
+    console.log(`   CE2 ${tag.padEnd(6)} ($${k(s.total / runs.length)}/run): ${shareLine(s)}`);
+  }
+  const days = runs.reduce((n, r) => n + r.supplyDays, 0);
+  console.log(
+    `   AT7 fresh stock at the source, mean on days 2-${DAYS}: ${GOODS.map((g) => `${g} ${(runs.reduce((n, r) => n + r.supply[g], 0) / days).toFixed(2)}`).join(" · ")}`,
+  );
+  const mean = (f: (r: Run) => number) => (runs.reduce((n, r) => n + f(r), 0) / runs.length).toFixed(2);
+  console.log(
+    `   AT8 market events per run: ${mean((r) => r.eventsStarted)} started (all on dealt pairs); traded on ${mean((r) => r.tradedSameDay + r.tradedLater)} (${mean((r) => r.tradedSameDay)} first on their start day, ${mean((r) => r.tradedLater)} first on a later day)`,
+  );
 }
 
 if (process.env.CARDS) {
@@ -568,6 +798,12 @@ for (const [name, p] of Object.entries(POLICIES)) {
     return a;
   }, {});
   if (process.env.DETAIL) {
+    const crown = pct(runs.map((r) => r.upgradeDay.crown ?? Infinity), 0.5);
+    const perHour = pct(runs.map((r) => r.earned.trade / Math.max(1, r.tradeHours)), 0.5);
+    const arrestRate = runs.reduce((a, r) => a + r.arrests, 0) / SEEDS;
+    console.log(
+      `   exact: crown median day ${crown}; trade $/h median ${perHour.toFixed(2)}; wealth d${DAYS} median $${Math.round(pct(col(DAYS), 0.5))}; arrests/run ${arrestRate.toFixed(4)}; top route median ${(100 * pct(route, 0.5)).toFixed(1)}%`,
+    );
     if (arrests.length) {
       console.log(
         `   after an arrest (${arrests.length}): cash next morning med $${k(pct(arrests.map((a) => a.cash), 0.5))} p10 $${k(pct(arrests.map((a) => a.cash), 0.1))}; days back to the pre-arrest wealth med ${pct(arrests.map((a) => a.back ?? 99), 0.5)} p90 ${pct(arrests.map((a) => a.back ?? 99), 0.9)} (arrests by 5 days before the end; 99 = not back by the end)`,
@@ -589,5 +825,6 @@ for (const [name, p] of Object.entries(POLICIES)) {
     }
     const lines = [...cards.entries()].sort().map(([key, c]) => `${key} ${(c.n / SEEDS).toFixed(2)}/run $${Math.round(c.value / c.n)}`);
     if (lines.length) console.log(`   cards (taken per run, mean immediate value): ${lines.join(" · ")}`);
+    goodsReport(runs);
   }
 }

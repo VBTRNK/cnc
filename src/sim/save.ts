@@ -6,22 +6,27 @@
 import { CARD_IDS, CARDS } from "./cards.ts";
 import {
   FLAGS,
-  GOOD,
   GOODS,
   HABITS,
   HARMLESS,
   MILESTONES,
   PINCH,
-  PLACE,
   PLACES,
   RULES,
   SKILLS,
   UPGRADES,
+  deals,
+  type GoodId,
+  type PlaceId,
 } from "./content.ts";
+import { baseStock, neutralDemand, neutralPrice, undealtCell, usualPrice } from "./market.ts";
 import type { GameState } from "./state.ts";
 
 export const SAVE_FORMAT = "crime-and-crown-save";
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
+
+/** The goods of save formats 1-3, dealt everywhere; format 4 added the rest (ADR-014). */
+const FIRST_GOODS: readonly GoodId[] = ["smokes", "tapes", "watches", "fireworks"];
 
 export interface SaveDocument {
   format: typeof SAVE_FORMAT;
@@ -39,12 +44,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const state = structuredClone(doc.state) as Record<string, any>;
     const held = state.held as Record<string, number>;
     // Goods held before costs were kept count at the city's usual price.
-    state.paid = Object.fromEntries(
-      GOODS.map((g) => {
-        const usual = (GOOD[g].base * PLACES.reduce((n, p) => n + PLACE[p].factor[g], 0)) / PLACES.length;
-        return [g, Math.round((held?.[g] ?? 0) * usual)];
-      }),
-    );
+    state.paid = Object.fromEntries(FIRST_GOODS.map((g) => [g, Math.round((held?.[g] ?? 0) * usualPrice(g))]));
     state.calls = 0;
     if (isObject(state.pending)) {
       const xp = Number((state.xp as Record<string, number>)?.nerve ?? 0);
@@ -101,6 +101,25 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     state.milestones = { firsts, best, cases: [], older: { closed: 0, cold: 0 } };
     state.cards = {};
     state.flags = {};
+    return { ...doc, state };
+  },
+  // 4: eight more goods (ADR-014). The market already rolled in the snapshot (today's by day,
+  // tomorrow's at night) gains the new goods' cells at their neutral price, base stock and
+  // demand, without a draw; the first four's cells, the generator, every event, the rumour
+  // and any pending quote stay as saved. The new catalogue's numbers apply from the next roll.
+  3: (doc) => {
+    const state = structuredClone(doc.state) as Record<string, any>;
+    const added = GOODS.filter((g) => !FIRST_GOODS.includes(g));
+    for (const g of added) {
+      state.held[g] = 0;
+      state.paid[g] = 0;
+      for (const p of PLACES) {
+        state.drift[p][g] = 1;
+        state.market[p][g] = deals(p, g)
+          ? { baseline: neutralPrice(p, g), freshStock: baseStock(p, g), freshDemand: neutralDemand(p, g), stock: baseStock(p, g), demand: neutralDemand(p, g) }
+          : undealtCell(g);
+      }
+    }
     return { ...doc, state };
   },
 };
@@ -228,7 +247,7 @@ const goods = keyed(GOODS, int(0, 10_000));
 const cell = shape({
   baseline: int(1, 1_000_000),
   freshStock: int(0, 10_000),
-  freshDemand: int(1, 10_000),
+  freshDemand: int(0, 10_000),
   stock: int(0, 100_000),
   demand: int(0, 100_000),
 });
@@ -414,6 +433,44 @@ const gameState = shape({
   flags: keyed(FLAGS, day, true),
 });
 
+type Pair = { place: PlaceId; good: GoodId };
+
+/**
+ * The dealt-pair rule (ADR-014): an undealt pair never has stock, demand, a price seen or a
+ * price tip, and no market event, rumour, pending sale or best sale names one. A dealt pair
+ * always has demand; it may have no stock (a buyer-only pair).
+ */
+function dealtPairs(s: GameState): string | null {
+  for (const p of PLACES) {
+    for (const g of GOODS) {
+      const c = s.market[p][g];
+      const at = `state.market.${p}.${g}`;
+      if (deals(p, g)) {
+        if (c.freshDemand < 1) return `${at}.freshDemand: a dealt pair has demand`;
+      } else {
+        if (c.freshStock !== 0 || c.stock !== 0 || c.freshDemand !== 0 || c.demand !== 0) return `${at}: not dealt here`;
+        if (s.memory[p][g] !== undefined) return `state.memory.${p}.${g}: not dealt here`;
+        if (s.priceTips.includes(`${p}:${g}`)) return `state.priceTips: ${p}:${g} not dealt here`;
+      }
+    }
+  }
+  const undealt = (x: Pair | null | undefined) => !!x && !deals(x.place, x.good);
+  const events = [
+    ...s.events,
+    ...[s.paper, ...s.news].flatMap((paper) => (paper ? [...paper.tomorrow, ...(paper.unseenMidday ? [paper.unseenMidday] : [])] : [])),
+  ];
+  for (const e of events) {
+    if ((e.kind === "shortage" || e.kind === "glut") && undealt(e)) return `state.events: ${e.id} on a pair not dealt`;
+  }
+  if (undealt(s.rumour?.claim)) return "state.rumour.claim: not dealt there";
+  const quote = s.pending?.kind === "stop" ? s.pending.quote : null;
+  if (quote?.type === "sell" && !deals(s.place, quote.good)) return "state.pending.quote.good: not dealt here";
+  for (const log of [s.today, ...[s.paper, ...s.news].flatMap((paper) => (paper ? [paper.log] : []))]) {
+    if (undealt(log.best)) return "state.today.best: not dealt there";
+  }
+  return null;
+}
+
 /** Rules between fields that the sim relies on. */
 function consistency(s: GameState): string | null {
   const carried = GOODS.reduce((n, g) => n + s.held[g], 0);
@@ -428,7 +485,7 @@ function consistency(s: GameState): string | null {
     if (card.choices.length === 0) return "state.pending: a report never waits";
     if ((s.pending.odds === null) !== !card.choices.some((c) => c.chance)) return "state.pending.odds: frozen odds for its chance";
   }
-  return null;
+  return dealtPairs(s);
 }
 
 export function validateState(x: unknown): string | null {
