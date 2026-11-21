@@ -47,14 +47,13 @@ opening snapshot, day-2 snapshot and quick JSON byte for byte.
 
 ## Reproduce in PowerShell
 
-Start at the revision that introduces this guide's format-2 card runner.
-Use a scratch clone for independent review. For an uncommitted review,
-apply the full proposed change, including new files, to each worktree
-before applying the reviewed stock patch. The commands write worktree
-metadata to the clone and keep generated output outside it.
+Use a scratch clone that contains the pinned replay revision. For an
+uncommitted review, apply the full proposed change, including new files,
+to each worktree before applying the reviewed stock patch. The commands
+write worktree metadata to the clone and keep generated output outside it.
 
 ```powershell
-$base = git rev-parse HEAD
+$base = 'ae86297167b4622b28574386959777bfad462a83'
 $patch = (Resolve-Path 'docs/balance-replay/issue-18-reviewed-stock.patch').Path
 $replay = Join-Path ([IO.Path]::GetTempPath()) ("cnc-stock-" + [guid]::NewGuid())
 $out = Join-Path $replay 'reports'
