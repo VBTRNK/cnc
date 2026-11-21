@@ -213,7 +213,7 @@ export const hoursLeft = (s: GameState): number => RULES.dayEnd - s.hour;
 const rateTenths = (s: GameState, good: GoodId): number => GOOD[good].rate * (10 + skill(s, "patter"));
 export const saleHours = (s: GameState, good: GoodId, units: number): number =>
   Math.ceil((units * 10) / rateTenths(s, good));
-const unitsIn = (s: GameState, good: GoodId, hours: number): number =>
+export const unitsIn = (s: GameState, good: GoodId, hours: number): number =>
   Math.floor((hours * rateTenths(s, good)) / 10);
 
 export function stopChance(s: GameState, hours: number): number {
