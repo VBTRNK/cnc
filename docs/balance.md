@@ -24,7 +24,7 @@ used to judge the change.
    seeded day-2 snapshot when the change affects fresh market rolls. Check
    the full snapshot against the second candidate checkout before trusting
    matching aggregates. The checked-in [opening and day-2 fixture](../tests/fixtures/strategy-markets.txt)
-   is checked by the snapshot assertion at [tests/strategies.test.ts:61](../tests/strategies.test.ts#L61).
+   is checked by the snapshot assertion in [tests/strategies.test.ts](../tests/strategies.test.ts).
 4. Keep horizon, policies and seed indices matched across profiles. Seed
    index `i` uses `7919 * i`. Matching seeds pair the starting conditions.
    Later actions and market draws can consume the random stream differently.
@@ -36,7 +36,8 @@ used to judge the change.
 Run each PowerShell block from a profile's worktree root. Each writes JSON
 to a new output folder outside the checkout. Node 24 runs the simulation
 directly, so the strategy command needs no npm install. The console shows
-Node version, Git revision, checkout status and simulation time. See the
+Node version, Git revision, checkout status, worker count and simulation
+time. See the
 [replay](balance-replay/issue-18.md#reproduce-in-powershell) for console
 logs and total command wall time.
 
@@ -127,8 +128,13 @@ horizon, repeat both profiles at that horizon and report the endpoint.
 
 `npm run strategies -- <days> <seeds>` defaults to 20 days and 400 seeds.
 `ONLY` selects comma-separated policies, `DETAIL=1` expands the console
-summary, and `REPORT` saves exact JSON. Report p10, p50 and p90 alongside
-the denominators and endpoint counts when they matter to a decision.
+summary, and `REPORT` saves exact JSON. Strategy and card runs use the
+available CPU parallelism, capped at the number of seeds. Runs with fewer
+than four seeds default to serial execution. Set `$env:WORKERS = '1'` for
+serial execution or set another positive integer to limit worker count.
+Reports merge in seed order and have identical bytes across worker counts.
+Report p10, p50 and p90 alongside denominators and endpoint counts when
+they matter to a decision.
 
 - **Endpoints and percentiles.** The runner records the committed state on
   the requested day's `dayEnded` event. Wealth is cash plus FIFO inventory
@@ -162,9 +168,18 @@ the denominators and endpoint counts when they matter to a decision.
   loans observed through the full cutoff and pairs cut short by a limit
   separately from measured pairs. A completed pair reached the available
   endpoint on both branches. A measured pair reached the valuation endpoint.
-  For a cap decision, show each group's count, value and spread at its
-  available endpoint. When estimating uncertainty in a mean, keep forks
-  from the same parent seed together.
+  Card report format 2 gives each choice's distinct seed-and-day encounter
+  count. Its `diff.measured`, `diff.outstanding` and `diff.cutShort` groups
+  give n, mean and p10/p50/p90 at their respective endpoints. Empty groups
+  have n = 0 and null statistics. Use the measured group for the cap.
+  The `measuredMean95` interval is the measured mean ± 1.96 standard
+  errors. To estimate the standard error, sum the deviations from the
+  mean within each contributing seed, square those sums, and add them.
+  Multiply by G/(G−1) for G contributing seeds, take the square root and
+  divide by the number of measured pairs. This delta-method calculation
+  keeps forks from the same parent seed together. The interval is null
+  with fewer than two contributing seeds. The normal approximation can
+  understate uncertainty when few seeds contribute.
 - **Incomplete work.** Check requested, eligible and completed runs and
   card comparisons. A guard or refusal that leaves a run or branch stuck is
   listed with its reason, excluded from endpoint metrics and causes a
@@ -214,8 +229,8 @@ PR evidence | commands and report | validation | accepted exceptions
   shipped-stock seeds, the released policy measured 144 loans at $68 and
   the revised policy measured 128 at −$9.29. The revised policy on reviewed
   stock measured 139 at +$143.59. The 400-seed shipped result is $53.70
-  (95% interval $27.92–$79.40, n = 1,307). Recheck if stock, policy or loan
-  terms change.
+  (bootstrap 95% interval $27.92–$79.40, n = 1,307). Recheck if stock,
+  policy or loan terms change.
 - **Decision 2 — Revised Crown window and stock.** Decided by owner
   delegation on 2026-11-21. Keep shipped stock as measured and set the
   revised `trader` target to median Crown day 15–18. The revised policy
@@ -230,7 +245,7 @@ PR evidence | commands and report | validation | accepted exceptions
 | Median trade profit, at most $55/hour | $46.17 | $56.12 | 400 each | $42.18 / $46.17 / $49.96 → $51.09 / $56.12 / $61.22 | 0 failures | Shipped meets cap, reviewed exceeds it |
 | Median day-30 wealth, at most $11,368 | $10,809 | $12,794 | 400 each | $9,129 / $10,809 / $12,355 → $10,441 / $12,794 / $14,860 | 0 failures | Shipped meets cap, reviewed exceeds it |
 | Minimum mean fresh source stock, at least 1 | 1 | 1 | 11,600 source seed-days each | Base-1 sources always roll 1 | 0 failures | Both clear the floor |
-| Old mate mean, cap ~$50 | $53.70 | $64.80 | 1,307 → 1,293 measured | 95% mean intervals $27.92–$79.40 → $29.41–$99.43 | 0 failures, 10 → 14 outstanding, 123 → 137 cut short | Loan-only exception on shipped stock (Decision 1) |
+| Old mate mean, cap ~$50 | $53.70 | $64.80 | 1,307 → 1,293 measured | 95% mean intervals $27.74–$79.66 → $29.52–$100.08 | 0 failures, 10 → 14 outstanding, 123 → 137 cut short | Loan-only exception on shipped stock (Decision 1) |
 
 The [replay](balance-replay/issue-18.md) carries the commands, reports and
 verification. [ADR-014](decisions.md#adr-014--twelve-goods-dealt-or-not-and-save-format-4)

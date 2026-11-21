@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { cardReport, formatCards, formatStrategies, strategyReport } from "./strategy-report.ts";
 import { openingSnapshot, selectRun } from "./strategy-runner.ts";
+import { runParallel, selectWorkers } from "./strategy-worker.ts";
 
 function git(...args: string[]): string | null {
   try {
@@ -15,15 +16,18 @@ function git(...args: string[]): string | null {
 try {
   const [, , days, count, ...rest] = process.argv;
   if (rest.length > 0) throw new Error("usage: npm run strategies -- [days] [seeds]");
-  const { CARDS, DETAIL, ONLY, OPENING, REPORT, SEED_START } = process.env;
+  const { CARDS, DETAIL, ONLY, OPENING, REPORT, SEED_START, WORKERS } = process.env;
   if (OPENING && CARDS) throw new Error("select one of OPENING and CARDS");
   const selection = selectRun(days, count, SEED_START, ONLY);
+  const workers = OPENING ? 1 : selectWorkers(selection.seeds.length, WORKERS);
   const head = git("rev-parse", "HEAD");
   const status = head === null ? null : git("status", "--porcelain");
   const start = performance.now();
   const report = OPENING ? {
     version: 1, mode: "opening" as const, seed: selection.seeds[0]!, opening: openingSnapshot(selection.seeds[0]!),
-  } : CARDS ? cardReport(selection) : strategyReport(selection);
+  } : CARDS
+    ? cardReport(selection, workers > 1 ? await runParallel("cards", selection, workers) : undefined)
+    : strategyReport(selection, workers > 1 ? await runParallel("strategies", selection, workers) : undefined);
   const ms = performance.now() - start;
   const json = JSON.stringify(report, null, 2) + "\n";
   if (REPORT) writeFileSync(REPORT, json, "utf8");
@@ -36,7 +40,7 @@ try {
     console.log(formatStrategies(report, Boolean(DETAIL)));
     if (report.results.some((r) => r.samples.completed !== r.samples.requested)) process.exitCode = 1;
   }
-  console.error(`strategies invocation: Node ${process.version}; Git ${head ?? "unavailable"} (${status === null ? "status unavailable" : status ? "dirty" : "clean"}); ${(ms / 1000).toFixed(2)} s`);
+  console.error(`strategies invocation: Node ${process.version}; Git ${head ?? "unavailable"} (${status === null ? "status unavailable" : status ? "dirty" : "clean"}); workers ${workers}; ${(ms / 1000).toFixed(2)} s`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;

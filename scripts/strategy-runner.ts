@@ -17,7 +17,7 @@ export interface Selection {
   policies: string[];
 }
 
-function positiveInteger(raw: string, name: string): number {
+export function positiveInteger(raw: string, name: string): number {
   if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) < 1) {
     throw new Error(`${name} must be a positive integer`);
   }
@@ -136,7 +136,8 @@ interface Run {
   pinchStops: number;
   tradeHours: number;
   cards: Map<string, { n: number; value: number }>;
-  book: Book;
+  routes: Book["routes"];
+  tagged: Book["tagged"];
   supply: Record<GoodId, number>;
   supplyDays: number;
   eventsStarted: number;
@@ -160,7 +161,8 @@ export function runOne(name: string, p: Policy, seed: number, days: number, opti
   const out: RunTotals = {
     seed, wealth: [], cash: [], arrests: 0, stops: 0, upgradeDay: {}, topRoute: 0, earned: book.earned,
     actions: 0, timed: 0, jobs: {}, afterArrest: [], cases: 0, closed: 0, pinchStops: 0, tradeHours: 0,
-    cards: new Map(), book, supply: perGood(() => 0), supplyDays: 0, eventsStarted: 0, tradedSameDay: 0, tradedLater: 0,
+    cards: new Map(), routes: book.routes, tagged: book.tagged,
+    supply: perGood(() => 0), supplyDays: 0, eventsStarted: 0, tradedSameDay: 0, tradedLater: 0,
   };
   const started = new Set<string>();
   const traded = new Set<string>();
@@ -229,6 +231,10 @@ export function runOne(name: string, p: Policy, seed: number, days: number, opti
   out.topRoute = total > 0 ? Math.max(...profitable) / total : 0;
   out.eventsStarted = started.size;
   return { ...out, outcome };
+}
+
+export function strategyRuns({ policies, seeds, days }: Selection) {
+  return policies.map((name) => seeds.map((seed) => runOne(name, POLICIES[name]!, seed, days)));
 }
 
 export const FORKS = 4;

@@ -1,9 +1,9 @@
 import { CARDS, GOODS, UPGRADES, type CardId, type GoodId } from "../src/sim/index.ts";
 import { perGood } from "../src/sim/market.ts";
-import { BINS, POLICIES } from "./strategy-policy.ts";
-import { cardRuns, FORKS, LOAN_CUTOFF, runOne, type CardSample, type Selection } from "./strategy-runner.ts";
+import { BINS } from "./strategy-policy.ts";
+import { cardRuns, FORKS, LOAN_CUTOFF, strategyRuns, type CardSample, type Selection } from "./strategy-runner.ts";
 
-type Run = ReturnType<typeof runOne>;
+type Run = ReturnType<typeof strategyRuns>[number][number];
 
 const sum = <T>(items: readonly T[], value: (item: T) => number) => items.reduce((total, item) => total + value(item), 0);
 const ratio = (n: number, d: number) => d === 0 ? null : n / d;
@@ -60,8 +60,8 @@ export function summarizePolicy(name: string, days: number, attempts: Run[], req
       aggregate.value += c.value;
       cards[key] = aggregate;
     }
-    for (const [key, value] of r.book.routes) marketProfit[key.split(":")[1] as GoodId] += value;
-    for (const [key, value] of r.book.tagged) {
+    for (const [key, value] of r.routes) marketProfit[key.split(":")[1] as GoodId] += value;
+    for (const [key, value] of r.tagged) {
       const [tag, good] = key.split(":") as [string, GoodId];
       taggedProfit[tag]![good] += value;
     }
@@ -97,9 +97,9 @@ export function summarizePolicy(name: string, days: number, attempts: Run[], req
   };
 }
 
-export function strategyReport(selection: Selection) {
+export function strategyReport(selection: Selection, batches = [strategyRuns(selection)]) {
   const { policies, days, seeds } = selection;
-  const results = policies.map((name) => summarizePolicy(name, days, seeds.map((seed) => runOne(name, POLICIES[name]!, seed, days))));
+  const results = policies.map((name, i) => summarizePolicy(name, days, batches.flatMap((batch) => batch[i]!), seeds.length));
   return { version: 1, mode: "strategies" as const, ...selection, results };
 }
 
@@ -109,6 +109,25 @@ const pocketsBuckets = [
   { label: "20+", includes: (n: number) => n >= 20 },
 ];
 
+function describeDifferences(samples: CardSample[]) {
+  const values = samples.map((s) => s.diff!);
+  return { ...quantiles(values), mean: mean(values) };
+}
+
+function meanInterval(samples: CardSample[], average: number | null): [number, number] | null {
+  if (average === null) return null;
+  const residuals = new Map<number, number>();
+  for (const { seed, diff } of samples) {
+    residuals.set(seed, (residuals.get(seed) ?? 0) + (diff! - average));
+  }
+  const clusters = residuals.size;
+  if (clusters < 2) return null;
+  // Delta method for total difference / sample count, with a finite-cluster correction.
+  const squared = sum([...residuals.values()], (residual) => residual ** 2);
+  const margin = 1.96 * Math.sqrt((clusters / (clusters - 1)) * squared) / samples.length;
+  return [average - margin, average + margin];
+}
+
 export function summarizeChoices(key: string, attempts: CardSample[]) {
   const groups = {
     measured: attempts.filter((s) => s.status === "measured"),
@@ -117,7 +136,7 @@ export function summarizeChoices(key: string, attempts: CardSample[]) {
     guard: attempts.filter((s) => s.status === "guard"),
     failed: attempts.filter((s) => s.status === "failed"),
   };
-  const measured = groups.measured.map((s) => s.diff!);
+  const measured = describeDifferences(groups.measured);
   const incomplete = [...groups.guard, ...groups.failed].map(({ seed, day, take, pass }) => ({
     seed, day, take: take.outcome, pass: pass.outcome,
   }));
@@ -131,28 +150,30 @@ export function summarizeChoices(key: string, attempts: CardSample[]) {
   const losses = groups.measured.filter((s) => s.diff! < 0);
   return {
     key,
+    encounters: new Set(attempts.map(({ seed, day }) => `${seed}:${day}`)).size,
     samples: {
       requested: attempts.length, eligible: attempts.length, completed: attempts.length - incomplete.length,
-      measured: measured.length, outstanding: groups.outstanding.length, cutShort: groups.cutShort.length,
+      measured: measured.n, outstanding: groups.outstanding.length, cutShort: groups.cutShort.length,
       guard: groups.guard.length, failed: groups.failed.length, incomplete,
     },
-    diff: { ...quantiles(measured), mean: mean(measured) },
-    wins: { take: wins.length, tie: measured.length - wins.length - losses.length, last: losses.length },
+    diff: { measured, outstanding: describeDifferences(groups.outstanding), cutShort: describeDifferences(groups.cutShort) },
+    measuredMean95: meanInterval(groups.measured, measured.mean),
+    wins: { take: wins.length, tie: measured.n - wins.length - losses.length, last: losses.length },
     examples: { takes: medianExample(wins), passes: medianExample(losses) },
     byPockets: !CARDS[card].choices.find((c) => c.id === choice)?.effects.some((x) => x.kind === "gain")
       ? [] : pocketsBuckets.map(({ label, includes }) => {
         const values = groups.measured.filter((s) => includes(s.free)).map((s) => s.diff!);
         return { label, n: values.length, mean: mean(values) };
       }),
-    outstandingMean: mean(groups.outstanding.map((s) => s.diff!)),
   };
 }
 
-export function cardReport(selection: Selection) {
-  const { parents, samples } = cardRuns(selection);
-  const choices = [...samples.keys()].sort().map((key) => summarizeChoices(key, samples.get(key)!));
+export function cardReport(selection: Selection, batches = [cardRuns(selection)]) {
+  const parents = batches.flatMap(({ parents }) => parents);
+  const keys = new Set(batches.flatMap(({ samples }) => [...samples.keys()]));
+  const choices = [...keys].sort().map((key) => summarizeChoices(key, batches.flatMap(({ samples }) => samples.get(key) ?? [])));
   return {
-    version: 1, mode: "cards" as const, ...selection, policies: ["trader"], forksPerShowing: FORKS, loanCutoffDays: LOAN_CUTOFF,
+    version: 2, mode: "cards" as const, ...selection, policies: ["trader"], forksPerShowing: FORKS, loanCutoffDays: LOAN_CUTOFF,
     parents: workCounts(parents, selection.seeds.length),
     comparisons: {
       requested: sum(choices, (c) => c.samples.requested), eligible: sum(choices, (c) => c.samples.eligible),
@@ -234,17 +255,27 @@ export function formatCards(report: ReturnType<typeof cardReport>): string {
     `AT5 card values: trader, ${report.seeds.length} seeds × ${report.days} days, ${FORKS} forks per showing; each choice minus the last choice, both played to the next day or the day after loan repayment, subject to the horizon and the ${LOAN_CUTOFF}-day loan cutoff`,
     progressLine("   parent runs", report.parents),
     progressLine("   choice comparisons", report.comparisons),
-    ["choice".padEnd(24), "forks", "mean", "p10", "p50", "p90", "take/tie/last", "other outcomes"].join("  "),
+    ["choice".padEnd(24), "encounters", "forks", "mean", "p10", "p50", "p90", "take/tie/last", "other outcomes"].join("  "),
   ];
   for (const sample of report.parents.incomplete) lines.push(`   seed ${sample.seed} day ${sample.day}: ${sample.end} (${sample.reason})`);
   for (const c of report.choices) {
     const s = c.samples;
+    const { measured, outstanding, cutShort } = c.diff;
     const share = (v: number) => percent(ratio(v, s.measured), 0);
     lines.push([
-      c.key.padEnd(24), String(s.measured).padStart(5), ...[c.diff.mean, c.diff.p10, c.diff.p50, c.diff.p90].map((n) => k(n).padStart(4)),
+      c.key.padEnd(24), String(c.encounters).padStart(10), String(measured.n).padStart(5),
+      ...[measured.mean, measured.p10, measured.p50, measured.p90].map((n) => k(n).padStart(4)),
       `${share(c.wins.take)}/${share(c.wins.tie)}/${share(c.wins.last)}`.padStart(13),
       `outstanding ${s.outstanding}, cut short ${s.cutShort}, guard ${s.guard}, failed ${s.failed}`,
     ].join("  "));
+    const mean95 = c.measuredMean95?.map((value) => fixed(value, 2)).join(" to ") ?? "-";
+    lines.push(`      measured mean 95% interval: ${mean95}`);
+    for (const [label, group] of [["outstanding", outstanding], ["cut short", cutShort]] as const) {
+      if (group.n > 0) {
+        const percentiles = [group.p10, group.p50, group.p90].map((value) => fixed(value, 2)).join("/");
+        lines.push(`      ${label}: n ${group.n}, mean ${fixed(group.mean, 2)}, p10/p50/p90 ${percentiles}`);
+      }
+    }
     for (const [side, example] of Object.entries(c.examples)) {
       if (example) lines.push(`      ${side} best (${side === "takes" ? c.wins.take : c.wins.last}), median at $${Math.round(example.diff)}: ${example.situation}`);
     }
@@ -255,7 +286,5 @@ export function formatCards(report: ReturnType<typeof cardReport>): string {
       [take, pass].flatMap((branch, index) => branch.end === "endpoint" ? [] : [`${index === 0 ? "take" : "last"}: ${branch.reason}`])));
     if (reasons.size > 0) lines.push(`      ${[...reasons].join(" · ")}`);
   }
-  const loan = report.choices.find((c) => c.key === "oldMate:lend");
-  if (loan) lines.push(`   loans: measured ${loan.samples.measured} (mean ${k(loan.diff.mean)}); outstanding at the cutoff ${loan.samples.outstanding} (mean ${k(loan.outstandingMean)}); cut short ${loan.samples.cutShort}`);
   return lines.join("\n");
 }
