@@ -1,4 +1,4 @@
-// Strategy runs over the live simulation. See docs/design.md for coverage and report formulas.
+// Strategy runs over the live simulation. See docs/balance.md for the workflow and report formulas.
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { cardReport, formatCards, formatStrategies, strategyReport } from "./strategy-report.ts";

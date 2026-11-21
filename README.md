@@ -44,5 +44,6 @@ the game's and must never reach a cloud slot.
 
 - [`AGENTS.md`](AGENTS.md): instructions for agents and contributors.
 - [`docs/design.md`](docs/design.md): what the game is and how it is built.
+- [Balance guide](docs/balance.md) for strategy runs, reproducible comparisons, and review.
 - [`docs/decisions.md`](docs/decisions.md): the rules and why.
 - [`SECURITY.md`](SECURITY.md): reporting a problem.

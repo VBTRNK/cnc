@@ -464,3 +464,25 @@ Date: 2026-11-21. Issue #18; builds `docs/design.md` "The loop" (goods).
   pending stop) measures 49,277 bytes of `jsonb::text`; the test keeps 15%
   under the 65,536 cap.
 - ADR-013's 12-good test catalogue, its build mode and scripts are retired.
+
+## ADR-015 — Revised trader balance targets
+
+Date: 2026-11-21. The owner delegated both decisions to the reviewer during
+the [balance workflow review](https://github.com/VBTRNK/cnc/issues/37).
+
+- **Crown target and stock.** Keep the shipped stock profile as measured.
+  On unchanged rules the revised `trader` policy moved the median Crown
+  purchase from day 16 to day 15, so the revised target is median day
+  15–18. Day 16–19 remains the released-policy target. At 400 seeds over
+  30 days, shipped stock meets the target at day 15 (399 of 400 reached),
+  the $55/hour cap at $46.17, the $11,368 median day-30 wealth cap at
+  $10,809, and the minimum mean fresh source stock of 1.
+- **Old mate's loan.** Grant a loan-only exception to the roughly $50
+  choice cap on shipped stock under the revised policy. Keep the terms
+  of $100 lent and $150 plus a tip back. At 400 seeds, 1,307 measured
+  pairs give a mean of $53.70 and a 95% interval of $27.92–$79.40.
+  The stated return accounts for most of the mean on this once-per-run
+  card. Recheck the exception if stock, policy or loan terms change.
+
+The [stock replay](balance-replay/issue-18.md) records the matched
+comparisons. ADR-014 records the released-policy results and $63 exception.
