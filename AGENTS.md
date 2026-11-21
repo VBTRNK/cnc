@@ -75,11 +75,12 @@ Never run `vercel deploy` or `vercel --prod` by hand unless asked.
 
 ## Agent safety
 
-- Hooks in `.claude/hooks/` and `.codex/hooks/` block destructive commands
-  (forced deletes, force push, remote branch deletion, hard reset, forced
-  clean, broad checkout discards, forced branch deletion, downloads piped into
-  an interpreter). What they enforce is non-negotiable; changing a guard needs
-  a PR the owner asked for. Codex hooks and rules need the repo to be trusted.
+- Hooks in `.claude/hooks/`, `.codex/hooks/` and `.agents/hooks/` block
+  destructive commands (forced deletes, force push, remote branch
+  deletion, hard reset, forced clean, broad checkout discards, forced
+  branch deletion, downloads piped into an interpreter). What they
+  enforce is non-negotiable; changing a guard needs a PR the owner asked
+  for. Codex hooks and rules need the repo to be trusted.
 - After changing `.codex/rules/project.rules`, run `codex execpolicy check` on
   it: one failing `match` example makes Codex drop the whole file.
 - Never auto-allowed: `git commit`, `git push`, state-changing `gh` commands
