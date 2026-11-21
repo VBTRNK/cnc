@@ -480,9 +480,23 @@ the [balance workflow review](https://github.com/VBTRNK/cnc/issues/37).
 - **Old mate's loan.** Grant a loan-only exception to the roughly $50
   choice cap on shipped stock under the revised policy. Keep the terms
   of $100 lent and $150 plus a tip back. At 400 seeds, 1,307 measured
-  pairs give a mean of $53.70 and a 95% interval of $27.92–$79.40.
+  pairs give a mean of $53.70 and a bootstrap 95% interval of $27.92–$79.40.
   The stated return accounts for most of the mean on this once-per-run
   card. Recheck the exception if stock, policy or loan terms change.
 
 The [stock replay](balance-replay/issue-18.md) records the matched
 comparisons. ADR-014 records the released-policy results and $63 exception.
+
+## ADR-016 — Parallel balance runs and card report format 2
+
+Date: 2026-11-21. [Balance runner follow-up](https://github.com/VBTRNK/cnc/issues/40).
+
+- Workers simulate independent seed blocks. The parent combines results
+  in seed order before making a report, so the same run has the same JSON
+  bytes at any worker count. Opening and strategy reports remain format 1.
+- Card report format 2 includes per-choice encounter counts, differences
+  at each outcome group's endpoint, and a 95% interval for the measured
+  mean clustered by parent seed. The report calculates these from the
+  existing simulation results. The stock replay uses the same report.
+  The [balance guide](balance.md#read-strategy-reports) describes the fields
+  and the interval calculation.

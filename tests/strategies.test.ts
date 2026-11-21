@@ -1,18 +1,25 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CARDS, GOODS, PINCH, RULES, newGame, type Action, type GameState, type PlaceId } from "../src/sim/index.ts";
 import { atLeast, below, play, rngWhere } from "../src/sim/testing.ts";
 import { Book, POLICIES, decide, plan } from "../scripts/strategy-policy.ts";
-import { compareCard, marketSnapshot, openingSnapshot, runOne, selectRun } from "../scripts/strategy-runner.ts";
+import { compareCard, marketSnapshot, openingSnapshot, runOne, selectRun, type CardSample } from "../scripts/strategy-runner.ts";
 import { cardReport, formatCards, strategyReport, summarizeChoices, summarizePolicy } from "../scripts/strategy-report.ts";
+import { selectWorkers } from "../scripts/strategy-worker.ts";
 
 const seed = 7919;
 const trader = POLICIES.trader!;
 const oddJobsOnly = POLICIES.oddJobsOnly!;
 
 describe("seed selection and reports", () => {
+  it("chooses worker counts for small and explicitly sized runs", () => {
+    for (const seeds of [1, 2, 3]) expect(selectWorkers(seeds)).toBe(1);
+    expect(selectWorkers(3, "2")).toBe(2);
+    expect(selectWorkers(4, "12")).toBe(4);
+  });
+
   it("preserves the released first seeds and supports disjoint ranges", () => {
     expect(selectRun("30", "3", undefined, "oddJobsOnly,trader")).toEqual({
       days: 30, seeds: [7919, 15838, 23757], seedStart: 1, policies: ["trader", "oddJobsOnly"],
@@ -36,6 +43,31 @@ describe("seed selection and reports", () => {
       freshStock: { sourceDays: 2 },
     }] });
   });
+
+  it.each(["strategies", "cards"])("writes identical %s JSON with one or three workers", (mode) => {
+    const dir = mkdtempSync(join(tmpdir(), "cnc-workers-"));
+    const path = join(dir, "report.json");
+    const run = (workers: string) => {
+      const result = spawnSync(process.execPath, ["scripts/strategies.ts", "5", "6"], {
+        cwd: new URL("../", import.meta.url),
+        env: {
+          ...process.env, CARDS: mode === "cards" ? "1" : "", DETAIL: "", ONLY: "trader,dailyJob",
+          OPENING: "", REPORT: path, SEED_START: "2", WORKERS: workers,
+        },
+        encoding: "utf8",
+      });
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stderr).toContain(`workers ${workers};`);
+      return readFileSync(path);
+    };
+    try {
+      expect(run("3")).toEqual(run("1"));
+    } finally {
+      if (existsSync(path)) unlinkSync(path);
+      rmdirSync(dir);
+    }
+  }, 15_000);
 });
 
 describe("opening parity", () => {
@@ -310,7 +342,8 @@ describe("run and comparison endpoints", () => {
       const refused = report.choices.find((c) => c.key === "churchRoof:give")!;
       expect(refused.samples).toMatchObject({ requested: 4, eligible: 4, completed: 0, measured: 0, failed: 4 });
       expect(refused.samples.incomplete[0]?.pass).toMatchObject({ end: "failed", reason: "resolveCard walkOn: unavailable" });
-      expect(refused.diff).toEqual({ n: 0, p10: null, p50: null, p90: null, mean: null });
+      expect(refused.diff.measured).toEqual({ n: 0, p10: null, p50: null, p90: null, mean: null });
+      expect(refused.measuredMean95).toBeNull();
       expect(formatCards(report)).toContain("last: resolveCard walkOn: unavailable");
       expect(report.comparisons.requested).toBe(report.comparisons.completed + report.comparisons.failed + report.comparisons.guard);
     } finally {
@@ -339,5 +372,26 @@ describe("run and comparison endpoints", () => {
       seed, day: 1, situation: "", free: 20, ...sample,
     })));
     expect(summary.samples).toMatchObject({ eligible: 3, completed: 3, cutShort: 2, measured: 0, outstanding: 1 });
+  });
+
+  it("counts unique encounters and estimates the measured mean by parent seed", () => {
+    const sample = (seed: number, day: number, status: CardSample["status"], diff: number): CardSample => {
+      const endpoint = { outcome: { end: "endpoint", day: 6 }, value: 0, repaid: null } as const;
+      return { seed, day, status, diff, situation: "", free: 20, take: { ...endpoint, value: diff }, pass: endpoint };
+    };
+    const sameSeed = [sample(1, 1, "measured", 10), sample(1, 1, "measured", 20), sample(1, 2, "measured", 30)];
+    const summary = summarizeChoices("oldMate:lend", [
+      ...sameSeed, sample(2, 1, "measured", 60), sample(2, 1, "outstanding", -100), sample(3, 1, "cutShort", -20),
+    ]);
+    expect(summary.encounters).toBe(4);
+    expect(summary.diff).toEqual({
+      measured: { n: 4, mean: 30, p10: 10, p50: 30, p90: 60 },
+      outstanding: { n: 1, mean: -100, p10: -100, p50: -100, p90: -100 },
+      cutShort: { n: 1, mean: -20, p10: -20, p50: -20, p90: -20 },
+    });
+    // Cluster residuals are -30 and +30, giving a standard error of 15.
+    expect(summary.measuredMean95?.[0]).toBeCloseTo(0.60);
+    expect(summary.measuredMean95?.[1]).toBeCloseTo(59.40);
+    expect(summarizeChoices("oldMate:lend", sameSeed).measuredMean95).toBeNull();
   });
 });
