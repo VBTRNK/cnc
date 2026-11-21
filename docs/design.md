@@ -235,6 +235,54 @@ the same: what is the best use of my next few hours?
   the 2-4 minute day, whether stops feel explainable, whether the first purchase is a real
   choice, and whether it is fun.
 
+### Strategy reports
+
+`npm run strategies -- <days> <seeds>` defaults to 20 days and 400 seeds.
+`ONLY` selects comma-separated policies and `DETAIL=1` expands the terminal
+summary. `CARDS=1` runs the trader's choice comparisons. `SEED_START` selects the
+first 1-based seed index (default 1). Each seed is 7919 times its index, so a
+run of 40 seeds can be extended with `SEED_START=41`. `OPENING=1` prints the
+selected first seed's opening pairs, sources, quotes and events from `newGame`.
+`REPORT` saves the exact JSON to the specified path. Node version, Git revision
+and checkout status, and elapsed simulation time go to stderr.
+
+- **Endpoints and percentiles.** Record the committed state on the requested
+  day's `dayEnded` event. End-of-day wealth is cash plus FIFO inventory cost
+  plus upgrade purchase cost. In the summary, days 5 and 10 use the last day
+  when the horizon is shorter. Percentiles are sorted values at zero-based
+  index `floor(q * n)`. Crown bought and unreached counts use completed runs.
+  An unbought Crown sorts after all observed purchase days, with a censored
+  percentile written as JSON `null`. Each arrest at least five days before
+  the horizon has its own recovery threshold, the last non-arrest closing
+  wealth. An episode recovers on the first later close at or above its threshold.
+- **Trade.** Profit is market-sale proceeds minus FIFO lot cost plus net earnings
+  on card sales. Trade hours are committed sale and travel hours. The report
+  takes the percentile of each run's profit divided by its trade hours, with
+  a minimum denominator of one. Each run's top route share is its largest
+  positive net market route profit divided by the sum of its positive net
+  route profits, with zero for a run without profitable routes. A route is
+  the purchase place, sale place and good.
+  The trip forecast uses last-seen prices and neutral remote demand.
+  The split-sales policy forecasts bulk sales and splits them on arrival.
+- **Fresh stock.** Divide each good's total fresh stock at its source by the
+  reported seed-days on days 2 through the horizon. Fresh stock is the roll
+  before events and trades change available units.
+- **Choices.** Take and pass use the same initial generator position and the
+  same continuation seed. The difference is take minus the stated last
+  choice. Card valuation uses cash, held goods at the city's usual price,
+  and upgrades at cost. Compare at the end of the next day or, for Old mate,
+  at the end of the day after the lending branch's repayment. Both branches
+  stay within the run horizon and the loan's 14-day cutoff. Outstanding
+  loans observed through the full cutoff and pairs cut short by either limit
+  appear separately from measured choices.
+- **Incomplete work.** The report counts requested, eligible and completed
+  runs and card comparisons. Card comparisons are four paired attempts per
+  eligible non-last choice at each encounter. A completed pair reached its
+  available endpoint on both branches, and a measured pair reached the day
+  required for its valuation. A guard or refusal that leaves
+  a run or branch stuck is listed with its reason, excluded from endpoint
+  metrics, and makes the CLI exit nonzero after it prints the report.
+
 ## The detective, events and cast
 
 The persistent MVP's layer on top of the loop. Every number is provisional: the strategy
