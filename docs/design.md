@@ -230,58 +230,10 @@ the same: what is the best use of my next few hours?
 - **Difficulty.** The first release (local first playable and persistent MVP) has one
   forgiving mode, with no picker and no mode name; a run never ends and failure costs days.
   Hard mode comes after the persistent MVP, chosen at the start of a run and fixed for it.
-- **Measuring.** The simulation's strategy runs (`npm run strategies`) measure these rules;
-  their results are in the decisions log and the tracking issue (#8). Play on a phone judges
-  the 2-4 minute day, whether stops feel explainable, whether the first purchase is a real
-  choice, and whether it is fun.
-
-### Strategy reports
-
-`npm run strategies -- <days> <seeds>` defaults to 20 days and 400 seeds.
-`ONLY` selects comma-separated policies and `DETAIL=1` expands the terminal
-summary. `CARDS=1` runs the trader's choice comparisons. `SEED_START` selects the
-first 1-based seed index (default 1). Each seed is 7919 times its index, so a
-run of 40 seeds can be extended with `SEED_START=41`. `OPENING=1` prints the
-selected first seed's opening pairs, sources, quotes and events from `newGame`.
-`REPORT` saves the exact JSON to the specified path. Node version, Git revision
-and checkout status, and elapsed simulation time go to stderr.
-
-- **Endpoints and percentiles.** Record the committed state on the requested
-  day's `dayEnded` event. End-of-day wealth is cash plus FIFO inventory cost
-  plus upgrade purchase cost. In the summary, days 5 and 10 use the last day
-  when the horizon is shorter. Percentiles are sorted values at zero-based
-  index `floor(q * n)`. Crown bought and unreached counts use completed runs.
-  An unbought Crown sorts after all observed purchase days, with a censored
-  percentile written as JSON `null`. Each arrest at least five days before
-  the horizon has its own recovery threshold, the last non-arrest closing
-  wealth. An episode recovers on the first later close at or above its threshold.
-- **Trade.** Profit is market-sale proceeds minus FIFO lot cost plus net earnings
-  on card sales. Trade hours are committed sale and travel hours. The report
-  takes the percentile of each run's profit divided by its trade hours, with
-  a minimum denominator of one. Each run's top route share is its largest
-  positive net market route profit divided by the sum of its positive net
-  route profits, with zero for a run without profitable routes. A route is
-  the purchase place, sale place and good.
-  The trip forecast uses last-seen prices and neutral remote demand.
-  The split-sales policy forecasts bulk sales and splits them on arrival.
-- **Fresh stock.** Divide each good's total fresh stock at its source by the
-  reported seed-days on days 2 through the horizon. Fresh stock is the roll
-  before events and trades change available units.
-- **Choices.** Take and pass use the same initial generator position and the
-  same continuation seed. The difference is take minus the stated last
-  choice. Card valuation uses cash, held goods at the city's usual price,
-  and upgrades at cost. Compare at the end of the next day or, for Old mate,
-  at the end of the day after the lending branch's repayment. Both branches
-  stay within the run horizon and the loan's 14-day cutoff. Outstanding
-  loans observed through the full cutoff and pairs cut short by either limit
-  appear separately from measured choices.
-- **Incomplete work.** The report counts requested, eligible and completed
-  runs and card comparisons. Card comparisons are four paired attempts per
-  eligible non-last choice at each encounter. A completed pair reached its
-  available endpoint on both branches, and a measured pair reached the day
-  required for its valuation. A guard or refusal that leaves
-  a run or branch stuck is listed with its reason, excluded from endpoint
-  metrics, and makes the CLI exit nonzero after it prints the report.
+- **Measuring.** The [balance guide](balance.md) gives the strategy-run workflow
+  and report definitions. Historical results live in the decisions log.
+  Play on a phone judges the 2-4 minute day, whether stops feel explainable,
+  whether the first purchase is a real choice, and whether it is fun.
 
 ## The detective, events and cast
 
@@ -356,7 +308,8 @@ tally, and what people feel is in their authored lines.
     | Old mate pays up | 4+ days after the loan | A report: +$150 and a tip |
 
     No card may be a dominant earner: its mean value where it shows stays below a good hour
-    of trading (about $50; Old mate's loan is an accepted exception, ADR-014). It is measured by forking the run at each choice encounter
+    of trading (about $50). [ADR-015](decisions.md#adr-015--revised-trader-balance-targets)
+    records the exception for Old mate's loan. Measure each choice by forking the run at the encounter
     (`CARDS=1`): every choice against the card's last (Pass, Walk on, Not now, Run, Brazen it
     out), both played on with the same policy and generator to the same game day, the end of
     the next day. Old mate's loan runs instead to the end of the day after the lending fork's
@@ -395,8 +348,9 @@ tally, and what people feel is in their authored lines.
   false trails, bribes and a margin; further purchases come with #19 and #7.
 - **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
   card's value per choice; `CARDS=1` each choice's value): every encounter a real choice in
-  some state and none a dominant earner, the loan aside (ADR-011, ADR-014). On the current
-  rules the results are in ADR-014: a median trader buys the Crown on day 16, about one
+  some state and none a dominant earner, the loan aside (ADR-011, ADR-014,
+  [ADR-015](decisions.md#adr-015--revised-trader-balance-targets)). With the released
+  policy, ADR-014 records a median Crown purchase on day 16, about one
   arrest a month, five cases in 30 days; avoiding operations cuts arrests by about 70% at
   little cost in wealth. Earlier rules' results stay in their ADRs.
 
