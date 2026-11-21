@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import {
   RULES,
   canAskAround,
+  deals,
   hoursLeft,
   operationOn,
   price,
@@ -101,7 +102,10 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
         {t("street.market")}
       </h2>
       <ul className="goods">
-        {goodsByName().map((g) => (
+        {[
+          ...goodsByName().filter((g) => deals(state.place, g)),
+          ...goodsByName().filter((g) => !deals(state.place, g) && state.held[g] > 0),
+        ].map((g) => (
           <li key={g}>
             <GoodRow state={state} good={g} onOpen={() => onOpen({ kind: "trade", good: g })} />
           </li>
@@ -186,15 +190,18 @@ function Move({ label, hours, onClick, children }: { label: string; hours: numbe
 
 function GoodRow({ state, good, onOpen }: { state: GameState; good: GoodId; onOpen: () => void }) {
   const cell = state.market[state.place][good];
+  const dealt = deals(state.place, good);
   const held = state.held[good];
   const event = eventAt(state, state.place, good);
   const hint = priceHint(state, state.place, good);
   let note: { text: string; warn: boolean } | null = null;
-  if (cell.stock === 0) note = { text: t("note.soldOut"), warn: true };
+  if (!dealt) note = { text: t("note.noBuyers"), warn: true };
+  else if (cell.stock === 0) note = { text: t("note.soldOut"), warn: true };
   else if (event === "shortage") note = { text: t("note.short"), warn: true };
   else if (event === "glut") note = { text: t("note.glut"), warn: false };
 
-  // Sold out stays tappable: the sheet can still sell, and says why it can't buy.
+  // Sold out stays tappable: the sheet can still sell, and says why it can't buy. A held good
+  // nobody here deals in opens a sheet that says so.
   return (
     <button type="button" className="good" onClick={onOpen}>
       <span className="held">
@@ -206,7 +213,7 @@ function GoodRow({ state, good, onOpen }: { state: GameState; good: GoodId; onOp
         )}
       </span>
       <span className="good-name">{goodName(good)}</span>
-      <span className="good-price">{money(price(state, state.place, good))}</span>
+      <span className="good-price">{dealt ? money(price(state, state.place, good)) : ""}</span>
       <span className={note?.warn ? "good-hint warn" : "good-hint"}>{note ? note.text : hint ? t(`hint.${hint}`) : ""}</span>
       <Chevron />
     </button>

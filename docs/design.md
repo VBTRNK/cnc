@@ -45,7 +45,7 @@ tracked as GitHub issues.
 ## The loop
 
 Every number in this section is provisional: the simulation's strategy runs and play on a
-phone tune them. Goods and places are placeholder names. The player's question is always
+phone tune them (ADR-014 for the goods). Places are placeholder names. The player's question is always
 the same: what is the best use of my next few hours?
 
 - **Start.** Day 1 begins at 10:00 at the Docks with $250, nothing held, 20 pockets, heat 0,
@@ -69,27 +69,44 @@ the same: what is the best use of my next few hours?
   Buying, buying an upgrade and ringing round with the phone take 0 h. There is no
   training action and no price-tier choice: experience comes from doing, and every sale is
   at the current price.
-- **Goods** (base price, units sold per hour, heat per unit sold), one pocket each: untaxed
-  smokes $8, 10, 0.3 · bootleg tapes $15, 8, 0.3 · knock-off watches $50, 4, 0.6 · fireworks
-  $100, 2, 2.0. Stock never spoils and carries over.
-- **Neighbourhoods** set a price factor per good and a police factor:
+- **Goods,** twelve, one pocket each, in three tiers by price: cheap, mid and dear. Each sells
+  about the same value an hour (price × rate $80-240), so dear goods sell slowly (an e-bike
+  takes two hours); their heat per selling hour sets their character: cool, mild or hot. A
+  place sets a price factor per good it deals in; the lowest factor is the good's source.
+  Stock never spoils and carries over.
 
-  | | Smokes | Tapes | Watches | Fireworks | Police |
-  | --- | --- | --- | --- | --- | --- |
-  | The Docks | 0.85 (source) | 1.0 | 0.85 (source) | 0.85 (source) | 0.7 |
-  | Old Town | 1.0 | 0.85 (source) | 1.0 | 1.12 | 1.0 |
-  | Uptown | 1.15 | 1.06 | 1.18 | 1.0 | 1.4 |
-  | The Strip | 1.09 | 1.18 | 1.03 | 1.18 | 1.0 |
+  | Good | Base | Sold/h | Heat/unit | Drift noise | Stock at source / elsewhere | Docks | Old Town | Uptown | Strip |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Untaxed Smokes | $8 | 10 | 0.3 | 10% | 20 / 6 | **0.85** | 1.0 | 1.15 | 1.09 |
+  | Banned Bubblegum | $12 | 10 | 0.15 | 18% | 14 / 4 | — | **0.85** | 1.12 | 1.06 |
+  | Bootleg Tapes | $15 | 8 | 0.3 | 14% | 12 / 3 | 1.0 | **0.85** | 1.06 | 1.18 |
+  | Speakeasy Soda | $20 | 6 | 0.6 | 12% | 10 / 3 | **0.85** | — | 1.06 | 1.18 |
+  | Eau d’Alibi | $35 | 5 | 0.2 | 12% | 7 / 2 | 1.0 | **0.85** | 1.18 | — |
+  | Swiss-ish Watches | $50 | 4 | 0.6 | 14% | 4 / 1 | **0.85** | 1.0 | 1.18 | 1.03 |
+  | Two-Left Trainers | $80 | 3 | 0.4 | 22% | 3 / 1 | — | 1.0 | 1.12 | **0.88** |
+  | Fireworks | $100 | 2 | 2.0 | 20% | 2 / 1 | **0.85** | 1.12 | 1.0 | 1.18 |
+  | Hot Phones | $150 | 1.5 | 3.3 | 16% | 2 / 1 | 1.12 | 1.0 | — | **0.85** |
+  | Back-Alley Brie | $220 | 1 | 2.5 | 12% | 1 / 1 | 1.06 | **0.9** | — | 1.1 |
+  | Stolen Bingo Balls | $300 | 0.75 | 8 | 20% | 1 / 0 | 1.18 | 1.06 | **0.85** | — |
+  | Pre-Loved E-Bikes | $450 | 0.5 | 6 | 14% | 1 / 0 | 1.1 | — | **0.9** | 1.05 |
+
+  **Bold** is the source; police factors are the Docks 0.7, Old Town 1.0, Uptown 1.4, the
+  Strip 1.0. **A place deals in a good or never does** (— above): each place deals in ten.
+  An undealt pair has no stock, no buyers and no price; it is never bought, sold, priced,
+  tipped, rung round, rumoured or given an event, and a card sells only where the good is
+  dealt. A dealt pair may have buyers and no stock (bingo balls and e-bikes away from their
+  source). Goods carried into a place that doesn't deal in them stay held.
 
 - **Prices.** Each place and good has one price at a time, used for buying and selling. The
   day-end roll sets tomorrow's baseline: base × place factor × a local drift, which reverts
-  halfway to 1 each day plus roughly normal noise (standard deviation 10% for smokes, 14%
-  for tapes and watches, 20% for fireworks), clamped to 0.7-1.5. The current price is the
+  halfway to 1 each day plus roughly normal noise (the table's drift noise is its standard
+  deviation), clamped to 0.7-1.5. The current price is the
   baseline × any active event's multiplier. Every price, total, bribe and fine is rounded to
   whole dollars, at least $1.
-- **Stock and demand** per place and good per day. Stock: at a source smokes 40, tapes 30,
-  watches 12, fireworks 5; elsewhere 12, 8, 4, 1; each × 0.7-1.3, rounded. Demand: selling
-  rate × 4 × place factor × 0.8-1.2, rounded, at least 1. Trades use them up until the next
+- **Stock and demand** per dealt place and good per day. Stock: the table's, at the source or
+  elsewhere, × 0.7-1.3, rounded. Demand: selling rate × 3 × place factor × 0.8-1.2, rounded,
+  at least 1. The city's units are split across the goods, so twelve goods don't multiply
+  what a day can earn (ADR-014). Trades use them up until the next
   day's roll. A sale's maximum is the least of units held, demand left and what fits in the
   hours left.
 - **Events.** A shortage multiplies price by 1.4; a glut by 0.7. When one starts, it changes
@@ -108,7 +125,8 @@ the same: what is the best use of my next few hours?
     sweep, or a harmless line, a third each. Active from 16:00 until 22:00 the next day. In
     the persistent MVP the harmless third becomes an encounter (see "Events").
 
-  At most one event of each slot starts per day. A place and good (or, for a sweep, a place)
+  At most one event of each slot starts per day; a shortage or glut always on a dealt pair. A
+  place and good (or, for a sweep, a place)
   that an active or scheduled event covers can't get an overlapping one; with no free
   candidate the slot stays empty or harmless. Effects end only at 22:00, so anything
   announced can always be reached.
@@ -128,10 +146,11 @@ the same: what is the best use of my next few hours?
   units × the good's heat × police factor × Savvy factor. A successful job +8, a failed one +15,
   a bribe +10, a successful run +10. Cooling: Lie low −12, an odd job −3, each voluntarily
   unused hour −1.5, overnight −8. Hours lost to an arrest or injury don't cool.
-- **Stops.** Only when a sale or a job is committed, with p per hour = (0.5% + 0.1% × heat) ×
+- **Stops.** Only when a sale or a job is committed, with p per hour = (0.3% + 0.07% × heat) ×
   police factor, for the action 1 − (1 − p)^hours. A stop takes no time and is a saved card
   holding the action and its quote:
-  - **Slip him something:** $40 + a quarter of the carried goods' current value + 2 × heat;
+  - **Slip him something:** $40 + a quarter of the carried goods' current value (a good not
+    dealt here at the city's usual price) + 2 × heat;
     not offered at wanted or when unaffordable. Heat +10 either way. He takes it at 80% + 5
     points per Nerve − 0.3 points per heat, clamped 10-90%, and the action runs. Otherwise
     he is honest: no money changes hands and every carried good is taken, as in *Hand it
@@ -160,7 +179,8 @@ the same: what is the best use of my next few hours?
   no debt, cash never goes below $0, and odd jobs are always a way back.
 - **What the player sees.** Facts are exact: cash, held counts, pockets, hours, prices and
   stock where the player stands, each action's hours, a trade's total. Hints are words: a
-  price is cheap at 80% or less of the city's usual and pricey at 120% or more; heat as its
+  price is cheap at 80% or less of the city's usual (base × the mean factor of the places that
+  deal in it) and pricey at 120% or more; heat as its
   word; a place's police mood in its flavour line; odds as words. Every sale and job quote
   carries a stop-risk chip: slight (under 5%), some (5-15%), real (15-30%), high (30%+). City
   shows the prices last seen in each place with their age. Held goods remember what they
@@ -168,8 +188,8 @@ the same: what is the best use of my next few hours?
   ("Sold 12 tapes for $228: $96 profit. The Strip's had its fill."). Outcomes are one line
   that names the cause. The action that ends the day keeps its line above the paper.
 - **Tips.** Ask around gives at most two per place per day, and only new ones: today's
-  price of one good at a place not seen today (the good held most, else the dearest), each
-  once. Each day also has one rumour about tomorrow, used once: true with 70% + 5 points per
+  price of one good at a place not seen today that deals in it (the good held most, else the
+  dearest), each once. Each day also has one rumour about tomorrow, used once: true with 70% + 5 points per
   Savvy level, it describes tomorrow's scheduled event or says "Nothing big expected
   tomorrow"; otherwise it names a place and good with no event.
   The evening paper's line about tomorrow is always true.
@@ -193,8 +213,10 @@ the same: what is the best use of my next few hours?
     results and scheduled facts; save; "Start day N". Tomorrow's morning event
     activates at 10:00 before any card or action, even when an arrest makes 14:00 the first
     playable hour.
-- **Day 1 fixture.** Stock is the base totals without noise, except at the Docks: smokes 40,
-  tapes 8, watches 6, fireworks sold out. The morning line is "Smokes going cheap at the
+- **Day 1 fixture.** Stock is the base totals without noise, except at the Docks: smokes 20,
+  tapes 3, watches 2, fireworks sold out (the source stock, the stock elsewhere, half the
+  source stock, none). The first four goods have authored prices; the rest open at base ×
+  factor, rounded. The morning line is "Smokes going cheap at the
   Docks. The Strip's gasping." Day 1's midday item is a sweep on the Strip; the evening paper
   announces a fireworks shortage in Old Town for day 2.
 
@@ -286,8 +308,13 @@ tally, and what people feel is in their authored lines.
     | Old mate pays up | 4+ days after the loan | A report: +$150 and a tip |
 
     No card may be a dominant earner: its mean value where it shows stays below a good hour
-    of trading (about $50). It is measured by forking the run at each card and playing every
-    choice on with the same policy to the end of the next day (`CARDS=1`). In a lucky state,
+    of trading (about $50; Old mate's loan is an accepted exception, ADR-014). It is measured by forking the run at each choice encounter
+    (`CARDS=1`): every choice against the card's last (Pass, Walk on, Not now, Run, Brazen it
+    out), both played on with the same policy and generator to the same game day, the end of
+    the next day. Old mate's loan runs instead to the end of the day after the lending fork's
+    repayment, cut off at the end of day + 14 and the run's last day; only loans repaid with
+    a day to spare count, and those outstanding at the cutoff or cut short by the run's end
+    are reported apart. A fork that stops before its endpoint isn't counted. In a lucky state,
     such as a shortage nearby, a card may pay more.
 - **Cast,** four people with a portrait and a voice and no numbers. No relationship has a
   mechanical effect in the MVP; lines change with flags and milestones (Lenny's nickname for
@@ -317,12 +344,13 @@ tally, and what people feel is in their authored lines.
   Crown & Anchor, $2,500. Buying it ends chapter one with a front page and a title from
   Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
   player drinks: each night adds 2 to his tally for the Strip. After the Crown, money buys
-  false trails, bribes and a margin; further purchases come with #18, #19 and #7.
+  false trails, bribes and a margin; further purchases come with #19 and #7.
 - **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
-  card's value per choice): three cases in 20 days; ignoring an operation costs a trader no
-  wealth but about one arrest in four runs; every encounter a real choice in some state and
-  none a dominant earner (ADR-011). Since the tighter prices of ADR-012 a median trader buys
-  the Crown on day 27, or on day 17 when it comes first; the 17-day target waits for #19.
+  card's value per choice; `CARDS=1` each choice's value): every encounter a real choice in
+  some state and none a dominant earner, the loan aside (ADR-011, ADR-014). On the current
+  rules the results are in ADR-014: a median trader buys the Crown on day 16, about one
+  arrest a month, five cases in 30 days; avoiding operations cuts arrests by about 70% at
+  little cost in wealth. Earlier rules' results stay in their ADRs.
 
 ## Look and feel
 
@@ -374,23 +402,27 @@ tally, and what people feel is in their authored lines.
 - **Paper.** Something to read, not tap: sheet fill, no outline, set apart by space (an
   exhibit, an ad). On the manila dossier, lists are rows with dividers; stamps stay red.
 - **Good names.** At most 20 characters, no part over 12 between spaces or hyphens, so a name
-  fits two lines in City's goods column on a 390 px phone. A Vitest test holds every
-  catalogue to it and the browser check measures it.
+  fits two lines in City's goods column on a 390 px phone. A Vitest test holds the catalogue
+  to it and the browser check measures it.
 - **Street.** The place name, its line, today's tips (the speaker in bold, each dismissable
   by a button named for its tip),
   then Moves and the Market. The moves sit two by two (Ask around, Lie low, Odd job, Pull a
   job), with Call it a day as a row below; a move with too few hours left is not shown. The
-  market lists the goods by name: held count, name, the price in a large right-aligned
-  column, at most a one-word hint (cheap, pricey, short, glut, sold out), never a figure.
-  Tapping a good, sold out or not, opens a sheet from the bottom with a buy or sell switch,
+  market lists the ten goods the place deals in by name: held count, name, the price in a
+  large right-aligned column, at most a one-word hint (cheap, pricey, short, glut, sold out),
+  never a figure; then any held good it doesn't deal in, with no price and *no buyers*.
+  Tapping a good, sold out or not, opens a sheet from the bottom: the name, the good's
+  tagline in one line that wraps at large text, a buy or sell switch,
   a quantity stepper with a maximum shortcut (on its own line when the row doesn't fit), and
   one button that names the trade and its total; for a sale also its hours, with the profit
-  and stop-risk chips ("Sell 6 for $288 · 2 h").
+  and stop-risk chips ("Sell 6 for $288 · 2 h"). For a good nobody here deals in, the sheet
+  shows only its tagline, how many are held, what they cost and "No buyers here."
 - **City.** With the phone, Call around comes first as a control with its heat figure, and
   tomorrow's word under it. Then the prices: goods down and places across, each place's
   column headed by its name and any warning (Sweep, Pinch), the way there (Go and its hours,
   or the Here mark), and when its prices were seen ("now", "13:00", "day 8", "never"). An
-  unseen price is a question mark; under a price, one word for stock or an event, or its
+  unseen price is a question mark (read as "not seen"), a pair the place doesn't deal in a
+  dash (read as "not dealt here"); under a price, one word for stock or an event, or its
   own age when older than its column's. The goods column (5.75 rem) and the table's least
   width (19.75 rem) are in rem: the head sticks under whatever sticks at the top (the rail,
   or the strip alone) where the table fits; narrower, the table scrolls sideways under a

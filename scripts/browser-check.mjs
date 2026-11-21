@@ -5,9 +5,6 @@
 //   npm run build && npm run preview       (in one terminal)
 //   npm run browser-check [-- <outdir>]    (screenshots go to <outdir>, default: a temp dir)
 //
-// With --goods12 it checks the 12-good test catalogue's build instead (src/sim/catalogue.ts):
-//   npm run build:goods12 && npm run preview:goods12, then npm run browser-check -- --goods12
-//
 // BROWSER names a Chromium-based browser; the default is Edge on Windows. The page's
 // storage is cleared first, so run it against a profile of its own (it makes one).
 import { spawn } from "node:child_process";
@@ -17,12 +14,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
-const GOODS12 = args.includes("--goods12");
-// The sim below must trade the same goods as the build under test, or its saves won't load.
-if (GOODS12) process.env.CNC_CATALOGUE = "test12";
 const OUT = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), "cnc-browser-check-"));
 const REPO = join(import.meta.dirname, "..");
-const URL0 = process.env.PREVIEW_URL ?? (GOODS12 ? "http://localhost:4180/" : "http://localhost:4173/");
+const URL0 = process.env.PREVIEW_URL ?? "http://localhost:4173/";
 const BROWSER = process.env.BROWSER ?? "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
 mkdirSync(OUT, { recursive: true });
 const DL = join(OUT, "downloads");
@@ -186,7 +180,7 @@ try {
   check("manifest linked", (await evaluate(`fetch("/manifest.webmanifest").then(r => r.json()).then(m => m.icons.length)`)) === 4);
 
   // ---- Buy by touch -------------------------------------------------------------------
-  await tap("button.good", "Untaxed smokes");
+  await tap("button.good", "Untaxed Smokes");
   await snap("trade-sheet-buy");
   check("trade sheet open as modal", await evaluate(`document.querySelector("dialog.sheet")?.open === true`));
   const buyLabel = await text("dialog .commit");
@@ -216,7 +210,7 @@ try {
   await tap("button.go", "the Strip");
   check("travel lands on Street at the Strip", (await text(".place-name")) === "The Strip", await text(".place-name"));
   check("focus on the place after travel", await evaluate(`document.activeElement?.classList.contains("place-name")`), await focused());
-  await tap("button.good", "Untaxed smokes");
+  await tap("button.good", "Untaxed Smokes");
   check("sell is the default with goods held", await evaluate(`document.querySelector('dialog [aria-pressed="true"]')?.textContent === "Sell"`));
   await snap("trade-sheet-sell");
   const sellLabel = await text("dialog .commit");
@@ -437,7 +431,7 @@ try {
   await store({ ...sim.newGame(5, "audit"), day: 2 });
   await reload();
   await audit("Street");
-  await tap("button.good", "Untaxed smokes");
+  await tap("button.good", "Untaxed Smokes");
   await audit("trade sheet");
   await key("Escape", "Escape", 27);
   await tap(".tabs button", "City");
@@ -475,13 +469,13 @@ try {
   await store(sim.newGame(7, "motion"));
   await reload();
   const sheetMotion = `getComputedStyle(document.querySelector("dialog.sheet")).animationName`;
-  await tap("button.good", "Bootleg tapes");
+  await tap("button.good", "Bootleg Tapes");
   check("a sheet rises by default", (await evaluate(sheetMotion)) !== "none", await evaluate(sheetMotion));
   await tap("dialog .commit");
   await sleep(6000);
   check("the result line is still there after 6 s", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
   await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
-  await tap("button.good", "Knock-off watches");
+  await tap("button.good", "Swiss-ish Watches");
   check("reduced motion: the sheet doesn't move", (await evaluate(sheetMotion)) === "none", await evaluate(sheetMotion));
   await tap("dialog .commit");
   await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(nickedText)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(nickedText)})`);
@@ -497,53 +491,59 @@ try {
   await reload();
   check("reload rerolls no price", (await evaluate(prices)) === before, before);
 
-  // A version 2 save (before the detective) holding 10 smokes; then 8 tapes, then 1 watch.
+  // A version 2 save (before the detective; four goods) holding 10 smokes; then tapes, then watches.
   const v2state = structuredClone(testing.play(sim.newGame(9, "v2"), { type: "buy", good: "smokes", units: 10 }).state);
+  const first = ["smokes", "tapes", "watches", "fireworks"];
+  const onlyFirst = (rec) => { for (const g of sim.GOODS) if (!first.includes(g)) delete rec[g]; };
+  [v2state.held, v2state.paid].forEach(onlyFirst);
+  for (const p of sim.PLACES) [v2state.drift[p], v2state.market[p], v2state.memory[p]].forEach(onlyFirst);
   for (const k of ["detective", "milestones", "cards", "flags"]) delete v2state[k];
   delete v2state.today.pub;
   delete v2state.today.best;
   const v2 = JSON.stringify({ format: sim.SAVE_FORMAT, version: 2, state: v2state });
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
   await reload();
-  const smokesHeld = `[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Untaxed smokes"))?.querySelector(".held")?.textContent ?? ""`;
+  const smokesHeld = `[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Untaxed Smokes"))?.querySelector(".held")?.textContent ?? ""`;
   check("an old save opens where it was", (await evaluate(smokesHeld)) === "1010 held", await evaluate(smokesHeld));
   check("and its original is kept", (await evaluate(`localStorage.getItem("cnc.save.kept")`)) === v2);
   check("and it is saved as the current version", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).version`)) === sim.SAVE_VERSION);
 
-  // A save from before ADR-012, its Old Town fireworks drift 1.8 (outside today's clamp), in both
-  // slots. It holds the game's four goods, so the 12-good build has no use for it.
-  if (!GOODS12) {
+  // A save from before ADR-012 (format 3, four goods), its Old Town fireworks drift 1.8 (outside
+  // today's clamp), in both slots.
   const legacy = JSON.stringify(JSON.parse(readFileSync(join(REPO, "src/sim/fixtures/before-adr-012.json"), "utf8")).high);
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(legacy)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(legacy)})`);
   await reload();
   check("a save with the old drift range opens on its day", /Day 2/.test(await text(".daybar")) && !(await evaluate(`document.querySelector(".banner")?.textContent ?? ""`)).includes("couldn't be read"), await text(".daybar"));
-  }
+  check("and lists the Docks' ten goods", (await evaluate(`document.querySelectorAll("button.good").length`)) === 10);
   await evaluate(`localStorage.clear(); localStorage.setItem("cnc.save", ${JSON.stringify(v2)})`);
   await reload();
 
   await evaluate(`window.__setItem = Storage.prototype.setItem; Storage.prototype.setItem = function () { throw new DOMException("full", "QuotaExceededError"); }`);
-  await tap("button.good", "Bootleg tapes");
+  await tap("button.good", "Bootleg Tapes");
   await tap("dialog .commit");
   await snap("write-failed");
   check("a failed write is shown", /out of room/.test(await text(".banner-warn") ?? ""), await text(".banner-warn"));
   check("with export beside it", await evaluate(`!!document.querySelector(".banner-warn button")`));
   check("and play goes on", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
   await evaluate(`Storage.prototype.setItem = window.__setItem`);
-  await tap("button.good", "Knock-off watches");
+  await tap("button.good", "Swiss-ish Watches");
   await tap("dialog .commit");
   check("the next write clears it", await evaluate(`!document.querySelector(".banner-warn")`));
   check("and stores the run in play", (await evaluate(`JSON.parse(localStorage.getItem("cnc.save")).state.cash`)) === Number((await text(".cash")).replace(/[^\d]/g, "")), await text(".cash"));
 
   // ---- Layout: a long goods list and a thick file at two text sizes (#29) ---------------------
-  // Day 9 at 15:00 with the coat and phone: eight exhibits, two old cases and an open one on the
-  // Strip, a sweep in Old Town, prices seen at different times. With --goods12, twelve goods.
+  // Day 9 at 15:00 at the Docks with the coat and phone: eight exhibits, two old cases and an open
+  // one on the Strip, a sweep in Old Town, prices seen at different times. Twelve goods: the Docks
+  // deals in ten; 4 bubblegum held that it doesn't deal in, and 5 e-bikes it buys but has none of.
   const L0 = sim.newGame(10, "layout");
   const G = sim.GOODS;
   const day9 = { ...L0, day: 9, hour: 15, cash: 1420, heat: 30, upgrades: ["coat", "phone"], xp: { patter: 30, nerve: 10, savvy: 25 } };
-  day9.held = { ...L0.held, [G[0]]: 3, [G[G.length - 1]]: 5 };
-  day9.paid = { ...L0.paid, [G[0]]: 3 * sim.price(L0, "docks", G[0]), [G[G.length - 1]]: 5 * sim.price(L0, "docks", G[G.length - 1]) };
+  day9.held = { ...L0.held, smokes: 3, ebikes: 5, gum: 4 };
+  day9.paid = { ...L0.paid, smokes: 3 * sim.price(L0, "docks", "smokes"), ebikes: 5 * 400, gum: 4 * 10 };
+  // No stop on the sale below: the next draw is high.
+  day9.rng = testing.rngWhere(testing.atLeast(0.5));
   const seenAt = (place, day, hour, keep = () => true) =>
-    Object.fromEntries(G.filter(keep).map((g) => [g, { price: sim.price(L0, place, g), day, hour }]));
+    Object.fromEntries(G.filter((g) => sim.deals(place, g) && keep(g)).map((g) => [g, { price: sim.price(L0, place, g), day, hour }]));
   day9.memory = {
     ...L0.memory,
     oldtown: { ...seenAt("oldtown", 9, 13), [G[2]]: { price: sim.price(L0, "oldtown", G[2]), day: 7, hour: 12 }, [G[3]]: { price: sim.price(L0, "oldtown", G[3]), day: 9, hour: 11 } },
@@ -566,7 +566,30 @@ try {
   await store(day9);
   await reload();
   check("layout: the day 9 run loads", (await text(".cash")) === "$1,420" && /Day 9/.test(await text(".daybar") ?? ""), `${await text(".cash")} ${await text(".daybar")}`);
-  check(`layout: Street lists ${G.length} goods by name`, await evaluate(`(() => { const n = [...document.querySelectorAll(".good-name")].map(e => e.textContent); return n.length === ${G.length} && n.every((x, i) => i === 0 || n[i - 1].localeCompare(x, "en") <= 0); })()`));
+  const streetNames = `[...document.querySelectorAll(".good-name")].map(e => e.textContent)`;
+  check("layout: Street lists the ten goods the Docks deals in by name, then the held one it doesn't",
+    await evaluate(`(() => { const n = ${streetNames}; const ten = n.slice(0, 10); return n.length === 11 && ten.every((x, i) => i === 0 || ten[i - 1].localeCompare(x, "en") <= 0) && n[10] === "Banned Bubblegum"; })()`),
+    await evaluate(`${streetNames}.join("|")`));
+  check("layout: the held undealt row says no buyers, with no price",
+    await evaluate(`(() => { const b = [...document.querySelectorAll("button.good")].at(-1); return b.querySelector(".good-hint").textContent === "no buyers" && b.querySelector(".good-price").textContent === ""; })()`));
+  check("layout: a dealt good with no stock is sold out",
+    await evaluate(`[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Pre-Loved E-Bikes"))?.querySelector(".good-hint")?.textContent === "sold out"`));
+  await tap("button.good", "Banned Bubblegum");
+  check("layout: its sheet has its tagline, what is held and no buyers, and no trade controls",
+    await evaluate(`(() => { const d = document.querySelector("dialog"); return /Illegal in three countries/.test(d.querySelector(".tagline")?.textContent ?? "") && d.textContent.includes("4 held · they cost $40") && d.textContent.includes("No buyers here.") && !d.querySelector(".commit, .switch, .sheet-price"); })()`),
+    await text("dialog"));
+  await snap("layout-390-undealt-sheet");
+  await key("Escape", "Escape", 27);
+  await sleep(200);
+  await tap("button.good", "Pre-Loved E-Bikes");
+  check("layout: a buyer-only good offers its sale with no stock", /^Sell \d+ for \$[\d,]+ · \d+ h$/.test(await text("dialog .commit") ?? ""), await text("dialog .commit"));
+  await tap("dialog .commit");
+  const ebikesHeld = `[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Pre-Loved E-Bikes"))?.querySelector(".held span")?.textContent ?? "0"`;
+  check("layout: and the sale goes through", /^Sold \d+ e-bikes for/.test(await text(".strip .result") ?? "") && Number(await evaluate(ebikesHeld)) < 5,
+    `${await text(".strip .result")} / held ${await evaluate(ebikesHeld)}`);
+  // Back to the day 9 state for the layout checks.
+  await store(day9);
+  await reload();
   check("layout: a held count is named for screen readers", await evaluate(`[...document.querySelectorAll("button.good .held")].filter(e => e.textContent).every(e => e.textContent === e.firstChild.textContent + e.firstChild.textContent + " held" && e.firstChild.getAttribute("aria-hidden") === "true")`));
   // A result to show in the strip: buy what the list starts with.
   await tap("button.good");
@@ -590,6 +613,11 @@ try {
   check("layout 390: a price older than its column's says when, by day or by hour", await evaluate(`(() => { const h = [...document.querySelectorAll(".cell-hint")].map(e => e.textContent); return h.includes("11:00") && h.includes("day 7"); })()`),
     await evaluate(`[...document.querySelectorAll(".cell-hint")].map(e => e.textContent).join("|")`));
   check("layout 390: no repeated place names where the head sticks", (await evaluate(`document.querySelectorAll(".repeat-row").length`)) === 0);
+  check("layout 390: City has twelve rows and a dash for each pair not dealt, named apart from an unseen price",
+    await evaluate(`(() => { const u = [...document.querySelectorAll(".price-table td.undealt")]; const q = [...document.querySelectorAll(".price-table td.unknown")];
+      return document.querySelectorAll(".price-table tbody tr:not(.repeat-row)").length === 12 && u.length === 8 && u.every(c => c.textContent === "—not dealt here")
+        && q.length > 0 && q.every(c => c.textContent.startsWith("?not seen")); })()`),
+    await evaluate(`[...document.querySelectorAll(".price-table td.undealt, .price-table td.unknown")].map(c => c.textContent).join("|")`));
   const wide = await focusWalk(".call .move");
   check("layout 390: Tab and Shift+Tab through City keep each control in view", wide.reached && wide.hidden.length === 0, wide.hidden.join("; "));
   await evaluate(`(() => { document.activeElement.blur(); window.scrollTo(0, 0); })()`);
@@ -808,13 +836,13 @@ try {
     throw new Error(`Tab never reached ${selector} "${label}"`);
   };
   const enter = async () => { await key("Enter", "Enter", 13); await sleep(250); };
-  await tabTo("button.good", "Untaxed smokes"); await enter();
+  await tabTo("button.good", "Untaxed Smokes"); await enter();
   await tabTo("dialog .commit"); await enter();
   check("keyboard: buy", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
   await tabTo(".tabs button", "City"); await enter();
   await tabTo("button.go", "the Strip"); await enter();
   check("keyboard: travel", (await text(".place-name")) === "The Strip", await text(".place-name"));
-  await tabTo("button.good", "Untaxed smokes"); await enter();
+  await tabTo("button.good", "Untaxed Smokes"); await enter();
   await tabTo("dialog .commit"); await enter();
   if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand it over"); await enter(); }
   check("keyboard: sell", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));

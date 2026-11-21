@@ -2,15 +2,26 @@
 // Saves reference content by these IDs, never by display text; renaming an ID needs a
 // save migration. Display text lives with the UI under its own keys.
 
-import { CATALOGUE } from "./catalogue.ts";
-import { TEST12 } from "./goods12.ts";
-
-const GAME_GOODS = ["smokes", "tapes", "watches", "fireworks"] as const;
-export type GoodId = (typeof GAME_GOODS)[number];
-/** The goods traded, in catalogue order: the game's four, or the 12-good test catalogue. */
-export const GOODS: readonly GoodId[] = CATALOGUE === "test12" ? [...GAME_GOODS, ...TEST12.map((g) => g.id)] : GAME_GOODS;
-const testOnly = <T>(make: (g: (typeof TEST12)[number]) => T): Record<string, T> =>
-  CATALOGUE === "test12" ? Object.fromEntries(TEST12.map((g) => [g.id, make(g)])) : {};
+/**
+ * The goods in simulation order: the order of the market's seeded draws and of every tie the
+ * sim or the strategy runner breaks by good. It changes only with a balance rerun (ADR-014);
+ * screens list goods by name instead. The first four are the goods of save format 3.
+ */
+export const GOODS = [
+  "smokes",
+  "tapes",
+  "watches",
+  "fireworks",
+  "gum",
+  "soda",
+  "alibi",
+  "trainers",
+  "phones",
+  "brie",
+  "bingo",
+  "ebikes",
+] as const;
+export type GoodId = (typeof GOODS)[number];
 
 /** Ring order: neighbours are 1 h apart, opposites 2 h. */
 export const PLACES = ["docks", "oldtown", "uptown", "strip"] as const;
@@ -49,7 +60,7 @@ export type CastId = (typeof CAST)[number];
 
 export interface Good {
   base: number;
-  /** Units sold per hour at Patter 0. */
+  /** Units sold per hour at Patter 0; a fraction for the slow, dear goods. */
   rate: number;
   /** Heat per unit sold, before the police and Savvy factors. */
   heat: number;
@@ -57,31 +68,73 @@ export interface Good {
   vol: number;
   stockAtSource: number;
   stockElsewhere: number;
+  /** Price factor per place that deals in the good; a place missing here never deals in it. */
+  factor: Partial<Record<PlaceId, number>>;
 }
 
+const good = (
+  base: number,
+  rate: number,
+  heat: number,
+  vol: number,
+  [stockAtSource, stockElsewhere]: [number, number],
+  [docks, oldtown, uptown, strip]: (number | null)[],
+): Good => {
+  const factor: Partial<Record<PlaceId, number>> = {};
+  ([["docks", docks], ["oldtown", oldtown], ["uptown", uptown], ["strip", strip]] as const).forEach(([p, f]) => {
+    if (f !== null && f !== undefined) factor[p] = f;
+  });
+  return { base, rate, heat, vol, stockAtSource, stockElsewhere, factor };
+};
+
+/**
+ * The catalogue (docs/design.md, "The loop"; ADR-014): price × rate in a band, heat per
+ * selling hour by character, the city's daily units split across the goods and trimmed (the
+ * owner's choice of the measured profiles). Stock is [at the source, elsewhere]; factors are
+ * Docks, Old Town, Uptown, Strip, null where the place doesn't deal in the good.
+ */
 export const GOOD: Record<GoodId, Good> = {
-  smokes: { base: 8, rate: 10, heat: 0.3, vol: 0.1, stockAtSource: 40, stockElsewhere: 12 },
-  tapes: { base: 15, rate: 8, heat: 0.3, vol: 0.14, stockAtSource: 30, stockElsewhere: 8 },
-  watches: { base: 50, rate: 4, heat: 0.6, vol: 0.14, stockAtSource: 12, stockElsewhere: 4 },
-  fireworks: { base: 100, rate: 2, heat: 2.0, vol: 0.2, stockAtSource: 5, stockElsewhere: 1 },
-  ...testOnly(({ base, rate, heat, vol, stockAtSource, stockElsewhere }) => ({ base, rate, heat, vol, stockAtSource, stockElsewhere })),
+  smokes: good(8, 10, 0.3, 0.1, [20, 6], [0.85, 1.0, 1.15, 1.09]),
+  tapes: good(15, 8, 0.3, 0.14, [12, 3], [1.0, 0.85, 1.06, 1.18]),
+  watches: good(50, 4, 0.6, 0.14, [4, 1], [0.85, 1.0, 1.18, 1.03]),
+  fireworks: good(100, 2, 2.0, 0.2, [2, 1], [0.85, 1.12, 1.0, 1.18]),
+  gum: good(12, 10, 0.15, 0.18, [14, 4], [null, 0.85, 1.12, 1.06]),
+  soda: good(20, 6, 0.6, 0.12, [10, 3], [0.85, null, 1.06, 1.18]),
+  alibi: good(35, 5, 0.2, 0.12, [7, 2], [1.0, 0.85, 1.18, null]),
+  trainers: good(80, 3, 0.4, 0.22, [3, 1], [null, 1.0, 1.12, 0.88]),
+  phones: good(150, 1.5, 3.3, 0.16, [2, 1], [1.12, 1.0, null, 0.85]),
+  brie: good(220, 1, 2.5, 0.12, [1, 1], [1.06, 0.9, null, 1.1]),
+  bingo: good(300, 0.75, 8, 0.2, [1, 0], [1.18, 1.06, 0.85, null]),
+  ebikes: good(450, 0.5, 6, 0.14, [1, 0], [1.1, null, 0.9, 1.05]),
 };
 
 export interface Place {
-  /** Price factor per good; the place with the lowest factor for a good is its source. */
-  factor: Record<GoodId, number>;
   police: number;
 }
 
 export const PLACE: Record<PlaceId, Place> = {
-  docks: { factor: { smokes: 0.85, tapes: 1.0, watches: 0.85, fireworks: 0.85, ...testOnly((g) => g.factor.docks) }, police: 0.7 },
-  oldtown: { factor: { smokes: 1.0, tapes: 0.85, watches: 1.0, fireworks: 1.12, ...testOnly((g) => g.factor.oldtown) }, police: 1.0 },
-  uptown: { factor: { smokes: 1.15, tapes: 1.06, watches: 1.18, fireworks: 1.0, ...testOnly((g) => g.factor.uptown) }, police: 1.4 },
-  strip: { factor: { smokes: 1.09, tapes: 1.18, watches: 1.03, fireworks: 1.18, ...testOnly((g) => g.factor.strip) }, police: 1.0 },
+  docks: { police: 0.7 },
+  oldtown: { police: 1.0 },
+  uptown: { police: 1.4 },
+  strip: { police: 1.0 },
 };
 
+/** A place deals in a good or never does: an undealt pair has no stock, no buyers and no price. */
+export const deals = (place: PlaceId, good: GoodId): boolean => GOOD[good].factor[place] !== undefined;
+
+/** The good's price factor at a place that deals in it. */
+export function factor(place: PlaceId, good: GoodId): number {
+  const f = GOOD[good].factor[place];
+  if (f === undefined) throw new Error(`${place} doesn't deal in ${good}`);
+  return f;
+}
+
+/** The places that deal in a good, in ring order. */
+export const dealers = (good: GoodId): PlaceId[] => PLACES.filter((p) => deals(p, good));
+
+/** The dealing place with the lowest factor for a good is its source. */
 export const isSource = (place: PlaceId, good: GoodId): boolean =>
-  PLACE[place].factor[good] <= Math.min(...PLACES.map((p) => PLACE[p].factor[good]));
+  deals(place, good) && factor(place, good) <= Math.min(...dealers(good).map((p) => factor(p, good)));
 
 export const UPGRADE_COST: Record<UpgradeId, number> = { coat: 800, phone: 1200, crown: 2500 };
 
@@ -100,7 +153,7 @@ export const RULES = {
   driftMax: 1.5,
   stockNoise: [0.7, 1.3] as const,
   demandNoise: [0.8, 1.2] as const,
-  demandHours: 4,
+  demandHours: 3,
 
   shortage: { price: 1.4, stock: 0.3, demand: 1.5 },
   glut: { price: 0.7 },
@@ -135,8 +188,8 @@ export const RULES = {
     [0, "low"],
   ] as const,
 
-  stopBase: 0.005,
-  stopPerHeat: 0.001,
+  stopBase: 0.003,
+  stopPerHeat: 0.0007,
   bribeBase: 40,
   bribeShare: 0.25,
   bribePerHeat: 2,
@@ -198,21 +251,40 @@ export const PINCH = {
 /** Cards: a shown card rests this many days; a chance's odds move this many points per skill level. */
 export const CARDS_RULES = { rest: 10, perLevel: 5 } as const;
 
-// The test catalogue's goods open at their neutral price and fresh stock.
-const day1 = (p: PlaceId) => testOnly((g) => Math.round(g.base * g.factor[p]));
-
-/** Day 1 fixture (docs/design.md): authored prices. Docks fireworks are sold out (stock 0). */
-export const DAY1_PRICES: Record<PlaceId, Record<GoodId, number>> = {
-  docks: { smokes: 7, tapes: 15, watches: 43, fireworks: 85, ...day1("docks") },
-  oldtown: { smokes: 8, tapes: 13, watches: 50, fireworks: 112, ...day1("oldtown") },
-  uptown: { smokes: 9, tapes: 16, watches: 59, fireworks: 100, ...day1("uptown") },
-  strip: { smokes: 9, tapes: 18, watches: 52, fireworks: 118, ...day1("strip") },
+/** Day 1's authored prices for the first four goods; the others open at their neutral price. */
+const AUTHORED: Record<PlaceId, Partial<Record<GoodId, number>>> = {
+  docks: { smokes: 7, tapes: 15, watches: 43, fireworks: 85 },
+  oldtown: { smokes: 8, tapes: 13, watches: 50, fireworks: 112 },
+  uptown: { smokes: 9, tapes: 16, watches: 59, fireworks: 100 },
+  strip: { smokes: 9, tapes: 18, watches: 52, fireworks: 118 },
 };
 
-export const DAY1_DOCKS_STOCK: Record<GoodId, number> = {
-  smokes: 40,
-  tapes: 8,
-  watches: 6,
-  fireworks: 0,
-  ...testOnly((g) => (g.factor.docks <= Math.min(...Object.values(g.factor)) ? g.stockAtSource : g.stockElsewhere)),
-};
+/** Day 1 fixture (docs/design.md): a price for every pair a place deals in. */
+export const DAY1_PRICES: Record<PlaceId, Partial<Record<GoodId, number>>> = Object.fromEntries(
+  PLACES.map((p) => [
+    p,
+    Object.fromEntries(
+      GOODS.filter((g) => deals(p, g)).map((g) => [g, AUTHORED[p][g] ?? Math.round(GOOD[g].base * factor(p, g))]),
+    ),
+  ]),
+) as Record<PlaceId, Partial<Record<GoodId, number>>>;
+
+/**
+ * The Docks' day-1 stock of the first four goods: smokes plentiful, a few tapes and watches,
+ * fireworks sold out, by the same rule as before the stock was split. Read from the catalogue
+ * when the fixture is built, so it follows any change to the stock. The rest open at base stock.
+ */
+export function day1DocksStock(good: GoodId): number | null {
+  switch (good) {
+    case "smokes":
+      return GOOD.smokes.stockAtSource;
+    case "tapes":
+      return GOOD.tapes.stockElsewhere;
+    case "watches":
+      return Math.round(GOOD.watches.stockAtSource / 2);
+    case "fireworks":
+      return 0;
+    default:
+      return null;
+  }
+}

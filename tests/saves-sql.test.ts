@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
+import { PINCH, PLACES, loadSave, newGame, step, toSave, type GameState } from "../src/sim/index.ts";
+import { play } from "../src/sim/testing.ts";
 
 // The `cnc.saves` migration in an in-process Postgres (PGlite), with the roles Supabase
 // provides (`anon`, `authenticated`). Covers the write contract (docs/design.md, "Cloud
@@ -168,6 +170,61 @@ describe("cnc.put_save and cnc.get_save", () => {
     const big = JSON.stringify({ format: "crime-and-crown-save", version: 2, state: { pad: "x".repeat(70_000) } });
     await refused(put(A, null, U1, big), /save too big/);
     expect(await rows()).toBe(0);
+  });
+});
+
+/**
+ * A capacity fixture for the largest save play makes (CS4): a full news log of 30 papers, 100 past cases kept,
+ * every dealt price remembered, and a stop waiting for the player's choice. It must validate,
+ * and fit `cnc.put_save`'s cap of 65,536 bytes of `jsonb::text` with 15% to spare (49,277 bytes at 2026-11-21).
+ */
+function worstCase(): GameState {
+  let s = newGame(3, "worst-case");
+  for (let day = 1; day <= 40; day++) s = play(s, { type: "callItADay" }, { type: "startDay" }).state;
+  s.upgrades = ["coat", "phone"];
+  s.cash = 1_000_000;
+  s = play(s, { type: "ringRound" }).state;
+  s.milestones.cases = Array.from({ length: PINCH.casesKept }, (_, i) => ({
+    n: i + 1,
+    place: PLACES[i % PLACES.length]!,
+    habit: "bingo",
+    outcome: i % 2 ? "closed" : "cold",
+    day: i + 1,
+  }));
+  s.milestones.older = { closed: 999, cold: 999 };
+  // Every kept paper as full as play makes it: a best sale, an open case and one of Pinch's
+  // items each night (a case is announced or closes; firsts happen once, so none here).
+  for (const paper of s.news) {
+    const open = { n: paper.day, place: "uptown" as const, habit: "bingo" as const, announced: paper.day, places: ["uptown", "strip"] as ("uptown" | "strip")[], caught: false };
+    paper.log = { ...paper.log, sold: 40, proceeds: 4000, bought: 40, spent: 3000, stops: 2, seized: 3, fine: 500, best: { good: "bingo", units: 2, proceeds: 1000, place: "uptown" } };
+    paper.pinch =
+      paper.day % 2
+        ? [{ kind: "announced", case: open }]
+        : [{ kind: "closed", case: { n: paper.day, place: "strip", habit: "ebikes", outcome: "closed", day: paper.day } }];
+    paper.case = open;
+  }
+  s.held = { ...s.held, smokes: 10, bingo: 10, ebikes: 15 };
+  s.pending = {
+    kind: "stop",
+    quote: { type: "job", hours: 4, stopChance: 0.1, success: 60, pay: [175, 325], legIt: 50 },
+    bribe: 1234,
+    bribeOdds: 80,
+    bribeRefusal: null,
+  };
+  return s;
+}
+
+describe("the largest save", () => {
+  it("validates and round-trips through cnc.put_save, with 15% to spare under the cap", async () => {
+    const s = worstCase();
+    expect(s.news.length).toBe(30);
+    const text = toSave(s);
+    expect(loadSave(text)).toMatchObject({ ok: true });
+    expect(await put(A, null, U1, text)).toMatchObject({ outcome: "saved" });
+    const [row] = (await db.query<{ n: number }>("select octet_length(save::text)::int as n from cnc.saves")).rows;
+    expect(row!.n, `${row!.n} bytes`).toBeLessThan(0.85 * 65_536);
+    expect(loadSave(JSON.stringify((await get(A))!.save))).toMatchObject({ ok: true, state: s });
+    expect(step(s, { type: "resolveStop", choice: "handOver" }).ok).toBe(true);
   });
 });
 

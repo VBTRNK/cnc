@@ -10,8 +10,6 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "build:goods12": "tsc --noEmit && vite build --mode goods12 --outDir dist-goods12",
-    "preview:goods12": "vite preview --outDir dist-goods12 --port 4180 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && node --test tests/agent-hooks.test.cjs",
     "verify": "npm run typecheck && npm test && vite build",

@@ -414,9 +414,11 @@ function effectChips(s: GameState, effects: readonly Effect[], kind: ChipView["k
         }
         break;
       }
-      case "sell":
-        chip(t("chip.gain", { amount: money(cardSale(s, e)) }));
+      case "sell": {
+        const proceeds = cardSale(s, e);
+        if (proceeds !== null) chip(t("chip.gain", { amount: money(proceeds) }));
         break;
+      }
       case "lose": {
         const good = GOODS.reduce((a, b) => (s.held[b] > s.held[a] ? b : a));
         chip(t("chip.lose", goodValues(good)), true);

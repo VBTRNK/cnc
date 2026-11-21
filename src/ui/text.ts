@@ -2,8 +2,7 @@
 // keys, no i18n library). Templates take named values; whole sentences are never built
 // from fragments, so another language can reorder them.
 
-import { TEST12_NAMES } from "./goods12.ts";
-import { CATALOGUE, CODENAMES, GOODS, type GoodId, type HabitId, type HarmlessId, type PlaceId, type SkillId, type UpgradeId } from "../sim/index.ts";
+import { CODENAMES, GOODS, type GoodId, type HabitId, type HarmlessId, type PlaceId, type SkillId, type UpgradeId } from "../sim/index.ts";
 
 const TEXT = {
   "app.name": "Crime & Crown",
@@ -46,6 +45,7 @@ const TEXT = {
   "note.glut": "glut",
   "note.soldOut": "sold out",
   "note.low": "low",
+  "note.noBuyers": "no buyers",
 
   // Street
   "street.flavour.docks": "The harbour coppers mostly watch the gulls.",
@@ -87,6 +87,8 @@ const TEXT = {
   "trade.why.noGoods": "You've none to sell.",
   "trade.why.noDemand": "Nobody here wants more today.",
   "trade.why.noTime": "Not enough hours left to sell one.",
+  "trade.undealt.facts": "{held} held · they cost {paid}",
+  "trade.why.noBuyers": "No buyers here.",
 
   // Job sheet
   "job.title": "Pull a job",
@@ -167,6 +169,8 @@ const TEXT = {
   "city.ring": "Call around",
   "city.unknownPrice": "?",
   "city.unknownLabel": "not seen",
+  "city.undealtPrice": "—",
+  "city.undealtLabel": "not dealt here",
   "city.rumour": "Word on tomorrow: {line}",
 
   // Me
@@ -411,12 +415,19 @@ const TEXT = {
   "case.label.tapes": "the {Adj} Tape Racket",
   "case.label.watches": "the {Adj} Watch Cartel",
   "case.label.fireworks": "the {Adj} Fireworks Plot",
+  "case.label.gum": "the {Adj} Bubblegum Gang",
+  "case.label.soda": "the {Adj} Soda Smugglers",
+  "case.label.alibi": "the {Adj} Perfume Mob",
+  "case.label.trainers": "the {Adj} Trainer Ring",
+  "case.label.phones": "the {Adj} Phone Snatchers",
+  "case.label.brie": "the {Adj} Cheese Board",
+  "case.label.bingo": "the {Adj} Bingo Ball Syndicate",
+  "case.label.ebikes": "the {Adj} E-Bike Gang",
   "case.label.ask": "the {Adj} Gossip Network",
   "case.label.lieLow": "the {Adj} Loitering Syndicate",
   "case.label.oddJob": "the {Adj} Odd-Job Syndicate",
   "case.label.job": "the {Adj} Heist Mob",
   "case.label.drink": "the {Adj} Drinking Club",
-  "case.label.good": "the {Adj} {Kind} Racket",
   "and": "{a} and {b}",
 
   // People: Pinch's board and the cast
@@ -573,21 +584,36 @@ export const when = (iso: string): string =>
 
 export interface GoodNames {
   name: string;
+  /** One line under the name in its trade sheet. */
+  tagline: string;
   one: string;
   other: string;
   kind: string;
   Kind: string;
 }
 
-/** The game's goods. Every name keeps to the good-names rule (goodNames.test.ts). */
-export const GAME_GOOD_NAMES: Record<GoodId, GoodNames> = {
-  smokes: { name: "Untaxed smokes", one: "carton of smokes", other: "cartons of smokes", kind: "smokes", Kind: "Smokes" },
-  tapes: { name: "Bootleg tapes", one: "tape", other: "tapes", kind: "tapes", Kind: "Tapes" },
-  watches: { name: "Knock-off watches", one: "watch", other: "watches", kind: "watches", Kind: "Watches" },
-  fireworks: { name: "Fireworks", one: "box of fireworks", other: "boxes of fireworks", kind: "fireworks", Kind: "Fireworks" },
+/** The goods. Every name keeps to the good-names rule (goodNames.test.ts). */
+export const GOOD_NAMES: Record<GoodId, GoodNames> = {
+  smokes: { name: "Untaxed Smokes", tagline: "The duty's been paid. By nobody.", one: "carton of smokes", other: "cartons of smokes", kind: "smokes", Kind: "Smokes" },
+  tapes: { name: "Bootleg Tapes", tagline: "Recorded live from the back row.", one: "tape", other: "tapes", kind: "tapes", Kind: "Tapes" },
+  watches: { name: "Swiss-ish Watches", tagline: "Keeps time. Mostly someone else's.", one: "watch", other: "watches", kind: "watches", Kind: "Watches" },
+  fireworks: { name: "Fireworks", tagline: "Light the blue touchpaper and leg it.", one: "box of fireworks", other: "boxes of fireworks", kind: "fireworks", Kind: "Fireworks" },
+  gum: { name: "Banned Bubblegum", tagline: "Illegal in three countries. Nobody says which.", one: "packet of gum", other: "packets of gum", kind: "bubblegum", Kind: "Bubblegum" },
+  soda: { name: "Speakeasy Soda", tagline: "Says soda on the label. Isn't.", one: "bottle of soda", other: "bottles of soda", kind: "soda", Kind: "Soda" },
+  alibi: { name: "Eau d’Alibi", tagline: "Smell like you were somewhere else.", one: "bottle of Eau d’Alibi", other: "bottles of Eau d’Alibi", kind: "Eau d’Alibi", Kind: "Eau d’Alibi" },
+  trainers: { name: "Two-Left Trainers", tagline: "Both left. Both very fashionable.", one: "pair of trainers", other: "pairs of trainers", kind: "trainers", Kind: "Trainers" },
+  phones: { name: "Hot Phones", tagline: "Stolen, still warm.", one: "hot phone", other: "hot phones", kind: "phones", Kind: "Phones" },
+  brie: { name: "Back-Alley Brie", tagline: "A whole wheel, matured behind the bins.", one: "wheel of brie", other: "wheels of brie", kind: "brie", Kind: "Brie" },
+  bingo: {
+    name: "Stolen Bingo Balls",
+    tagline: "The hall's only certified set. Every pensioner wants it back.",
+    one: "set of bingo balls",
+    other: "sets of bingo balls",
+    kind: "bingo balls",
+    Kind: "Bingo balls",
+  },
+  ebikes: { name: "Pre-Loved E-Bikes", tagline: "Slightly owned.", one: "e-bike", other: "e-bikes", kind: "e-bikes", Kind: "E-bikes" },
 };
-
-const GOOD_NAMES: Record<GoodId, GoodNames> = CATALOGUE === "test12" ? { ...GAME_GOOD_NAMES, ...TEST12_NAMES } : GAME_GOOD_NAMES;
 
 interface PlaceNames {
   name: string;
@@ -608,6 +634,7 @@ const PLACE_NAMES: Record<PlaceId, PlaceNames> = {
 };
 
 export const goodName = (g: GoodId): string => GOOD_NAMES[g].name;
+export const goodTagline = (g: GoodId): string => GOOD_NAMES[g].tagline;
 /** The goods by display name, as Street and City list them. */
 export const goodsByName = (): GoodId[] => [...GOODS].sort((a, b) => goodName(a).localeCompare(goodName(b), "en"));
 export const goodKind = (g: GoodId): string => GOOD_NAMES[g].kind;
@@ -635,10 +662,7 @@ export const codename = (n: number): string => {
 
 /** "the Uptown Watch Cartel". */
 export function caseLabel(place: PlaceId, habit: HabitId): string {
-  const key = `case.label.${habit}`;
-  const Adj = PLACE_NAMES[place].adj;
-  // A good without a label of its own (the test catalogue's) gets the plain one.
-  return hasText(key) ? t(key, { Adj }) : t("case.label.good", { Adj, Kind: GOOD_NAMES[habit as GoodId].Kind });
+  return t(`case.label.${habit}`, { Adj: PLACE_NAMES[place].adj });
 }
 
 /** Places in a sentence: "the Docks", "the Docks and Uptown". */

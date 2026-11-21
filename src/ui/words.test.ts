@@ -1,5 +1,5 @@
 import { CARD_IDS, CARDS, newGame, type DomainEvent, type GameState, type Paper } from "../sim/index.ts";
-import { atLeast, below, play, rngWhere } from "../sim/testing.ts";
+import { atLeast, below, noGoods, play, rngWhere } from "../sim/testing.ts";
 import { hasText, t } from "./text.ts";
 import { briefs, cardKeys, choiceChips, exhibits, oddsWord, paperView, pinchLine, resultLines } from "./words.ts";
 
@@ -16,9 +16,9 @@ describe("what the player reads", () => {
   it("names a sale and its cause when the buyers are used up", () => {
     let s: GameState = newGame(1, "words");
     let events: DomainEvent[];
-    ({ state: s } = play(s, { type: "buy", good: "tapes", units: 8 }, { type: "travel", to: "strip" }));
+    ({ state: s } = play(s, { type: "buy", good: "tapes", units: 3 }, { type: "travel", to: "strip" }));
     const demand = s.market.strip.tapes.demand;
-    ({ state: s, events } = play(s, { type: "sell", good: "tapes", units: Math.min(8, demand) }));
+    ({ state: s, events } = play(s, { type: "sell", good: "tapes", units: Math.min(3, demand) }));
     const lines = resultLines(events, s);
     expect(lines[0]).toMatch(/^Sold \d+ tapes? for \$\d+: \$\d+ profit\.$/);
     if (s.market.strip.tapes.demand === 0) expect(lines[1]).toBe("Nobody here wants more tapes today.");
@@ -60,7 +60,7 @@ describe("what the player reads", () => {
   it("names a loss, and a refused bribe", () => {
     const sold: DomainEvent = { type: "sold", good: "tapes", units: 2, proceeds: 20, cost: 30, hours: 1 };
     expect(resultLines([sold], newGame(1, "words"))[0]).toBe("Sold 2 tapes for $20: a $10 loss.");
-    const refused: DomainEvent = { type: "bribeRefused", seized: { smokes: 1, tapes: 0, watches: 0, fireworks: 0 }, saleOff: true };
+    const refused: DomainEvent = { type: "bribeRefused", seized: { ...noGoods(), smokes: 1 }, saleOff: true };
     expect(resultLines([refused], newGame(1, "words"))).toEqual(["“I'm an honest copper.” He took the lot. The sale's off."]);
   });
 
@@ -95,7 +95,7 @@ describe("cards", () => {
       choice: "buy",
       won: null,
       cash: -45,
-      goods: { smokes: 10, tapes: 0, watches: 0, fireworks: 0 },
+      goods: { ...noGoods(), smokes: 10 },
       places: null,
     };
     expect(resultLines([e], newGame(1, "words"))).toEqual(["10 cartons of smokes for $45. Terry's gone before you can count them."]);
