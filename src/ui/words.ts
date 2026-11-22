@@ -12,6 +12,7 @@ import {
   TRAIL,
   UPGRADE_COST,
   cardSale,
+  cardSeizure,
   chanceOdds,
   gainOf,
   has,
@@ -61,7 +62,8 @@ export function oddsWord(percent: number): OddsWord {
 
 export const oddsText = (percent: number): string => t(`odds.${oddsWord(percent)}`);
 export const heatText = (heat: number): string => t(`heat.${heatWord(heat)}`);
-export const jobSuccessText = (chance: number): string => t("job.success", { chance: Number(chance.toFixed(1)) });
+export const displayChance = (chance: number): number => Number(chance.toFixed(1));
+export const jobSuccessText = (chance: number): string => t("job.success", { chance: displayChance(chance) });
 
 const at = (place: PlaceId, good?: GoodId) => ({ ...placeValues(place), ...(good ? goodValues(good) : {}) });
 
@@ -160,9 +162,13 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
       case "bribed":
         out.push(t("result.bribed", { amount: money(e.amount) }));
         break;
-      case "bribeRefused":
-        out.push(t(e.saleOff ? "result.bribeRefusedSale" : "result.bribeRefused"));
+      case "bribeRefused": {
+        const goods = goodsList(e.seized);
+        out.push(t("result.bribeRefused"));
+        if (goods) out.push(t("result.tookGoods", { goods }));
+        if (e.saleOff) out.push(t("result.saleCancelled"));
         break;
+      }
       case "rangRound":
         out.push(t("result.rangRound", { day: state.day, time: clock(state.hour), word: heatText(state.heat) }));
         break;
@@ -185,7 +191,11 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
         break;
       }
       case "upgraded":
-        out.push(t(`result.upgraded.${e.upgrade}`, { pockets: RULES.coatPockets }));
+        out.push(t(`result.upgraded.${e.upgrade}`, {
+          pockets: RULES.coatPockets,
+          cost: money(e.cost),
+          takings: money(PINCH.crownTakings),
+        }));
         break;
       case "cardResolved":
         out.push(cardResult(e, state));
@@ -314,14 +324,22 @@ export function paperView(p: Paper, cases: readonly PastCase[] = []): PaperView 
     ? [`Nicked ${caseAt(inCase.place)}`, caseResult(closure.case)]
     : [
     t("paper.arrested.head"),
-    t("paper.arrested.story", { fine: money(log.fine), time: clock(RULES.arrestStart) }),
+    t("paper.arrested.story", { fine: money(log.fine), day: p.day + 1, time: clock(RULES.arrestStart) }),
   ];
   const pinch = PINCH_ORDER.map((k) => p.pinch.find((i) =>
     i.kind === k && (i.kind !== "announced" || !isSafeRepeat(i.case, cases.find((c) => c.n === i.case.n - 1))),
   )).find((i) => i !== undefined);
   const freshMorning = p.tomorrow.find((e) => !e.activated && e.startDay === p.day + 1);
   if (front) {
-    [head, story] = front === "arrest" ? arrested() : [t(`paper.first.${front}.head`), t(`paper.first.${front}.story`)];
+    [head, story] = front === "arrest" ? arrested() : [
+      t(`paper.first.${front}.head`),
+      t(`paper.first.${front}.story`, {
+        cost: money(UPGRADE_COST.crown),
+        takings: money(PINCH.crownTakings),
+        amount: money(PINCH.grand),
+        pockets: RULES.coatPockets - RULES.pockets,
+      }),
+    ];
     if (front === "arrest" && inCase) usedPinch = closure ?? null;
   } else if (pinch && pinch.kind !== "credit") {
     const n = pinchStory(pinch, p.day);
@@ -463,8 +481,8 @@ function effectChips(s: GameState, effects: readonly Effect[], kind: ChipView["k
         break;
       }
       case "lose": {
-        const good = GOODS.reduce((a, b) => (s.held[b] > s.held[a] ? b : a));
-        chip(t("chip.lose", goodValues(good)), true);
+        const seizure = cardSeizure(s, e);
+        if (seizure) chip(t("chip.lose", { goods: goodCount(seizure.good, seizure.units) }), true);
         break;
       }
       case "xp":
@@ -512,12 +530,14 @@ export function cardResult(e: Extract<DomainEvent, { type: "cardResolved" }>, s:
       : `${paid} ${name} stayed ${sites} on ${dates}.`;
   }
   const gained = perGoodAbs(e.goods);
+  const goods = goodsList(gained);
   const values: Values = {
-    goods: goodsList(gained),
+    goods,
     cost: money(Math.max(0, -e.cash)),
     amount: money(Math.abs(e.cash)),
   };
   if (e.choice === null) return cardText(e.card, "report", values);
+  if (e.card === "tradingStandards" && e.won === false && !goods) return t("card.tradingStandards.brazen.empty");
   const suffix = e.won === null ? "done" : e.won ? "won" : "lost";
   return cardText(e.card, `${e.choice}.${suffix}`, values);
 }

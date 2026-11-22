@@ -9,6 +9,8 @@ interface SheetProps {
   blocking?: boolean;
   className?: string;
   focusHeading?: boolean;
+  /** Where focus goes if the opener disappears. */
+  focusFallback?: string;
   children: ReactNode;
 }
 
@@ -16,7 +18,7 @@ interface SheetProps {
  * A modal sheet on the native <dialog>: the page behind it is inert, focus stays inside
  * while it is open and returns to the control that opened it. Mounted means open.
  */
-export function Sheet({ label, onClose, blocking = false, className = "", focusHeading = false, children }: SheetProps) {
+export function Sheet({ label, onClose, blocking = false, className = "", focusHeading = false, focusFallback = ".place-name", children }: SheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -31,9 +33,9 @@ export function Sheet({ label, onClose, blocking = false, className = "", focusH
     return () => {
       if (dialog.open) dialog.close();
       if (opener instanceof HTMLElement && opener !== document.body && opener.isConnected && !opener.matches(":disabled")) opener.focus();
-      else if (focusHeading) document.querySelector<HTMLElement>(".place-name")?.focus();
+      else if (focusHeading) document.querySelector<HTMLElement>(focusFallback)?.focus();
     };
-  }, [focusHeading]);
+  }, [focusHeading, focusFallback]);
 
   return (
     <dialog

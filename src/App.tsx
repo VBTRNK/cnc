@@ -145,7 +145,9 @@ export function App({ saves }: { saves: CloudSaves }) {
             cases={state.milestones.cases}
             last={paper.log.arrested ? [] : last}
             readOnly={readOnly}
-            onStart={() => session.dispatch({ type: "startDay" })}
+            onStart={() => {
+              if (session.dispatch({ type: "startDay" })) setTab("street");
+            }}
           />
         )}
         {choice}

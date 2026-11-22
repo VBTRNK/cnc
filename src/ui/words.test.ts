@@ -1,4 +1,4 @@
-import { CARD_IDS, CARDS, newGame, type DomainEvent, type GameState, type Paper } from "../sim/index.ts";
+import { CARD_IDS, CARDS, loadSave, newGame, toSave, type DomainEvent, type GameState, type Paper } from "../sim/index.ts";
 import { atLeast, below, noGoods, play, rngWhere } from "../sim/testing.ts";
 import { hasText, t } from "./text.ts";
 import { currentCaseNotice } from "./caseWords.ts";
@@ -53,11 +53,11 @@ describe("what the player reads", () => {
     if (!state.paper) throw new Error("no paper");
     const lines = resultLines(events, state);
     expect(lines).toEqual([
-      "You legged it. Not fast enough.",
+      "You tried to run and were caught.",
       "They took 12 cartons of smokes, 3 watches and fined you $50.",
     ]);
     const view = paperView(state.paper);
-    expect(view.story).toBe("Fined $50 and a cold night in the cells. Out at 14:00 tomorrow.");
+    expect(view.story).toBe("The police fined you $50. You start day 2 at 14:00.");
     expect(view.chips).toEqual(expect.arrayContaining(["Seized 15", "Fine $50"]));
   });
 
@@ -65,7 +65,14 @@ describe("what the player reads", () => {
     const sold: DomainEvent = { type: "sold", good: "tapes", units: 2, proceeds: 20, cost: 30, hours: 1 };
     expect(resultLines([sold], newGame(1, "words"))[0]).toBe("Sold 2 tapes for $20: a $10 loss.");
     const refused: DomainEvent = { type: "bribeRefused", seized: { ...noGoods(), smokes: 1 }, saleOff: true };
-    expect(resultLines([refused], newGame(1, "words"))).toEqual(["“I'm an honest copper.” He took the lot. The sale's off."]);
+    expect(resultLines([refused], newGame(1, "words"))).toEqual([
+      "The officer refused the bribe. You kept your cash.",
+      "The officer seized 1 carton of smokes.",
+      "The sale was cancelled.",
+    ]);
+    expect(resultLines([{ ...refused, seized: noGoods(), saleOff: false }], newGame(1, "words"))).toEqual([
+      "The officer refused the bribe. You kept your cash.",
+    ]);
   });
 
   it("puts odds into words", () => {
@@ -103,6 +110,18 @@ describe("cards", () => {
       places: null,
     };
     expect(resultLines([e], newGame(1, "words"))).toEqual(["10 cartons of smokes for $45. Terry's gone before you can count them."]);
+  });
+
+  it("quotes the actual Trading Standards seizure for a single held item", () => {
+    const s = newGame(1, "words");
+    s.held.tapes = 1;
+    const choice = CARDS.tradingStandards.choices.find((c) => c.id === "brazen")!;
+    expect(choiceChips(s, choice, 50).map((c) => c.text)).toContain("Lose 1 tape");
+    s.pending = { kind: "card", card: "tradingStandards", odds: 50 };
+    s.rng = rngWhere(atLeast(0.5));
+    const result = play(s, { type: "resolveCard", choice: "brazen" });
+    expect(result.state.held.tapes).toBe(0);
+    expect(resultLines(result.events, result.state)[0]).toBe("He took 1 tape. “Confiscated, sir.”");
   });
 });
 
@@ -158,6 +177,9 @@ describe("the paper", () => {
     }));
     expect(view.head).toBe("Nicked!");
     expect(view.required.map((n) => n.title)).toEqual(["Operation Winkle went cold", "Pinch made Inspector", "Operation Kipper", "Police sweep", "Tapes glut at the Docks"]);
+    expect(view.required.find((n) => n.title === "Pinch made Inspector")?.body).toMatch(
+      /Crown & Anchor sale made the news.*New operations cover two neighbourhoods.*Pinch cited the coverage/,
+    );
   });
 
   it("warns of an operation the night before, and leads a quiet day with its best sale", () => {
@@ -169,16 +191,31 @@ describe("the paper", () => {
       p.log.best = { good: "tapes", units: 12, proceeds: 240, place: "strip" };
     }));
     expect(view.head).toBe("Tapes fly on the Strip");
-    expect(view.story).toBe("12 tapes gone for $240, and nobody the wiser.");
+    expect(view.story).toBe("12 tapes sold for $240.");
     expect(view.required).toEqual([{ title: "Operation Kipper", meta: "Scheduled in Uptown · days 7–8", body: "Sales and risky jobs face higher stop risk. Pinch refuses bribes." }]);
   });
 
   it("is bylined by Lenny and carries Old Reg's worries until the pub is sold", () => {
-    expect(paperView(paper((p) => (p.day = 4))).briefs).toContain("Old Reg of the Crown & Anchor: “$2,500 and she's yours. Please.”");
+    expect(paperView(paper((p) => (p.day = 4))).briefs[0]).toMatch(/Crown & Anchor on the Strip is for sale for \$2,500.*retire.*Old Reg/);
     expect(paperView(paper((p) => {
       p.day = 4;
       p.crown = true;
     })).briefs.some((b) => b.includes("Reg"))).toBe(false);
+  });
+
+  it("prints the Crown handover and first take from a resumed purchase with other milestones that night", () => {
+    const s = newGame(42, "words");
+    s.cash = 4_000;
+    const bought = play(s, { type: "buyUpgrade", upgrade: "crown" });
+    expect(resultLines(bought.events, bought.state)[0]).toMatch(/bought the Crown & Anchor for \$2,500.*\$75.*Old Reg.*Keys/);
+    const loaded = loadSave(toSave(bought.state));
+    if (!loaded.ok) throw new Error(loaded.detail);
+    const { state } = play(loaded.state, { type: "buyUpgrade", upgrade: "coat" }, { type: "callItADay" });
+    expect(state.paper?.firsts).toEqual(expect.arrayContaining(["coat", "crown"]));
+    const view = paperView(state.paper!);
+    expect(view.head).toBe("The Crown has a new landlord");
+    expect(view.story).toMatch(/\$2,500.*Chapter one is complete.*Keep trading locally.*\$75 each night.*remaining upgrades.*Guv’nor/);
+    expect(view.chips).toContain("Crown takings $75");
   });
 });
 

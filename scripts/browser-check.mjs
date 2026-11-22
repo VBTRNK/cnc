@@ -221,7 +221,7 @@ try {
   await tap("dialog .commit");
   await sleep(300);
   if (await evaluate(`!!document.querySelector("dialog.card")`)) await tap("dialog.card .choice-card", "Hand over all carried goods");
-  check("result after selling", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
+  check("result after selling", /Sold|You handed over/.test(await text(".result") ?? ""), await text(".result"));
 
   // ---- Me, then reload resumes the same state -------------------------------------------
   await tap(".tabs button", "Me");
@@ -234,7 +234,7 @@ try {
   const tab2 = await newPage();
   await go(URL0, tab2.s);
   const banner = await evaluate(`document.querySelector(".banner")?.textContent ?? ""`, tab2.s);
-  check("second tab only watches", banner.includes("another tab"), banner);
+  check("second tab only watches", banner.includes("Play in the other tab"), banner);
   check("second tab's controls are disabled", await evaluate(`[...document.querySelectorAll("main button.good")].every(b => b.matches(":disabled"))`, tab2.s));
   await evaluate(`[...document.querySelectorAll(".tabs button")].find(b => b.textContent === "People").click()`, tab2.s);
   await sleep(200);
@@ -280,8 +280,8 @@ try {
   check("an arrest shows the cells first", (await text(".cells .headline")) === "Nicked!", await text(".cells .headline"));
   check("the cells name the fine", /Fine \$\d+/.test(await text(".cells-chips") ?? ""), await text(".cells-chips"));
   check("focus on the cells headline", await evaluate(`document.activeElement?.closest(".cells") !== null`), await focused());
-  await tap(".cells .commit", "Spend the night");
-  check("then the paper", /Fined \$\d+/.test(await text(".paper .story") ?? ""), await text(".paper .story"));
+  await tap(".cells .commit", "Read the Courier");
+  check("then the paper", /fined you \$\d+.*day 2 at 14:00/.test(await text(".paper .story") ?? ""), await text(".paper .story"));
 
   // ---- The phone: call around from City ------------------------------------------------------
   const phoneStart = { ...sim.newGame(2, "phonecheck"), upgrades: ["phone"] };
@@ -326,7 +326,7 @@ try {
     !/Pinch investigates/.test(await text(".headline") ?? "") && /Operation Winkle.*days 13–14.*Odd jobs still pay as usual/.test(await text(".paper-required") ?? ""));
   await tap(".paper .commit", "Start day 12");
   check("S5: a short, empty-pocket start leaves the warning and a way back to Lenny",
-    await evaluate(`!document.querySelector("dialog[open]")`) && /Come back before close/.test(await text(".case-notice") ?? ""));
+    await evaluate(`!document.querySelector("dialog[open]")`) && /Come back today if you have the cash/.test(await text(".case-notice") ?? ""));
   await tap(".moves button", "Odd job");
   await tap(".case-notice button", "Ask Lenny");
   check("S5: the voluntary sheet quotes the price, odds and possible sites",
@@ -490,7 +490,7 @@ try {
 
   // ---- Export -------------------------------------------------------------------------
   await tap(".tabs button", "Me");
-  await tap(".save-button", "Cloud, export, new run");
+  await tap(".save-button", "Save options");
   await snap("save-sheet");
   await tap("dialog .choice", "Export save");
   await sleep(1500);
@@ -509,7 +509,7 @@ try {
   await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(future)})`);
   await reload();
   await snap("future");
-  check("future save shows the newer-save screen", (await text(".headline")) === "A newer save");
+  check("future save shows the newer-save screen", (await text(".headline")) === "This save needs a newer game version");
   check("future save untouched", (await evaluate(`localStorage.getItem("cnc.save")`)) === future);
 
   // ---- Acceptance: every screen and sheet against M4 on a phone ------------------------------
@@ -592,10 +592,10 @@ try {
   await audit("Me");
   await tap(".ad .buy", "$2,500");
   await snap("crown-sheet");
-  check("the Crown sheet shows Old Reg", /Old Reg/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
+  check("the Crown sheet shows Old Reg", /Old Reg/.test(await text("dialog.crown-sheet .dossier-who") ?? ""), await text("dialog.crown-sheet .dossier-who"));
   await audit("Crown sheet");
   await key("Escape", "Escape", 27);
-  await tap(".save-button", "Cloud, export, new run");
+  await tap(".save-button", "Save options");
   await audit("save sheet");
   await key("Escape", "Escape", 27);
   await tap(".tabs button", "People");
@@ -672,7 +672,7 @@ try {
   await tap("button.good", "Bootleg Tapes");
   await tap("dialog .commit");
   await snap("write-failed");
-  check("a failed write is shown", /out of room/.test(await text(".banner-warn") ?? ""), await text(".banner-warn"));
+  check("a failed write is shown", /out of storage/.test(await text(".banner-warn") ?? ""), await text(".banner-warn"));
   check("with export beside it", await evaluate(`!!document.querySelector(".banner-warn button")`));
   check("and play goes on", /^Bought/.test(await text(".result") ?? ""), await text(".result"));
   await evaluate(`Storage.prototype.setItem = window.__setItem`);
@@ -954,19 +954,37 @@ try {
     // A long result (a bribe, a sale that empties demand, two skills up) isn't pinned over the
     // screen: it is read in full and scrolls away. Day 9 at 12:00, eight watches held at the Docks.
     const b0 = sim.newGame(11, "bribe");
-    const bribing = { ...b0, day: 9, hour: 12, cash: 4500, heat: 40, upgrades: ["coat", "phone"], xp: { ...b0.xp, patter: 9, nerve: 8 } };
+    const bribing = { ...b0, day: 9, hour: 12, cash: 4500, heat: 40.789, upgrades: ["coat", "phone"], xp: { ...b0.xp, patter: 9, nerve: 8 } };
     bribing.held = { ...b0.held, watches: 8 };
     bribing.paid = { ...b0.paid, watches: 120 };
     bribing.market = { ...b0.market, docks: { ...b0.market.docks, watches: { ...b0.market.docks.watches, demand: 8 } } };
     const stopped = sim.step({ ...bribing, rng: testing.rngWhere(testing.below(0.001), testing.below(0.1)) }, { type: "sell", good: "watches", units: 8 });
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 540 });
     await store(stopped.state);
     await reload();
-    await tap("dialog.card .choice-card", "Slip him");
+    const bribeChance = await text("dialog .chip-chance");
+    const escapeChance = await text("dialog .choice-card:nth-child(2) .choice-after");
+    check("S6: a fractional-heat stop rounds both odds to one decimal", bribeChance === "67.8% chance of acceptance" &&
+      escapeChance?.startsWith("37.8% chance to escape."), `${bribeChance} / ${escapeChance}`);
+    const stopLayout = await evaluate(`(() => {
+      const dialog = document.querySelector("dialog.card"), card = dialog.querySelector(".choice-card");
+      const die = card.querySelector(".die").getBoundingClientRect();
+      return { width: dialog.clientWidth, content: dialog.scrollWidth, card: card.clientWidth, cardContent: card.scrollWidth,
+        height: innerHeight, font: getComputedStyle(document.documentElement).fontSize, die: die.width, dieHeight: die.height };
+    })()`);
+    check("S6: StopCard fits at 320 × 540 and 200% text with a full-size die",
+      stopLayout.width === 320 && stopLayout.height === 540 && stopLayout.font === "32px" &&
+      stopLayout.content <= stopLayout.width && stopLayout.cardContent <= stopLayout.card &&
+      Math.abs(stopLayout.die - stopLayout.dieHeight) < 0.5, JSON.stringify(stopLayout));
+    await key("Tab", "Tab", 9);
+    await snap("s6-stop-320x540-large");
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
+    await tap("dialog.card .choice-card", "Offer a bribe");
     await sleep(300);
     const STRIP = `(() => { const st = document.querySelector(".strip"), r = st.getBoundingClientRect(), tabs = document.querySelector(".tabs").getBoundingClientRect().top;
       return { top: Math.round(r.top), height: Math.round(r.height), tabs: Math.round(tabs), pinned: getComputedStyle(st).position === "sticky", whole: st.scrollHeight <= st.clientHeight + 1 }; })()`;
     const long = await evaluate(STRIP);
-    check("layout 320/200 %: a long result is read in full, not pinned", !long.pinned && long.whole && /patter improves.*nerve hardens/.test(await text(".strip") ?? ""), `${JSON.stringify(long)} ${await text(".strip")}`);
+    check("layout 320/200 %: a long result is read in full, not pinned", !long.pinned && long.whole && /Patter reached level 1.*Nerve reached level 1/.test(await text(".strip") ?? ""), `${JSON.stringify(long)} ${await text(".strip")}`);
     await evaluate(`window.scrollTo(0, window.scrollY + document.querySelector(".strip").getBoundingClientRect().bottom + 40)`);
     await sleep(250);
     const past = await evaluate(STRIP);
@@ -982,6 +1000,22 @@ try {
     const short = await evaluate(STRIP);
     check("layout 320/200 %: an ordinary result still sticks", short.pinned && Math.abs(short.top) < 1 && /^Bought/.test(await text(".strip") ?? ""), `${JSON.stringify(short)} ${await text(".strip")}`);
     await snap("layout-320x200-short-result");
+    const inspection = sim.newGame(11, "large-seizure-chip");
+    inspection.held.bingo = 17;
+    inspection.pending = { kind: "card", card: "tradingStandards", odds: 50 };
+    await store(inspection);
+    await reload();
+    check("S6: the Trading Standards seizure chip fits at 320 px and 200% text", await evaluate(`(() => {
+      const dialog = document.querySelector("dialog.card");
+      return dialog.textContent.includes("Lose 8 sets of bingo balls") && dialog.scrollWidth <= dialog.clientWidth;
+    })()`));
+    const buyer = { ...sim.newGame(11, "large-crown-takings-chip"), cash: 3_000 };
+    await store(testing.play(buyer, { type: "buyUpgrade", upgrade: "crown" }, { type: "callItADay" }).state);
+    await reload();
+    check("S6: the Crown takings chip fits at 320 px and 200% text", await evaluate(`(() => {
+      const chips = document.querySelector(".paper-chips");
+      return chips.textContent.includes("Crown takings $75") && chips.scrollWidth <= chips.clientWidth;
+    })()`));
     // City: no room for a whole place column beside the pinned goods column and the fade, so
     // the goods column scrolls too and the fade goes; each Go is shown whole when focused.
     await store(day9);
@@ -1020,7 +1054,7 @@ try {
   await reload();
   const moveText = (label) => evaluate(`[...document.querySelectorAll(".moves .move")].find(b => b.querySelector(".move-name").textContent === ${JSON.stringify(label)})?.textContent ?? ""`);
   check("S3: Ask Mags names its hour, forecast day and the Savvy threshold this ask crosses",
-    /Ask Mags1 hUnconfirmed morning news for day 2.*75% forecast accuracy with Savvy/.test(await moveText("Ask Mags")));
+    /Ask Mags1 hA rumour about the morning market on day 2.*75% forecast accuracy with Savvy/.test(await moveText("Ask Mags")));
   check("S3: odd work says what is guaranteed and risky work gives two distinct chances",
     /3 h.*\$30 guaranteed · no stop risk/.test(await moveText("Odd job")) &&
     /4 h.*60% chance of success · slight stop risk/.test(await moveText("Risky job")));
@@ -1072,6 +1106,126 @@ try {
   await key("Escape", "Escape", 27);
   check("S3: Escape takes the player back to the risky job", (await focused()).includes("Risky job"), await focused());
 
+  // ---- The Crown: purchase, a resumed edition, and promotion under a larger story ----
+  const crownStart = sim.newGame(42, "s6-crown");
+  crownStart.day = 5;
+  crownStart.cash = 4_500;
+  crownStart.events = [];
+  crownStart.detective.case = { ...op.detective.case, place: "uptown", places: ["uptown"], observed: true };
+  crownStart.milestones.firsts = { grand: 4, case: 5 };
+  const buyCrown = { type: "buyUpgrade", upgrade: "crown" };
+  const buyCoat = { type: "buyUpgrade", upgrade: "coat" };
+  const buyPhone = { type: "buyUpgrade", upgrade: "phone" };
+  const endDay = { type: "callItADay" };
+  const startDay = { type: "startDay" };
+  await store(crownStart);
+  await reload();
+  await tap(".tabs button", "Me");
+  check("S6: the Crown ad gives the nightly rate and purchase price",
+    /Old Reg’s pub on the Strip.*\$75 nightly.*\$2,500/.test(await evaluate(`[...document.querySelectorAll(".ad")].at(-1).textContent`)));
+  await tap(".ad .buy", "$2,500");
+  check("S6: the Crown sheet starts with its heading, income and a priced commit",
+    await evaluate(`document.activeElement.matches(".crown-sheet h2")`) &&
+    /\$75 at the end of each day, starting tonight.*Old Reg/.test(await text("dialog .sheet-body") ?? "") &&
+    (await text("dialog .commit")) === "Buy the Crown & Anchor for $2,500");
+  await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 540 });
+  await evaluate(`document.documentElement.style.fontSize = "200%"`);
+  await snap("s6-crown-sheet-320-large");
+  const crownSheetLayout = await evaluate(`(() => {
+      const d = document.querySelector("dialog"), close = d.querySelector(".sheet-close").getBoundingClientRect();
+      const title = d.querySelector("h2").getBoundingClientRect();
+      return { width: d.clientWidth, contentWidth: d.scrollWidth, buttons: d.querySelectorAll("button").length, clear: title.right <= close.left };
+    })()`);
+  check("S6: Crown sheet has one usable return and no horizontal overflow at 320 px and 200% text",
+    crownSheetLayout.contentWidth <= crownSheetLayout.width && crownSheetLayout.buttons === 2 && crownSheetLayout.clear,
+    JSON.stringify(crownSheetLayout));
+  await key("Tab", "Tab", 9);
+  check("S6: the priced commit fits when focused at 320 px and 200% text", await evaluate(`(() => {
+    const b = document.activeElement, d = b.closest("dialog"), r = b.getBoundingClientRect(), port = d?.getBoundingClientRect();
+    return b.matches(".crown-sheet .commit") && r.top >= port.top && r.bottom <= port.bottom;
+  })()`));
+  await snap("s6-crown-commit-320-large");
+  await key("Escape", "Escape", 27);
+  check("S6: Escape returns focus to the Crown ad", (await focused()).includes("Buy") &&
+    await evaluate(`document.activeElement.getAttribute("aria-label").includes("Crown & Anchor")`));
+  await s("Emulation.setDeviceMetricsOverride", PHONE);
+  await evaluate(`document.documentElement.style.removeProperty("font-size")`);
+  await tap(".ad .buy", "$2,500");
+  await tap("dialog .commit", "$2,500");
+  const crownBought = testing.play(crownStart, buyCrown).state;
+  check("S6: buying saves the quoted price and keeps the day open",
+    await saveMatches(crownBought) &&
+    /bought the Crown & Anchor for \$2,500.*pays \$75.*Old Reg says.*Keys/.test(await text(".strip .result") ?? ""));
+  check("S6: focus moves to the owned Crown above the remaining offers",
+    await evaluate(`document.activeElement.matches("#owned-crown")`) &&
+    /Crown & Anchor.*own the pub.*\$75 nightly.*Big coat.*Burner phone/.test(await text(".screen") ?? ""));
+  await snap("s6-owned-crown");
+  await reload();
+  await tap(".tabs button", "Me");
+  check("S6: ownership and both remaining ads survive reload", await saveMatches(crownBought) &&
+    await evaluate(`document.querySelectorAll("#owned-crown").length === 1 && document.querySelectorAll(".ad .buy").length === 2`));
+  const closeDay = async () => {
+    await tap(".moves .row-button", "Call it a day");
+    await tap("dialog .commit", "Call it a day");
+  };
+  await tap(".tabs button", "Street");
+  await closeDay();
+  const crownNight = testing.play(crownBought, endDay).state;
+  await reload();
+  check("S6: the resumed purchase edition reports the payoff and what continues",
+    await saveMatches(crownNight) && (await text(".headline")) === "The Crown has a new landlord" &&
+    /\$2,500.*\$75 each night.*remaining upgrades.*Guv’nor/.test(await text(".story") ?? "") &&
+    /Crown takings \$75/.test(await text(".paper-chips") ?? ""));
+  await snap("s6-crown-edition");
+  await tap(".paper .commit", "Start day 6");
+  const leave = { type: "resolveCard", choice: "leave" };
+  await tap("dialog .choice-card", "Leave it");
+  const firstMorning = testing.play(crownNight, startDay, leave).state;
+  check("S6: the next morning returns to Street in the same run",
+    await saveMatches(firstMorning) && (await text(".place-name")) === "The Docks");
+  await closeDay();
+  const secondNight = testing.play(firstMorning, endDay).state;
+  check("S6: the second night pays again before promotion", await saveMatches(secondNight) &&
+    !/Pinch made Inspector/.test(await text(".paper") ?? "") && /Crown takings \$75/.test(await text(".paper-chips") ?? ""));
+  await tap(".paper .commit", "Start day 7");
+  await tap(".tabs button", "Me");
+  await tap(".ad .buy", "big coat");
+  await tap("dialog .commit", "big coat");
+  await tap(".tabs button", "Street");
+  await closeDay();
+  const promotedNight = testing.play(secondNight, startDay, buyCoat, endDay).state;
+  await reload();
+  check("S6: the third night keeps the coat lead and a full promotion brief after reload",
+    await saveMatches(promotedNight) && (await text(".headline")) === "Big coat, bigger plans" &&
+    /Pinch made Inspector.*Crown & Anchor sale made the news.*New operations cover two neighbourhoods/.test(await text(".paper-required") ?? ""));
+  check("S6: the promotion edition keeps the one-site warning before Start day",
+    /Operation Kipper.*Underway in Uptown · days 7–8/.test(await text(".paper-required") ?? ""));
+  await snap("s6-promotion-brief");
+  await tap(".paper .commit", "Start day 8");
+  await tap(".tabs button", "People");
+  check("S6: Inspector rank, Lenny’s nickname and Reg’s farewell survive the handover",
+    (await text(".board-who")) === "Detective Inspector Percy Pinch" &&
+    /Guv’nor.*Greetings from Margate/.test(await text(".cast") ?? ""));
+  await tap(".tabs button", "Me");
+  check("S6: a Crown owner still has access to an unbought phone", await evaluate(`[...document.querySelectorAll(".ad .buy")].map(b => b.getAttribute("aria-label")).join("") === "Buy the burner phone for $1,200"`));
+  await tap(".ad .buy", "burner phone");
+  await tap("dialog .commit", "burner phone");
+  const withPhone = testing.play(promotedNight, startDay, buyPhone).state;
+  await tap(".tabs button", "City");
+  check("S6: the remaining upgrade can be bought and used", await saveMatches(withPhone) && /Call around/.test(await text(".call .move") ?? ""));
+  const nextCaseNight = testing.play(withPhone, endDay, startDay, endDay, startDay, endDay, startDay, endDay).state;
+  await store(nextCaseNight);
+  await reload();
+  check("S6: the next case after the handover covers two places with an actionable warning",
+    nextCaseNight.detective.case?.places.length === 2 &&
+    /Operation Winkle.*days 13–14.*Sales and risky jobs face higher stop risk.*Pinch refuses bribes/.test(await text(".story") ?? ""));
+  const priorOwner = JSON.stringify({ ...JSON.parse(sim.toSave(firstMorning)), version: 5 });
+  await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(priorOwner)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(priorOwner)})`);
+  await reload();
+  await tap(".tabs button", "Me");
+  check("S6: an owner in a format 5 save sees the rate and remaining ads", /\$75 nightly/.test(await text(".ad:first-of-type .ad-what") ?? "") &&
+    await evaluate(`document.querySelectorAll("#owned-crown").length === 1 && document.querySelectorAll(".ad .buy").length === 2`));
+
   // ---- Desktop: the wide layout and a keyboard-only day ---------------------------------------
   await evaluate(`localStorage.clear()`);
   await s("Emulation.setTouchEmulationEnabled", { enabled: false });
@@ -1104,7 +1258,7 @@ try {
   await tabTo("button.good", "Untaxed Smokes"); await enter();
   await tabTo("dialog .commit"); await enter();
   if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand over all carried goods"); await enter(); }
-  check("keyboard: sell", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
+  check("keyboard: sell", /Sold|You handed over/.test(await text(".result") ?? ""), await text(".result"));
   await tabTo("button.row-button", "Call it a day"); await enter();
   await tabTo("dialog .commit"); await enter();
   await tabTo(".paper .commit", "Start day 2"); await enter();
