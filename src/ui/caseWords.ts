@@ -1,5 +1,5 @@
 import { GOODS, PINCH, RULES, operationStart, type CaseArrest, type GameState, type OpenCase, type Paper, type PastCase, type Seizure, type WorldEvent } from "../sim/index.ts";
-import { clock, codename, goodCount, goodKind, goodValues, money, placeValues, placesText, upper } from "./text.ts";
+import { clock, codename, goodCount, goodKind, goodSales, goodValues, money, placeValues, placesText, upper } from "./text.ts";
 
 export interface Notice {
   title: string;
@@ -73,7 +73,7 @@ export function observation(c: Theory): { head: string; body: string } {
       return { head: "Pinch sets his sights on the Crown", body: "You bought the Crown & Anchor. Pinch calls it a new headquarters." };
     default: {
       const good = goodKind(habit);
-      return { head: `Pinch sees a plot in your ${good} sales`, body: `You sold ${good} ${at}. Pinch calls it organised crime.` };
+      return { head: `Pinch sees a plot in your ${goodSales(habit)} sales`, body: `You sold ${good} ${at}. Pinch calls it organised crime.` };
     }
   }
 }
