@@ -411,8 +411,10 @@ tally, and what people feel is in their authored lines.
   then Moves and the Market. The moves sit two by two (Ask around, Lie low, Odd job, Pull a
   job), with Call it a day as a row below; a move with too few hours left is not shown. The
   market lists the ten goods the place deals in by name: held count, name, the price in a
-  large right-aligned column, at most a one-word hint (cheap, pricey, short, glut, sold out),
-  never a figure; then any held good it doesn't deal in, with no price and *no buyers*.
+  large right-aligned column and at most one note. Then it lists any held good the place
+  doesn't deal in, with no price and *no buyers*. City shows the same notes for these goods
+  in the current place's column. For a dealt good, the first applicable note is *sold out*,
+  *short*, *few left*, *glut*, or a price hint (*cheap* or *pricey*).
   Tapping a good, sold out or not, opens a sheet from the bottom: the name, the good's
   tagline in one line that wraps at large text, a buy or sell switch,
   a quantity stepper with a maximum shortcut (on its own line when the row doesn't fit), and
@@ -424,8 +426,9 @@ tally, and what people feel is in their authored lines.
   column headed by its name and any warning (Sweep, Pinch), the way there (Go and its hours,
   or the Here mark), and when its prices were seen ("now", "13:00", "day 8", "never"). An
   unseen price is a question mark (read as "not seen"), a pair the place doesn't deal in a
-  dash (read as "not dealt here"); under a price, one word for stock or an event, or its
-  own age when older than its column's. The goods column (5.75 rem) and the table's least
+  dash (read as "not dealt here", or "no buyers" for a held good at the current place).
+  Elsewhere, an event or a price's own age when older than its column's can take the place
+  of a price hint. The goods column (5.75 rem) and the table's least
   width (19.75 rem) are in rem: the head sticks under whatever sticks at the top (the rail,
   or the strip alone) where the table fits; narrower, the table scrolls sideways under a
   fixed goods column, a keyboard stop of its own, the last column in view cut under a fade,

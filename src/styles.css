@@ -664,7 +664,7 @@ fieldset.choices {
   border-bottom: var(--divider);
 }
 
-/* Held count, name, the price in a right-aligned column, a one-word hint, the chevron. */
+/* Held count, name, the right-aligned price, a short note, the chevron. */
 .good {
   display: grid;
   grid-template-columns: 2rem minmax(0, 1fr) auto 3.5rem 0.75rem;

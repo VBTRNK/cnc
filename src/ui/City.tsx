@@ -13,7 +13,7 @@ import {
   type PlaceId,
 } from "../sim/index.ts";
 import { Chevron, useNarrow } from "./bits.tsx";
-import { eventAt, knownPrice, sweepAt, type PriceView } from "./known.ts";
+import { knownPrice, marketNote, sweepAt, type PriceView } from "./known.ts";
 import { goodName, goodsByName, money, placeShort, placeValues, t } from "./text.ts";
 import { rumourLine, seenText } from "./words.ts";
 
@@ -224,43 +224,25 @@ function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean
 }
 
 function PriceCell({ state, col, good }: { state: GameState; col: Column; good: GoodId }) {
-  if (!deals(col.place, good)) {
-    return (
-      <td className={["undealt", col.here && "here-col"].filter(Boolean).join(" ")}>
-        <span aria-hidden="true">{t("city.undealtPrice")}</span>
-        <span className="visually-hidden">{t("city.undealtLabel")}</span>
-      </td>
-    );
-  }
-  const v = knownPrice(state, col.place, good);
-  const hint = cellHint(state, col, good, v);
-  const cls = [col.here && "here-col", v.price === null && "unknown"].filter(Boolean).join(" ");
+  const view = deals(col.place, good) ? knownPrice(state, col.place, good) : null;
+  const note = marketNote(state, col.place, good, view, col.newest);
+  const cls = [col.here && "here-col", !view && "undealt", view?.price === null && "unknown"].filter(Boolean).join(" ");
   return (
     <td className={cls || undefined}>
-      {v.price === null ? (
+      {!view ? (
+        <>
+          <span aria-hidden="true">{t("city.undealtPrice")}</span>
+          {!note && <span className="visually-hidden">{t("city.undealtLabel")}</span>}
+        </>
+      ) : view.price === null ? (
         <>
           <span aria-hidden="true">{t("city.unknownPrice")}</span>
           <span className="visually-hidden">{t("city.unknownLabel")}</span>
         </>
       ) : (
-        money(v.price)
+        money(view.price)
       )}
-      {hint && <span className={hint.warn ? "cell-hint warn" : "cell-hint"}>{hint.text}</span>}
+      {note && <span className={note.warn ? "cell-hint warn" : "cell-hint"}>{note.text}</span>}
     </td>
   );
-}
-
-/** One word under a price: stock trouble, an event, a price older than its column's (by day or
- * hour), or the hint. */
-function cellHint(s: GameState, col: Column, good: GoodId, v: PriceView): { text: string; warn: boolean } | null {
-  const event = eventAt(s, col.place, good);
-  if (v.soldOut) return { text: t("note.soldOut"), warn: true };
-  if (event === "shortage") return { text: t("note.short"), warn: true };
-  if (v.low) return { text: t("note.low"), warn: false };
-  if (event === "glut") return { text: t("note.glut"), warn: false };
-  if (v.price === null) return null;
-  if (v.seen && col.newest && (v.seen.day !== col.newest.day || v.seen.hour !== col.newest.hour)) {
-    return { text: seenText(s, v.seen.day, v.seen.hour), warn: false };
-  }
-  return v.hint ? { text: t(`hint.${v.hint}`), warn: false } : null;
 }

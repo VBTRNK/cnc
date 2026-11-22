@@ -538,6 +538,8 @@ try {
   const L0 = sim.newGame(10, "layout");
   const G = sim.GOODS;
   const day9 = { ...L0, day: 9, hour: 15, cash: 1420, heat: 30, upgrades: ["coat", "phone"], xp: { patter: 30, nerve: 10, savvy: 25 } };
+  // Pricey phones with a single unit left, so stock and price compete for the note.
+  Object.assign(day9.market.docks.phones, { baseline: Math.ceil(sim.usualPrice("phones") * 1.25), freshStock: 2, stock: 1 });
   day9.held = { ...L0.held, smokes: 3, ebikes: 5, gum: 4 };
   day9.paid = { ...L0.paid, smokes: 3 * sim.price(L0, "docks", "smokes"), ebikes: 5 * 400, gum: 4 * 10 };
   // No stop on the sale below: the next draw is high.
@@ -605,7 +607,14 @@ try {
   await evaluate(`window.scrollTo(0, 400)`);
   await sleep(200);
   check("layout 390: the rail and its result strip stay in view", await evaluate(`Math.abs(document.querySelector(".top").getBoundingClientRect().top) < 1 && document.querySelector(".strip").getBoundingClientRect().bottom > 0`));
+  const streetNotes = await evaluate(`Object.fromEntries([...document.querySelectorAll("button.good")].map(row =>
+    [row.querySelector(".good-name").textContent, row.querySelector(".good-hint").textContent]))`);
+  check("market notes: few left wins over pricey", sim.priceHint(day9, "docks", "phones") === "pricey" && streetNotes["Hot Phones"] === "few left", streetNotes["Hot Phones"]);
   await tap(".tabs button", "City");
+  const cityNotes = await evaluate(`Object.fromEntries([...document.querySelectorAll(".price-table tbody tr:not(.repeat-row)")].map(row =>
+    [row.querySelector("th").textContent, row.querySelector(".here-col .cell-hint")?.textContent ?? ""]))`);
+  const mismatchedNotes = Object.keys(streetNotes).filter(name => streetNotes[name] !== cityNotes[name]);
+  check("market notes: Street and City's current column agree for every Street row", mismatchedNotes.length === 0, mismatchedNotes.join(", "));
   check("layout 390: City's goods names fit two lines", overTwoLines(await lineCounts(".price-table tbody th")).length === 0, overTwoLines(await lineCounts(".price-table tbody th")).join("; "));
   check("layout 390: the table fits without scrolling sideways", await evaluate(`(() => { const t = document.querySelector(".table-scroll"); return t.scrollWidth <= t.clientWidth; })()`));
   check("layout 390: place warnings sit in the column heads", (await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`)) === "Sweep|Pinch", await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`));
@@ -615,7 +624,8 @@ try {
   check("layout 390: no repeated place names where the head sticks", (await evaluate(`document.querySelectorAll(".repeat-row").length`)) === 0);
   check("layout 390: City has twelve rows and a dash for each pair not dealt, named apart from an unseen price",
     await evaluate(`(() => { const u = [...document.querySelectorAll(".price-table td.undealt")]; const q = [...document.querySelectorAll(".price-table td.unknown")];
-      return document.querySelectorAll(".price-table tbody tr:not(.repeat-row)").length === 12 && u.length === 8 && u.every(c => c.textContent === "—not dealt here")
+      return document.querySelectorAll(".price-table tbody tr:not(.repeat-row)").length === 12 && u.length === 8
+        && u.every(c => c.textContent === (c.matches(".here-col") && c.parentElement.firstElementChild.textContent === "Banned Bubblegum" ? "—no buyers" : "—not dealt here"))
         && q.length > 0 && q.every(c => c.textContent.startsWith("?not seen")); })()`),
     await evaluate(`[...document.querySelectorAll(".price-table td.undealt, .price-table td.unknown")].map(c => c.textContent).join("|")`));
   const wide = await focusWalk(".call .move");
