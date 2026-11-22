@@ -357,6 +357,7 @@ const TEXT = {
   "paper.hurt.head": "Job goes sideways",
   "paper.hurt.story": "You were hurt on a risky job.",
   "paper.shortage.head": "{Kind} dry up {at}",
+  "paper.shortage.head.mass": "{Kind} dries up {at}",
   "paper.glut.head": "{At} drowning in {kind}",
   "paper.sweep.head": "Police sweep {at}",
   "paper.harmless.pigeons.head": "Pigeons seize town hall",
@@ -364,8 +365,11 @@ const TEXT = {
   "paper.harmless.heatwave.head": "Scorcher!",
   "paper.harmless.story": "Nothing in it for you, but the city talks of little else.",
   "paper.tomorrowShortage.head": "{Kind} run short {at}",
+  "paper.tomorrowShortage.head.mass": "{Kind} runs short {at}",
   "paper.tomorrowGlut.head": "{Kind} flood {at}",
+  "paper.tomorrowGlut.head.mass": "{Kind} floods {at}",
   "paper.best.head": "{Kind} fly {at}",
+  "paper.best.head.mass": "{Kind} flies {at}",
   "paper.best.story": "{count} sold for {proceeds}.",
   "paper.quiet.head": "Quiet night on the streets",
   "paper.quiet.story": "The city sleeps with one eye open.",
@@ -572,20 +576,24 @@ export interface GoodNames {
   other: string;
   kind: string;
   Kind: string;
+  /** Before a noun: "tape sales", "e-bike sales". */
+  sales: string;
+  /** A mass noun takes a singular verb in a headline: "Soda flies". */
+  mass?: true;
 }
 
 /** The goods. Every name keeps to the good-names rule (goodNames.test.ts). */
 export const GOOD_NAMES: Record<GoodId, GoodNames> = {
-  smokes: { name: "Untaxed Smokes", tagline: "The duty's been paid. By nobody.", one: "carton of smokes", other: "cartons of smokes", kind: "smokes", Kind: "Smokes" },
-  tapes: { name: "Bootleg Tapes", tagline: "Recorded live from the back row.", one: "tape", other: "tapes", kind: "tapes", Kind: "Tapes" },
-  watches: { name: "Swiss-ish Watches", tagline: "Keeps time. Mostly someone else's.", one: "watch", other: "watches", kind: "watches", Kind: "Watches" },
-  fireworks: { name: "Fireworks", tagline: "Light the blue touchpaper and leg it.", one: "box of fireworks", other: "boxes of fireworks", kind: "fireworks", Kind: "Fireworks" },
-  gum: { name: "Banned Bubblegum", tagline: "Illegal in three countries. Nobody says which.", one: "packet of gum", other: "packets of gum", kind: "bubblegum", Kind: "Bubblegum" },
-  soda: { name: "Speakeasy Soda", tagline: "Says soda on the label. Isn't.", one: "bottle of soda", other: "bottles of soda", kind: "soda", Kind: "Soda" },
-  alibi: { name: "Eau d’Alibi", tagline: "Smell like you were somewhere else.", one: "bottle of Eau d’Alibi", other: "bottles of Eau d’Alibi", kind: "Eau d’Alibi", Kind: "Eau d’Alibi" },
-  trainers: { name: "Two-Left Trainers", tagline: "Both left. Both very fashionable.", one: "pair of trainers", other: "pairs of trainers", kind: "trainers", Kind: "Trainers" },
-  phones: { name: "Hot Phones", tagline: "Stolen, still warm.", one: "hot phone", other: "hot phones", kind: "phones", Kind: "Phones" },
-  brie: { name: "Back-Alley Brie", tagline: "A whole wheel, matured behind the bins.", one: "wheel of brie", other: "wheels of brie", kind: "brie", Kind: "Brie" },
+  smokes: { name: "Untaxed Smokes", tagline: "The duty's been paid. By nobody.", one: "carton of smokes", other: "cartons of smokes", kind: "smokes", Kind: "Smokes", sales: "smokes" },
+  tapes: { name: "Bootleg Tapes", tagline: "Recorded live from the back row.", one: "tape", other: "tapes", kind: "tapes", Kind: "Tapes", sales: "tape" },
+  watches: { name: "Swiss-ish Watches", tagline: "Keeps time. Mostly someone else's.", one: "watch", other: "watches", kind: "watches", Kind: "Watches", sales: "watch" },
+  fireworks: { name: "Fireworks", tagline: "Light the blue touchpaper and leg it.", one: "box of fireworks", other: "boxes of fireworks", kind: "fireworks", Kind: "Fireworks", sales: "fireworks" },
+  gum: { name: "Banned Bubblegum", tagline: "Illegal in three countries. Nobody says which.", one: "packet of gum", other: "packets of gum", kind: "bubblegum", Kind: "Bubblegum", sales: "bubblegum", mass: true },
+  soda: { name: "Speakeasy Soda", tagline: "Says soda on the label. Isn't.", one: "bottle of soda", other: "bottles of soda", kind: "soda", Kind: "Soda", sales: "soda", mass: true },
+  alibi: { name: "Eau d’Alibi", tagline: "Smell like you were somewhere else.", one: "bottle of Eau d’Alibi", other: "bottles of Eau d’Alibi", kind: "Eau d’Alibi", Kind: "Eau d’Alibi", sales: "Eau d’Alibi", mass: true },
+  trainers: { name: "Two-Left Trainers", tagline: "Both left. Both very fashionable.", one: "pair of trainers", other: "pairs of trainers", kind: "trainers", Kind: "Trainers", sales: "trainer" },
+  phones: { name: "Hot Phones", tagline: "Stolen, still warm.", one: "hot phone", other: "hot phones", kind: "phones", Kind: "Phones", sales: "phone" },
+  brie: { name: "Back-Alley Brie", tagline: "A whole wheel, matured behind the bins.", one: "wheel of brie", other: "wheels of brie", kind: "brie", Kind: "Brie", sales: "brie", mass: true },
   bingo: {
     name: "Stolen Bingo Balls",
     tagline: "The hall's only certified set. Every pensioner wants it back.",
@@ -593,8 +601,9 @@ export const GOOD_NAMES: Record<GoodId, GoodNames> = {
     other: "sets of bingo balls",
     kind: "bingo balls",
     Kind: "Bingo balls",
+    sales: "bingo ball",
   },
-  ebikes: { name: "Pre-Loved E-Bikes", tagline: "Slightly owned.", one: "e-bike", other: "e-bikes", kind: "e-bikes", Kind: "E-bikes" },
+  ebikes: { name: "Pre-Loved E-Bikes", tagline: "Slightly owned.", one: "e-bike", other: "e-bikes", kind: "e-bikes", Kind: "E-bikes", sales: "e-bike" },
 };
 
 interface PlaceNames {
@@ -620,6 +629,14 @@ export const goodTagline = (g: GoodId): string => GOOD_NAMES[g].tagline;
 /** The goods by display name, as Street and City list them. */
 export const goodsByName = (): GoodId[] => [...GOODS].sort((a, b) => goodName(a).localeCompare(goodName(b), "en"));
 export const goodKind = (g: GoodId): string => GOOD_NAMES[g].kind;
+/** "tape", "e-bike": the good before "sales". */
+export const goodSales = (g: GoodId): string => GOOD_NAMES[g].sales;
+/** A goods headline whose verb agrees with the good: "Tapes fly", "Soda flies". */
+export const goodHead = (
+  key: "paper.shortage.head" | "paper.tomorrowShortage.head" | "paper.tomorrowGlut.head" | "paper.best.head",
+  g: GoodId,
+  values: Values,
+): string => t(GOOD_NAMES[g].mass ? `${key}.mass` : key, values);
 /** "12 tapes", "1 carton of smokes". */
 export const goodCount = (g: GoodId, n: number): string => `${n} ${n === 1 ? GOOD_NAMES[g].one : GOOD_NAMES[g].other}`;
 export const goodValues = (g: GoodId): Values => ({ kind: GOOD_NAMES[g].kind, Kind: GOOD_NAMES[g].Kind });

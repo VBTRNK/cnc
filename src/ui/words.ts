@@ -37,6 +37,7 @@ import {
 import {
   clock,
   goodCount,
+  goodHead,
   goodValues,
   hasText,
   money,
@@ -268,7 +269,7 @@ export interface PaperView {
 const middayHead = (e: WorldEvent): string => {
   switch (e.kind) {
     case "shortage":
-      return t("paper.shortage.head", at(e.place, e.good));
+      return goodHead("paper.shortage.head", e.good, at(e.place, e.good));
     case "glut":
       return t("paper.glut.head", at(e.place, e.good));
     case "sweep":
@@ -358,12 +359,12 @@ export function paperView(p: Paper, cases: readonly PastCase[] = []): PaperView 
     story = e.kind === "harmless" ? t("paper.harmless.story") : noticeStory(confirmedNotice(e));
     used.add(e.id);
   } else if (freshMorning && (freshMorning.kind === "shortage" || freshMorning.kind === "glut")) {
-    head = t(freshMorning.kind === "shortage" ? "paper.tomorrowShortage.head" : "paper.tomorrowGlut.head", at(freshMorning.place, freshMorning.good));
+    head = goodHead(freshMorning.kind === "shortage" ? "paper.tomorrowShortage.head" : "paper.tomorrowGlut.head", freshMorning.good, at(freshMorning.place, freshMorning.good));
     story = noticeStory(confirmedNotice(freshMorning));
     used.add(freshMorning.id);
   } else if (log.best) {
     const b = log.best;
-    head = t("paper.best.head", at(b.place, b.good));
+    head = goodHead("paper.best.head", b.good, at(b.place, b.good));
     story = t("paper.best.story", { count: upper(goodCount(b.good, b.units)), proceeds: money(b.proceeds) });
   } else {
     head = t("paper.quiet.head");

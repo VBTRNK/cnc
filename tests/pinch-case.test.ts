@@ -212,6 +212,8 @@ describe("Operation Kipper through the current rules", () => {
     delete s.detective.case!.observed;
     expect(observation(s.detective.case!).head).toBe("Pinch opens a case at the Docks");
     expect(observation({ ...s.detective.case!, place: "strip" }).head).toBe("Pinch opens a case on the Strip");
+    expect(observation({ ...s.detective.case!, habit: "ebikes", observed: true }).head).toBe("Pinch sees a plot in your e-bike sales");
+    expect(observation({ ...s.detective.case!, habit: "fireworks", observed: true }).head).toBe("Pinch sees a plot in your fireworks sales");
     s.detective.case!.places = ["oldtown"];
     const recap = currentCaseNotice(reload(s, 4), s.detective.case!);
     expect(recap.body).toContain("Pinch’s theory concerned fireworks at the Docks. Earlier warning covered the Docks.");

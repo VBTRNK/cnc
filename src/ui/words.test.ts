@@ -195,6 +195,29 @@ describe("the paper", () => {
     expect(view.required).toEqual([{ title: "Operation Kipper", meta: "Scheduled in Uptown · days 7–8", body: "Sales and risky jobs face higher stop risk. Pinch refuses bribes." }]);
   });
 
+  it("agrees the headline verb with a mass-noun good", () => {
+    const best = (good: "soda" | "phones") => paperView(paper((p) => {
+      p.day = 6;
+      p.unseenMidday = null;
+      p.tomorrow = [];
+      p.log.best = { good, units: 2, proceeds: 80, place: "docks" };
+    })).head;
+    expect(best("soda")).toBe("Soda flies at the Docks");
+    expect(best("phones")).toBe("Phones fly at the Docks");
+    const morning = (good: "brie" | "tapes", kind: "shortage" | "glut") => paperView(paper((p) => {
+      p.day = 6;
+      p.unseenMidday = null;
+      p.tomorrow = [{ id: "morning", kind, good, place: "uptown", slot: "morning", startDay: 7, endDay: 8, startHour: 10, activated: false }];
+    })).head;
+    expect(morning("brie", "shortage")).toBe("Brie runs short uptown");
+    expect(morning("brie", "glut")).toBe("Brie floods uptown");
+    expect(morning("tapes", "shortage")).toBe("Tapes run short uptown");
+    expect(paperView(paper((p) => {
+      p.day = 6;
+      p.unseenMidday = { id: "d6-midday", slot: "midday", startDay: 6, startHour: 16, endDay: 7, activated: true, kind: "shortage", good: "gum", place: "strip" };
+    })).head).toBe("Bubblegum dries up on the Strip");
+  });
+
   it("is bylined by Lenny and carries Old Reg's worries until the pub is sold", () => {
     expect(paperView(paper((p) => (p.day = 4))).briefs[0]).toMatch(/Crown & Anchor on the Strip is for sale for \$2,500.*retire.*Old Reg/);
     expect(paperView(paper((p) => {
