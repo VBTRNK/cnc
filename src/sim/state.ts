@@ -263,4 +263,6 @@ export interface GameState {
   cards: Partial<Record<CardId, number>>;
   /** The day each flag was set. */
   flags: Partial<Record<FlagId, number>>;
+  /** Dougie's original quote, even after market memory for that pair changes. */
+  dougieTip?: Seen & { place: PlaceId; good: GoodId };
 }

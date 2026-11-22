@@ -2,7 +2,7 @@
 export * from "./content.ts";
 export * from "./cards.ts";
 export * from "./state.ts";
-export { announced, tally } from "./detective.ts";
+export { announced, isSafeRepeat, tally, trailDestinations } from "./detective.ts";
 export {
   heatWord,
   level,

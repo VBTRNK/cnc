@@ -2,8 +2,8 @@
 // tally of where the player is seen, a theory on the top place, a warned operation, its
 // resolution and his one promotion. Works on a state the caller owns, like market.ts.
 
-import { HABITS, PINCH, PLACES, type HabitId, type PlaceId } from "./content.ts";
-import { operationOn, operationStart, operationWindow, sweepCovers } from "./market.ts";
+import { HABITS, PINCH, PLACES, RULES, type HabitId, type PlaceId } from "./content.ts";
+import { at, operationOn, operationStart, operationWindow, sweepCovers } from "./market.ts";
 import type { Rng } from "./rng.ts";
 import type { Detective, GameState, OpenCase, PastCase, PinchItem } from "./state.ts";
 
@@ -60,6 +60,59 @@ export function caughtHere(s: GameState): OpenCase | null {
 export const announced = (s: GameState): boolean =>
   s.detective.case !== null && s.day < operationStart(s.detective.case);
 
+/** A single-site repeat of safe work or information gathering after a cold case. */
+export function isSafeRepeat(c: OpenCase, previous?: PastCase): boolean {
+  return previous?.outcome === "cold" && c.n === previous.n + 1 && c.place === previous.place
+    && c.habit === previous.habit && ["oddJob", "lieLow", "ask"].includes(c.habit)
+    && c.places.length === 1 && !c.trail;
+}
+
+function relocationPools(s: GameState, c: OpenCase, confirmedOnly: boolean) {
+  const [start, end] = operationWindow(c);
+  const free = PLACES.filter((p) => !sweepCovers(s, p, start, end, confirmedOnly));
+  return { fresh: free.filter((p) => !c.places.includes(p)), kept: free.filter((p) => c.places.includes(p)) };
+}
+
+export function canRelocate(s: GameState, c: OpenCase): boolean {
+  const { fresh, kept } = relocationPools(s, c, true);
+  return fresh.length > 0 && fresh.length + kept.length >= c.places.length;
+}
+
+/** All tied sets that could be drawn from the lowest tallies in a pool. */
+function lowestSets(s: GameState, from: PlaceId[], count: number): PlaceId[][] {
+  if (count === 0) return [[]];
+  if (count === from.length) return [from];
+  const lowest = Math.min(...from.map((p) => tally(s, p)));
+  return from.filter((p) => tally(s, p) === lowest).flatMap((p) =>
+    lowestSets(s, from.filter((q) => q !== p), count - 1).map((rest) => [p, ...rest]));
+}
+
+/** Quote alternatives without looking at the hidden 16:00 item or drawing from the generator. */
+export function trailDestinations(s: GameState, c: OpenCase): PlaceId[][] {
+  const { fresh, kept } = relocationPools(s, c, true);
+  const pools = [fresh];
+  // Today's midday sweep, if there is one, can rule out one new site during the operation.
+  if (s.hour < RULES.midday) {
+    const start = at(s.day, RULES.midday);
+    const end = at(s.day + 1, RULES.dayEnd);
+    for (const p of fresh) {
+      if (!sweepCovers(s, p, start, end, true)) pools.push(fresh.filter((q) => q !== p));
+    }
+  }
+  const destinations = new Map<string, PlaceId[]>();
+  for (const pool of pools) {
+    if (pool.length === 0 || pool.length + kept.length < c.places.length) continue;
+    const move = Math.min(pool.length, c.places.length);
+    for (const next of lowestSets(s, pool, move)) {
+      for (const stay of lowestSets(s, kept, c.places.length - move)) {
+        const sites = [...next, ...stay];
+        destinations.set(PLACES.filter((p) => sites.includes(p)).join(","), sites);
+      }
+    }
+  }
+  return [...destinations.values()];
+}
+
 /**
  * The false trail swallowed: the operation moves to the places with his lowest tallies,
  * never one a sweep covers during it, and keeps its size. New places come first; only
@@ -68,10 +121,9 @@ export const announced = (s: GameState): boolean =>
 export function moveOperation(s: GameState, rng: Rng): PlaceId[] {
   const c = s.detective.case;
   if (!c) return [];
-  const [start, end] = operationWindow(c);
-  const free = PLACES.filter((p) => !sweepCovers(s, p, start, end));
-  const fresh = ranked(s, rng, free.filter((p) => !c.places.includes(p)), c.places.length, "bottom");
-  const kept = ranked(s, rng, free.filter((p) => c.places.includes(p)), c.places.length - fresh.length, "bottom");
+  const pools = relocationPools(s, c, false);
+  const fresh = ranked(s, rng, pools.fresh, c.places.length, "bottom");
+  const kept = ranked(s, rng, pools.kept, c.places.length - fresh.length, "bottom");
   const to = [...fresh, ...kept];
   if (fresh.length > 0 && to.length === c.places.length) c.places = to;
   return [...c.places];

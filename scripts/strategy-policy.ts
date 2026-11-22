@@ -17,6 +17,7 @@ import {
   quoteJob,
   ringDistance,
   saleHours,
+  terryOffer,
   unitsIn,
   type Action,
   type DomainEvent,
@@ -38,7 +39,7 @@ export interface Policy {
   shuttle: boolean;
   /** With the phone: ring round at the day's start, also after midday, or before every move. */
   ring: "once" | "twice" | "everyMove";
-  /** Cards: take the first choice the player can, or always the last (pass, walk on, leave). */
+  /** Take the first affordable card choice or supplier quote, or pass each one. */
   cards: "take" | "pass";
   /** Pinch's operations: trade on regardless, or stay away from their places. */
   ops: "ignore" | "avoid";
@@ -282,6 +283,7 @@ export function decide(s: GameState, p: Policy, book: Book, queue: Action[]): Ac
     const away = [...PLACES].filter((q) => !operationOn(s, q)).sort((a, b) => ringDistance(s.place, a) - ringDistance(s.place, b))[0];
     if (away && ringDistance(s.place, away) < hoursLeft(s)) return { type: "travel", to: away };
   }
+  if (p.cards === "take" && terryOffer(s)?.block === null) return { type: "buyTerry" };
   const next = queue.shift();
   if (next) return next;
 

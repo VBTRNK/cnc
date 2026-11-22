@@ -23,7 +23,7 @@ import { baseStock, neutralDemand, neutralPrice, undealtCell, usualPrice } from 
 import type { GameState } from "./state.ts";
 
 export const SAVE_FORMAT = "crime-and-crown-save";
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** The goods of save formats 1-3, dealt everywhere; format 4 added the rest (ADR-014). */
 const FIRST_GOODS: readonly GoodId[] = ["smokes", "tapes", "watches", "fireworks"];
@@ -124,6 +124,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   },
   // 5: case evidence is optional. The original facts and current choices are kept as saved.
   4: (doc) => doc,
+  // 6: Dougie's original quote is optional. Older repayments retain their date in cards.
+  5: (doc) => doc,
 };
 
 export type LoadResult =
@@ -460,7 +462,8 @@ const gameState = shape({
   }),
   cards: keyed(CARD_IDS, day, true),
   flags: keyed(FLAGS, day, true),
-});
+  dougieTip: shape({ ...pair, price: int(1, 1_000_000), day, hour }),
+}, ["dougieTip"]);
 
 type Pair = { place: PlaceId; good: GoodId };
 
@@ -492,6 +495,7 @@ function dealtPairs(s: GameState): string | null {
     if ((e.kind === "shortage" || e.kind === "glut") && undealt(e)) return `state.events: ${e.id} on a pair not dealt`;
   }
   if (undealt(s.rumour?.claim)) return "state.rumour.claim: not dealt there";
+  if (undealt(s.dougieTip)) return "state.dougieTip: not dealt there";
   const quote = s.pending?.kind === "stop" ? s.pending.quote : null;
   if (quote?.type === "sell" && !deals(s.place, quote.good)) return "state.pending.quote.good: not dealt here";
   for (const log of [s.today, ...[s.paper, ...s.news].flatMap((paper) => (paper ? [paper.log] : []))]) {
@@ -509,6 +513,7 @@ function consistency(s: GameState): string | null {
   if (s.phase === "night" && (s.paper === null || s.pending !== null)) return "state.phase: night without a paper";
   if (s.phase === "day" && s.paper !== null) return "state.paper: paper by day";
   if (new Set(s.events.map((e) => e.id)).size !== s.events.length) return "state.events: duplicate id";
+  if (s.dougieTip && s.dougieTip.day !== s.cards.oldMatePays) return "state.dougieTip.day: must match the repayment";
   if (s.pending?.kind === "card") {
     const card = CARDS[s.pending.card];
     if (card.choices.length === 0) return "state.pending: a report never waits";

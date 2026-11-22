@@ -13,7 +13,7 @@ import { Me } from "./ui/Me.tsx";
 import type { Overlay } from "./ui/overlay.ts";
 import { PaperScreen } from "./ui/PaperScreen.tsx";
 import { People } from "./ui/People.tsx";
-import { CallDaySheet, JobSheet, TradeSheet, UpgradeSheet } from "./ui/Sheets.tsx";
+import { CallDaySheet, JobSheet, TerrySheet, TradeSheet, UpgradeSheet } from "./ui/Sheets.tsx";
 import { SaveSheet } from "./ui/SaveSheet.tsx";
 import { ResultStrip, Status } from "./ui/Status.tsx";
 import { StopCard } from "./ui/StopCard.tsx";
@@ -142,6 +142,7 @@ export function App({ saves }: { saves: CloudSaves }) {
         ) : (
           <PaperScreen
             paper={paper}
+            cases={state.milestones.cases}
             last={paper.log.arrested ? [] : last}
             readOnly={readOnly}
             onStart={() => session.dispatch({ type: "startDay" })}
@@ -206,6 +207,7 @@ export function App({ saves }: { saves: CloudSaves }) {
         overlay && (
           <>
             {overlay.kind === "trade" && <TradeSheet state={state} good={overlay.good} onClose={close} commit={commit} />}
+            {overlay.kind === "terry" && <TerrySheet state={state} onClose={close} commit={commit} />}
             {overlay.kind === "job" && <JobSheet state={state} onClose={close} commit={commit} />}
             {overlay.kind === "callDay" && <CallDaySheet state={state} onClose={close} commit={commit} />}
             {overlay.kind === "upgrade" && (

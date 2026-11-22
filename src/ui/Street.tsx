@@ -3,11 +3,13 @@ import {
   RULES,
   canAskAround,
   deals,
+  falseTrailOffer,
   hoursLeft,
   level,
   quoteJob,
   riskWord,
   rumourAccuracy,
+  terryOffer,
   type Action,
   type DomainEvent,
   type GameState,
@@ -19,7 +21,7 @@ import { localCase, operationNotice, sweepNotice } from "./caseWords.ts";
 import { knownPrice, marketNote } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
 import { goodName, goodsByName, money, placeName, t } from "./text.ts";
-import { briefs, jobSuccessText } from "./words.ts";
+import { briefs, jobSuccessText, terryQuoteLine } from "./words.ts";
 
 interface StreetProps {
   state: GameState;
@@ -39,7 +41,9 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
   const news = briefs(state)
     .map((b) => ({ ...b, id: `${state.runId}:${b.id}` }))
     .filter((b) => !dismissed.has(b.id));
-  const c = localCase(state);
+  const trail = falseTrailOffer(state);
+  const c = localCase(state) ?? (trail ? state.detective.case : null);
+  const terry = terryOffer(state);
   const sweep = state.events.find((e) => e.kind === "sweep" && e.activated && e.place === state.place);
 
   // Travelling or a new day removes the control that had focus; keep it on the page.
@@ -99,6 +103,16 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
       <h2 className="kicker" id="k-market">
         {t("street.market")}
       </h2>
+      {terry && (
+        <button type="button" className="row-button offer-row" onClick={() => onOpen({ kind: "terry" })}>
+          <span>
+            <strong>{t("terry.title")}</strong>
+            <span className="offer-detail">{terryQuoteLine(terry)}</span>
+            {terry.block && <span className="offer-detail warn">{t(`card.why.${terry.block}`)}</span>}
+          </span>
+          <Chevron />
+        </button>
+      )}
       <ul className="goods">
         {[
           ...goodsByName().filter((g) => deals(state.place, g)),
@@ -117,7 +131,18 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
       <h1 ref={headRef} tabIndex={-1} className="place-name">
         {placeName(state.place)}
       </h1>
-      {c && <CaseNotice notice={operationNotice(c, state.day)} />}
+      {c && (
+        <CaseNotice notice={operationNotice(c, state.day)}>
+          {trail?.block === "noCash" && <p>{t("trail.short", { cost: money(trail.cost) })}</p>}
+          {trail?.block === "unavailable" && <p>{t("trail.unavailable")}</p>}
+          {trail && !trail.block && (
+            <button type="button" className="row-button" onClick={() => dispatch({ type: "openFalseTrail" })}>
+              <span>{t("trail.open")}</span>
+              <Chevron />
+            </button>
+          )}
+        </CaseNotice>
+      )}
       {sweep?.kind === "sweep" && <CaseNotice notice={sweepNotice(sweep)} />}
       {narrow ? <>{market}{moves}</> : <>{moves}{market}</>}
       {tips}

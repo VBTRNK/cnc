@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { GOODS, PINCH, PLACES, loadSave, newGame, step, toSave, type CaseEvidence, type GameState, type PlaceId, type Seizure } from "../src/sim/index.ts";
+import { GOODS, PINCH, PLACES, SAVE_VERSION, loadSave, newGame, step, toSave, type CaseEvidence, type GameState, type PlaceId, type Seizure } from "../src/sim/index.ts";
 import { play } from "../src/sim/testing.ts";
 
 // The `cnc.saves` migration in an in-process Postgres (PGlite), with the roles Supabase
@@ -262,6 +262,11 @@ describe("the largest save", () => {
     const oldBytes = await size();
 
     fillCaseEvidence(s);
+    const prior = JSON.stringify({ ...JSON.parse(toSave(s)), version: 5 });
+    expect(loadSave(prior)).toMatchObject({ ok: true, migratedFrom: 5, state: s });
+    s.cards.oldMate = s.day - 4;
+    s.cards.oldMatePays = s.day;
+    s.dougieTip = { place: "uptown", good: "watches", price: 129_999, day: s.day, hour: 14 };
     const text = toSave(s);
     const loaded = loadSave(text);
     expect(loaded.ok, loaded.ok ? undefined : loaded.detail).toBe(true);
@@ -272,7 +277,8 @@ describe("the largest save", () => {
     expect(loadSave(JSON.stringify((await get(A))!.save))).toMatchObject({ ok: true, state: s });
     expect(step(s, { type: "resolveStop", choice: "handOver" }).ok).toBe(true);
     expect(await put(A, base.revision, U3, JSON.stringify(old))).toMatchObject({ outcome: "conflict", revision: latest.revision });
-    expect((await get(A))?.format_version).toBe(5);
+    expect((await get(A))?.format_version).toBe(SAVE_VERSION);
+    expect(loadSave(JSON.stringify((await get(A))!.save), { current: 5 })).toMatchObject({ ok: false, error: "future", version: SAVE_VERSION });
 
     // At night the current edition also appears separately in `paper`.
     const night = { ...s, phase: "night" as const, hour: 22, pending: null, detective: { ...s.detective, case: null },

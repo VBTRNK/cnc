@@ -16,6 +16,7 @@ import {
   quoteSale,
   saleCost,
   saleHoursAtLevel,
+  terryOffer,
   type Action,
   type GameState,
   type GoodId,
@@ -27,7 +28,7 @@ import { caseAt, eventNotice, localCase, operationNotice, sweepNotice } from "./
 import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { goodName, goodTagline, money, t, upgradeName, type TextKey } from "./text.ts";
-import { jobSuccessText } from "./words.ts";
+import { jobSuccessText, terryQuoteLine } from "./words.ts";
 
 interface CommitProps {
   state: GameState;
@@ -185,6 +186,22 @@ function ProfitChip({ profit }: { profit: number }) {
 }
 
 // ---- Job, day end, upgrade -----------------------------------------------------------
+
+export function TerrySheet({ state, onClose, commit }: CommitProps) {
+  const quote = terryOffer(state);
+  if (!quote) return null;
+  const title = t("terry.title");
+  return (
+    <Sheet label={title} onClose={onClose} focusHeading>
+      <h2 tabIndex={-1}>{title}</h2>
+      <p>{terryQuoteLine(quote)} {t("terry.noTime")}</p>
+      {quote.block && <p className="warn">{t(`card.why.${quote.block}`)}</p>}
+      <button type="button" className="commit" disabled={quote.block !== null} onClick={() => commit({ type: "buyTerry" })}>
+        {quote.units > 0 ? t("terry.buy", { cost: money(quote.cost) }) : t("terry.unavailable")}
+      </button>
+    </Sheet>
+  );
+}
 
 export function JobSheet({ state, onClose, commit }: CommitProps) {
   const q = quoteJob(state);

@@ -1,10 +1,11 @@
-import { CARDS, TRAIL, choiceBlock, type Action, type GameState, type PendingCard } from "../sim/index.ts";
+import { CARDS, DOUGIE_LOAN, TRAIL, choiceBlock, trailDestinations, type Action, type GameState, type PendingCard } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
-import { caseDates, operationName, refusal } from "./caseWords.ts";
+import { CaseNotice } from "./CaseNotice.tsx";
+import { caseDates, caseSites, operationName, refusal } from "./caseWords.ts";
 import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
-import { placesText, t } from "./text.ts";
-import { cardText, cardValues, choiceChips } from "./words.ts";
+import { money, placesText, t } from "./text.ts";
+import { cardText, cardValues, choiceChips, dougieNotice } from "./words.ts";
 
 interface CardSheetProps {
   state: GameState;
@@ -21,9 +22,12 @@ export function CardSheet({ state, pending, dispatch, readOnly }: CardSheetProps
   const who = cardText(id, "who", values);
   const trail = TRAIL.includes(id);
   const c = trail ? state.detective.case : null;
+  const destinations = c ? trailDestinations(state, c) : [];
+  const cannotMove = c !== null && destinations.length === 0;
+  const repayment = trail && state.cards.oldMatePays === state.day ? dougieNotice(state) : null;
 
   return (
-    <Sheet label={who} blocking className="card" focusHeading={trail}>
+    <Sheet label={who} blocking className="card" focusHeading={trail || id === "oldMate"}>
       <div className="dossier">
         <Portrait who={card.who ?? "stranger"} />
         <div className="dossier-text">
@@ -37,31 +41,39 @@ export function CardSheet({ state, pending, dispatch, readOnly }: CardSheetProps
           {c
             ? <p><strong>{operationName(c)}</strong> · {placesText(c.places)} · {caseDates(c)}. {refusal}</p>
             : <p>There’s no current operation warning to move.</p>}
-          <p>“I can give him another story. Always room for one of those.”</p>
         </div>
       )}
+      {id === "oldMate" && (
+        <p className="card-context">
+          {t("dougie.terms", { amount: money(DOUGIE_LOAN.repayment), day: state.day + DOUGIE_LOAN.days })}
+        </p>
+      )}
+      {repayment && <CaseNotice notice={repayment} heading="h3" />}
 
       <fieldset className="choices" disabled={readOnly}>
         {card.choices.map((choice) => {
           const block = choiceBlock(state, choice);
+          const unavailable = trail && choice.chance && cannotMove;
           const chips = block || trail ? [] : choiceChips(state, choice, pending.odds);
           return (
             <button
               key={choice.id}
               type="button"
               className="choice-card"
-              disabled={block !== null}
+              disabled={block !== null || !!unavailable}
               onClick={() => dispatch({ type: "resolveCard", choice: choice.id })}
             >
               <span className="choice-title">{trail && choice.chance ? `Pay Lenny ${values.cost}` : cardText(id, choice.id, values)}</span>
-              {block ? (
+              {unavailable ? (
+                <span className="choice-after">{t("trail.unavailable")}</span>
+              ) : block ? (
                 <span className="choice-after">{t(`card.why.${block}`)}</span>
               ) : (
                 trail ? (
                   <span className="choice-after">
                     {choice.chance
                       ? c
-                        ? `${pending.odds}% chance Pinch takes the bait. If there’s room, ${c.places.length === 2 ? "one or both sites can change" : "he moves the operation"}. The dates stay. You pay either way.`
+                        ? `${pending.odds}% chance Pinch takes the bait. If it moves, the operation could run ${destinations.map(caseSites).join(" or ")}. The dates stay. You pay either way.`
                         : "You pay for the story."
                       : "Keep your cash and plan around the warning."}
                   </span>

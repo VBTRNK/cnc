@@ -1,6 +1,6 @@
 // Authored cards as typed data (docs/design.md, "Events"): a fixed set of conditions and
-// effects, no scripting. Encounters take the midday slot's harmless third; the false trail
-// is the first card of the day before an operation. Text lives with the UI under
+// effects, no scripting. Encounters take the midday slot's harmless third; false trails are
+// available on the day before an operation. Text lives with the UI under
 // `card.<id>...` keys; saves reference cards and choices by these IDs.
 
 import { PINCH, type CastId, type FlagId, type GoodId, type PlaceId, type SkillId, type UpgradeId } from "./content.ts";
@@ -68,7 +68,10 @@ export interface Card {
 
 const pass: Choice = { id: "pass", effects: [] };
 
-/** In the pool's order: narrower conditions first, so the general cards don't shadow them. */
+export const DOUGIE_LOAN = { principal: 100, repayment: 150, days: 4 } as const;
+export const TERRY_GAIN = { kind: "gain", good: "smokes", units: 20, cost: 90 } as const;
+
+/** Stable card IDs, including the cards only reachable through legacy pending saves. */
 export const CARD_IDS = [
   "oldMatePays",
   "genuineWatch",
@@ -94,9 +97,9 @@ const story = (cost: number): Choice => ({
 export const CARDS: Record<CardId, Card> = {
   oldMatePays: {
     who: null,
-    when: { flag: { id: "loan", set: true, days: 4 } },
+    when: { flag: { id: "loan", set: true, days: DOUGIE_LOAN.days } },
     choices: [],
-    report: [{ kind: "cash", amount: 150 }, { kind: "tip" }, { kind: "flag", id: "loan", set: false }],
+    report: [{ kind: "cash", amount: DOUGIE_LOAN.repayment }, { kind: "tip" }, { kind: "flag", id: "loan", set: false }],
   },
   genuineWatch: {
     who: null,
@@ -124,7 +127,7 @@ export const CARDS: Record<CardId, Card> = {
   terry: {
     who: null,
     when: { at: "docks" },
-    choices: [{ id: "buy", effects: [{ kind: "gain", good: "smokes", units: 20, cost: 90 }] }, pass],
+    choices: [{ id: "buy", effects: [TERRY_GAIN] }, pass],
   },
   mugger: {
     who: null,
@@ -152,7 +155,7 @@ export const CARDS: Record<CardId, Card> = {
     when: { cash: 400, flag: { id: "loan", set: false } },
     once: true,
     choices: [
-      { id: "lend", effects: [{ kind: "cash", amount: -100 }, { kind: "flag", id: "loan", set: true }] },
+      { id: "lend", effects: [{ kind: "cash", amount: -DOUGIE_LOAN.principal }, { kind: "flag", id: "loan", set: true }] },
       { id: "notNow", effects: [] },
     ],
   },
@@ -174,7 +177,7 @@ export const CARDS: Record<CardId, Card> = {
 };
 
 /** The encounter pool in the order it is tried at 16:00: the first card whose conditions hold shows. */
-export const POOL: readonly CardId[] = CARD_IDS.filter((id) => !id.startsWith("falseTrail"));
+export const POOL: readonly CardId[] = ["genuineWatch", "tradingStandards", "oldMate"];
 
-/** The false trail's cards, tried at the start of the day between the announcement and the operation. */
+/** The false trail's cards for the Sergeant and Inspector respectively. */
 export const TRAIL: readonly CardId[] = ["falseTrail", "falseTrailInspector"];

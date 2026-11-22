@@ -211,8 +211,8 @@ function freePairs(s: GameState, start: number, end: number): { place: PlaceId; 
 }
 
 /** A sweep covers this place at some time in [start, end]. */
-export const sweepCovers = (s: GameState, place: PlaceId, start: number, end: number): boolean =>
-  s.events.some((e) => e.kind === "sweep" && e.place === place && overlaps(e, start, end));
+export const sweepCovers = (s: GameState, place: PlaceId, start: number, end: number, confirmedOnly = false): boolean =>
+  s.events.some((e) => e.kind === "sweep" && e.place === place && (!confirmedOnly || e.activated) && overlaps(e, start, end));
 
 /** Places a sweep may cover in [start, end]: no sweep there and no operation, under the overlap rule. */
 function freePlaces(s: GameState, start: number, end: number): PlaceId[] {
