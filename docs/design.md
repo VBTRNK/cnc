@@ -136,7 +136,7 @@ the same: what is the best use of my next few hours?
   **burner phone** $1,200. The phone adds *Call around* to City: it notes every place's
   current price as seen now (not stock or demand) and adds heat, 5 × the call's number
   today (+5, +10, +15, ...; the count restarts each morning). Coppers listen in on a phone
-  that is never thrown away. The third purchase is the Crown (see "The first chapter").
+  that is never thrown away. Me also sells the Crown (see "The first chapter").
 - **Skills**, levels 0-5 at 10 / 25 / 45 / 70 / 100 experience: **Patter** sells 10% faster per
   level (+1 per hour of a completed sale); **Nerve** adds 5 points per level to job and
   legging-it odds (+2 per job, +2 per stop); **Savvy** cuts selling heat 8% per level and adds 5
@@ -181,7 +181,7 @@ the same: what is the best use of my next few hours?
   stock where the player stands, each action's hours, a trade's total. Hints are words: a
   price is cheap at 80% or less of the city's usual (base × the mean factor of the places that
   deal in it) and pricey at 120% or more; heat as its
-  word; a place's police mood in its flavour line; odds as words. Every sale and job quote
+  word and the place's police mood in the local notice or flavour line. Every sale and job quote
   carries a stop-risk chip: slight (under 5%), some (5-15%), real (15-30%), high (30%+). City
   shows the prices last seen in each place with their age. Held goods remember what they
   cost, so a sale's quote and its result give the profit or loss, a fact
@@ -282,10 +282,11 @@ tally, and what people feel is in their authored lines.
   including a job's outcome after handover or a later arrest in the same operation. A
   job's own arrest result is attributed to the job. An unrelated arrest has its own account.
   Pinch rests three days before the next theory.
-- **Promotion,** once: at the third day end after the player buys the Crown he becomes
-  Detective Inspector, so the purchase has three days to be enjoyed. From then on an
-  operation covers the two places with the highest tallies. His record of closed and cold
-  cases is colour, not a gate.
+- **Promotion,** once: on the third day end counting the Crown purchase night, Pinch
+  becomes Detective Inspector. The Courier reports the promotion even when a milestone
+  leads. Pinch cites the pub's publicity to justify his wider remit. Each newly announced
+  operation covers the two places with the highest tallies. The promotion leaves already
+  announced sites and dates in place. His record of closed and cold cases is colour.
 - **Events.** Blocking choice cards (two or three choices) are for dilemmas: stops, the
   false trail, encounters and the Crown. Everything else is a report or a line in the paper.
   An *encounter* takes the midday slot's harmless third: at 16:00, the first authored card
@@ -363,11 +364,12 @@ tally, and what people feel is in their authored lines.
   attribute his interpretation separately from the observation and result. Street and
   City carry the current warning at affected places, with sale and risky-job quotes
   applying it at the point of commitment. Below the board the cast has one current line each.
-- **The first chapter: claim the Crown.** The third purchase on Me, shown from day 1: the
-  Crown & Anchor, $2,500. Buying it ends chapter one with a front page and a title from
-  Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
-  player drinks: each night adds 2 to his tally for the Strip. After the Crown, money buys
-  false trails, bribes and a margin; further purchases come with #19 and #7.
+- **The first chapter: claim the Crown.** The Crown & Anchor is on sale in Me from day 1
+  for $2,500. Reg wants to retire and hands over the keys in the purchase receipt. The
+  pub pays $75 at every day end, including the purchase night, and adds 2 to Pinch's
+  tally for the Strip. Lenny's purchase-night front page calls the new owner "the
+  Guv'nor" and closes chapter one. Start the next day on Street in the same run.
+  Local trading, future cases and any unbought upgrades are available after the sale.
 - **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
   card's value per choice; `CARDS=1` each choice's value): every encounter a real choice in
   some state and none a dominant earner, the loan aside (ADR-011, ADR-014,
@@ -473,9 +475,10 @@ tally, and what people feel is in their authored lines.
   marked), the newest exhibit on paper and "Open the file" with the count. Opened, it lists
   every exhibit newest first and his earlier operations with their stamps, and the letters
   hide; focus moves to the first of them. The cast follows, one current line each.
-- **Me.** The Classifieds come first: an ad for each upgrade not yet bought, with its
-  price and Buy, or how much is short; owned ones as rows marked Yours. Form follows with
-  Patter, Nerve and Savvy, each with its level, five pips and its effect. The Small print: how
+- **Me.** Classifieds lead with the owned Crown and its nightly rate once purchased.
+  Remaining ads show price and Buy, or the cash shortfall. Owned coats and phones show
+  as rows marked Yours. Form shows Patter, Nerve and Savvy with their levels, five pips
+  and effects. Saved game shows how
   the run is saved and one button for the cloud, export and a new run.
 - **Event card.** The character and the situation sit in a dossier: a manila folder with a
   halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
@@ -487,8 +490,22 @@ tally, and what people feel is in their authored lines.
   brush-ink outlines, Ben-Day dot shadows, sheet and newsprint fills and one spot of red. Each
   outline tells who it is (Pinch's trilby and monocle, Lenny's fedora and press card, Mags's
   curls, Old Reg's tufts and apron, the copper's helmet, a stranger's flat cap).
-- **Tone of voice.** Dry, punning tabloid. Text is scarce: a line stays only if it informs a
-  decision or adds character. No headings or labels that restate what the screen shows.
+### Voice
+
+- Keep the Courier dry and specific. A headline can be playful. Give the reader the
+  actual result, window or next action before the joke. In a crowded edition, keep the
+  facts someone needs to play in the lead or a required brief.
+- Give the joke to the person it serves. Pinch dignifies ordinary habits with official
+  theories and claims credit. Lenny wants a story that sells. Mags distinguishes a
+  rumour from a dated quote. Reg wants the keys handed over so he can retire.
+- Use direct labels and ordinary English for actions, costs, failures, and saving.
+  Give cash in dollars and times on the 24-hour clock. Keep heat, a police sweep and
+  an operation distinct. Separate stop risk from the odds of a job, bribe or escape.
+  Use explicit game days in editions and saved warnings.
+- Make amounts and consequences follow the quote or recorded outcome. A successful
+  bribe spends the quoted cash. A refusal keeps the cash and can seize goods.
+  Trading Standards names the quantity it can take. Treat Pinch's theory and
+  credit-taking as attributed speech or interpretation.
 
 ## Release steps
 

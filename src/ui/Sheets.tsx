@@ -265,31 +265,24 @@ export function UpgradeSheet({ state, upgrade, onClose, commit }: CommitProps & 
 function CrownSheet({ state, onClose, commit }: CommitProps) {
   const cost = money(UPGRADE_COST.crown);
   return (
-    <Sheet label={upgradeName("crown")} onClose={onClose} className="card">
+    <Sheet label={t("crown.title")} onClose={onClose} className="crown-sheet" focusHeading focusFallback="#owned-crown">
+      <h2 tabIndex={-1}>{t("crown.title")}</h2>
+      <p>{t("crown.income", { takings: money(PINCH.crownTakings) })}</p>
       <div className="dossier">
         <Portrait who="reg" />
         <div className="dossier-text">
           <p className="dossier-who">{t("crown.who")}</p>
-          <p>{t("crown.story", { cost })}</p>
+          <p>{t("crown.story")}</p>
         </div>
       </div>
-      <div className="choices">
-        <button
-          type="button"
-          className="choice-card"
-          disabled={state.cash < UPGRADE_COST.crown}
-          onClick={() => commit({ type: "buyUpgrade", upgrade: "crown" })}
-        >
-          <span className="choice-title">{t("crown.buy")}</span>
-          <span className="action-chips">
-            <Chip warn>{t("chip.cost", { amount: cost })}</Chip>
-            <Chip>{t("paper.chip.pub", { amount: money(PINCH.crownTakings) })}</Chip>
-          </span>
-        </button>
-        <button type="button" className="choice-card" onClick={onClose}>
-          <span className="choice-title">{t("crown.notYet")}</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        className="commit"
+        disabled={state.cash < UPGRADE_COST.crown}
+        onClick={() => commit({ type: "buyUpgrade", upgrade: "crown" })}
+      >
+        {t("upgrade.crown.buyLabel", { cost })}
+      </button>
     </Sheet>
   );
 }

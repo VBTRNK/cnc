@@ -17,13 +17,19 @@ interface MeProps {
 export function Me({ state, save, sync, onOpen }: MeProps) {
   const values = { pockets: RULES.coatPockets, from: RULES.pockets, takings: money(PINCH.crownTakings) };
   const forSale = UPGRADES.filter((u) => !has(state, u));
-  const owned = UPGRADES.filter((u) => has(state, u));
+  const owned = UPGRADES.filter((u) => u !== "crown" && has(state, u));
   return (
     <>
       <section aria-labelledby="k-ads">
         <h2 className="kicker" id="k-ads">
           {t("me.classifieds")}
         </h2>
+        {has(state, "crown") && (
+          <article className="paper-note ad">
+            <h3 className="ad-name" id="owned-crown" tabIndex={-1}>{upgradeName("crown")}</h3>
+            <p className="ad-what">{t("upgrade.crown.owned", values)}</p>
+          </article>
+        )}
         {forSale.map((u) => {
           const cost = UPGRADE_COST[u];
           return (
@@ -75,7 +81,7 @@ export function Me({ state, save, sync, onOpen }: MeProps) {
                 <span className="skill-level" aria-hidden="true">
                   {lv}
                 </span>
-                <span className="visually-hidden">{t("skill.level", { level: lv })}</span>
+                <span className="visually-hidden">{t("skill.level", { level: lv, max: RULES.levels.length })}</span>
                 <Marks className="pips" filled={lv} total={RULES.levels.length} />
                 <p className="skill-what">{t(`skill.${k}.what`)}</p>
               </li>

@@ -5,7 +5,7 @@ import { Sheet } from "./Sheet.tsx";
 import { CaseNotice } from "./CaseNotice.tsx";
 import { caseAt, localCase, operationNotice, sweepNotice } from "./caseWords.ts";
 import { goodCount, money, t } from "./text.ts";
-import { oddsText } from "./words.ts";
+import { displayChance } from "./words.ts";
 
 interface StopCardProps {
   state: GameState;
@@ -62,8 +62,8 @@ export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
             <>
               <span className="choice-after">{t(`stop.bribe.after.${kind}`)}</span>
               <span className="action-chips">
-                <Chip kind="chance">{oddsText(stop.bribeOdds)}</Chip>
-                <Chip>{t("chip.cost", { amount: money(stop.bribe) })}</Chip>
+                <Chip kind="chance">{t("stop.bribe.acceptance", { chance: displayChance(stop.bribeOdds) })}</Chip>
+                <Chip>{t("stop.bribe.cost", { amount: money(stop.bribe) })}</Chip>
                 <Chip>{t("chip.heat", { heat: RULES.bribeHeat })}</Chip>
               </span>
             </>
@@ -73,7 +73,7 @@ export function StopCard({ state, stop, dispatch, readOnly }: StopCardProps) {
         <button type="button" className="choice-card" onClick={() => choose("legIt")}>
           <span className="choice-title">{t("stop.legIt")}</span>
           <span className="choice-after">
-            {q.legIt}% chance to escape. Escape means +{RULES.legItHeat} heat and the {kind === "sell" ? "sale" : "job"} continues. Failure means arrest.
+            {displayChance(q.legIt)}% chance to escape. Escape means +{RULES.legItHeat} heat and the {kind === "sell" ? "sale" : "job"} continues. Failure means arrest.
           </span>
         </button>
 

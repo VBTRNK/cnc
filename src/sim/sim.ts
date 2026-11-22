@@ -815,6 +815,13 @@ export const cardSells = (s: GameState, e: Extract<Effect, { kind: "sell" }>): b
 export const cardSale = (s: GameState, e: Extract<Effect, { kind: "sell" }>): number | null =>
   cardSells(s, e) ? Math.round(e.units * price(s, s.place, e.good) * e.factor) : null;
 
+/** Goods an encounter seizes, choosing the largest stack in catalogue order. */
+export function cardSeizure(s: GameState, e: Extract<Effect, { kind: "lose" }>): { good: GoodId; units: number } | null {
+  const good = GOODS.reduce((a, b) => (s.held[b] > s.held[a] ? b : a));
+  const held = s.held[good];
+  return held > 0 ? { good, units: Math.max(1, Math.floor(held * e.share)) } : null;
+}
+
 /**
  * Why a choice can't be taken now. Only its certain effects count; a chance's loss is capped by
  * the cash. A card sells only where the good is dealt.
@@ -931,9 +938,9 @@ function settle(
         break;
       }
       case "lose": {
-        const good = GOODS.reduce((a, b) => (s.held[b] > s.held[a] ? b : a));
-        if (s.held[good] === 0) break;
-        const units = Math.max(1, Math.floor(s.held[good] * e.share));
+        const seizure = cardSeizure(s, e);
+        if (!seizure) break;
+        const { good, units } = seizure;
         s.paid[good] -= saleCost(s, good, units);
         s.held[good] -= units;
         s.today.seized += units;

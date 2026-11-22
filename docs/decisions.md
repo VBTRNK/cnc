@@ -562,3 +562,14 @@ Date: 2026-11-22. [First-chapter cohesion](https://github.com/VBTRNK/cnc/issues/
   format 5 cannot continue a run already written as format 6. The filled case
   and receipt fixture measured 52,578 bytes by day and 53,438 at night, leaving
   12,098 bytes under the cloud cap.
+
+## ADR-020 — The Crown closes the local chapter
+
+Date: 2026-11-22. [First-chapter cohesion](https://github.com/VBTRNK/cnc/issues/36).
+
+Use the Crown receipt and first nightly edition to close chapter one. Keep
+ownership visible above remaining ads, then return the player to Street when
+they start a new day. The purchase milestone and nightly paper already carry
+the chapter facts. A new flag or save migration would duplicate that state.
+The promotion reports the practical effect even when it runs as a brief.
+See [the first-chapter design](design.md#the-detective-events-and-cast).
