@@ -314,6 +314,77 @@ try {
   await tap("dialog.card .choice-card", "Run");
   check("the card's choice leaves a line", /You run/.test(await text(".result") ?? ""), await text(".result"));
 
+  // S5: play the warning day without a modal, then earn enough to visit Lenny.
+  const repeat = sim.newGame(42, "s5-repeat");
+  repeat.day = 11;
+  repeat.cash = 120;
+  repeat.detective.seen.docks = { oddJob: 6 };
+  repeat.milestones.cases = [{ n: 1, place: "docks", habit: "oddJob", outcome: "cold", day: 8 }];
+  await store(testing.play(repeat, { type: "callItADay" }).state);
+  await reload();
+  check("S5: the repeat leads with other news and puts Winkle in a required brief",
+    !/Pinch investigates/.test(await text(".headline") ?? "") && /Operation Winkle.*days 13–14.*Odd jobs still pay as usual/.test(await text(".paper-required") ?? ""));
+  await tap(".paper .commit", "Start day 12");
+  check("S5: a short, empty-pocket start leaves the warning and a way back to Lenny",
+    await evaluate(`!document.querySelector("dialog[open]")`) && /Come back before close/.test(await text(".case-notice") ?? ""));
+  await tap(".moves button", "Odd job");
+  await tap(".case-notice button", "Ask Lenny");
+  check("S5: the voluntary sheet quotes the price, odds and possible sites",
+    /Pay Lenny \$150.*55% chance.*could run.*You pay either way/.test(await text("dialog .choices") ?? ""));
+  await snap("s5-lenny");
+  await reload();
+  await tap("dialog .choice-card", "Leave it");
+  check("S5: declining after reload consumes the offer and keeps the warning",
+    await evaluate(`!document.querySelector(".case-notice button")`) && /Operation Winkle/.test(await text(".case-notice") ?? ""));
+
+  const quietDocks = sim.newGame(42, "s5-terry");
+  quietDocks.day = 6;
+  quietDocks.hour = 16;
+  quietDocks.held.tapes = 10;
+  quietDocks.paid.tapes = 100;
+  quietDocks.events = [{ id: "d6-midday", slot: "midday", kind: "harmless", line: "pigeons", startDay: 6, startHour: 16, endDay: 7, activated: true }];
+  await store(quietDocks);
+  await reload();
+  check("S5: Terry's market quote fits the remaining space and states its expiry",
+    /Terry’s van.*Docks.*22:00.*10 cartons of smokes for \$45/.test(await text(".offer-row") ?? ""));
+  await snap("s5-terry");
+  await tap(".offer-row", "Terry");
+  await key("Escape", "Escape", 27);
+  check("S5: closing the quote restores focus and leaves it available", /Terry’s van/.test(await focused()));
+  await tap(".offer-row", "Terry");
+  await tap("dialog .commit", "Buy for $45");
+  check("S5: buying once settles at the shown price and moves focus to Street",
+    await saveMatches(testing.play(quietDocks, { type: "buyTerry" }).state) &&
+    await evaluate(`!document.querySelector(".offer-row") && document.activeElement.matches(".place-name")`));
+
+  const mate = sim.newGame(42, "s5-dougie");
+  mate.cash = 400;
+  mate.pending = { kind: "card", card: "oldMate", odds: null };
+  mate.cards.oldMate = 1;
+  await store(mate);
+  await reload();
+  check("S5: Dougie states the dated terms", /\$150 and a price tip at the start of day 5/.test(await text("dialog .card-context") ?? ""));
+  await tap("dialog .choice-card", "Lend him $100");
+  await tap(".tabs button", "People");
+  check("S5: People keeps the outstanding promise", /Dougie owes you \$150.*Lent \$100 on day 1.*start of day 5/.test(await text(".screen") ?? ""));
+  const due = testing.play(mate, { type: "resolveCard", choice: "lend" },
+    { type: "callItADay" }, { type: "startDay" }, { type: "callItADay" }, { type: "startDay" },
+    { type: "callItADay" }, { type: "startDay" }, { type: "callItADay" }).state;
+  await store(due);
+  await reload();
+  await tap(".paper .commit", "Start day 5");
+  check("S5: the dawn result shows the settled amount and dated price tip",
+    /Dougie repaid \$150.*Day 5 at 10:00/.test(await text(".strip .result") ?? ""));
+  const paid = testing.play(due, { type: "startDay" }).state;
+  const tip = paid.dougieTip;
+  paid.memory[tip.place][tip.good] = { day: 5, hour: 13, price: tip.price + 100 };
+  await store(paid);
+  await reload();
+  await tap(".tabs button", "People");
+  check("S5: the People receipt still shows the original quote after reload and a newer sighting",
+    /Dougie repaid \$150 on day 5.*Day 5 at 10:00/.test(await text(".screen") ?? ""));
+  await snap("s5-dougie-receipt");
+
   const op0 = sim.newGame(4, "pinchcheck");
   const op = { ...op0, day: 7, held: { ...op0.held, smokes: 5 }, paid: { ...op0.paid, smokes: 30 } };
   op.detective = { ...op.detective, case: { n: 1, place: "docks", habit: "oddJob", announced: 5, places: ["docks"], caught: false } };

@@ -3,10 +3,12 @@
 
 import {
   CARDS,
+  DOUGIE_LOAN,
   GOODS,
   MILESTONES,
   PINCH,
   RULES,
+  TERRY_GAIN,
   TRAIL,
   UPGRADE_COST,
   cardSale,
@@ -14,6 +16,7 @@ import {
   gainOf,
   has,
   heatWord,
+  isSafeRepeat,
   type CardId,
   type Choice,
   type DomainEvent,
@@ -22,10 +25,12 @@ import {
   type GoodId,
   type MilestoneId,
   type Paper,
+  type PastCase,
   type PerGood,
   type PinchItem,
   type PlaceId,
   type Rumour,
+  type Seen,
   type WorldEvent,
 } from "../sim/index.ts";
 import {
@@ -59,6 +64,38 @@ export const heatText = (heat: number): string => t(`heat.${heatWord(heat)}`);
 export const jobSuccessText = (chance: number): string => t("job.success", { chance: Number(chance.toFixed(1)) });
 
 const at = (place: PlaceId, good?: GoodId) => ({ ...placeValues(place), ...(good ? goodValues(good) : {}) });
+
+function priceTipLine(tip: { place: PlaceId; good: GoodId; price: number }, seen?: Seen): string {
+  const quote = t("result.tipPrice", { ...at(tip.place, tip.good), price: money(tip.price) });
+  return seen ? `${quote} ${t("result.tipTime", { day: seen.day, time: clock(seen.hour) })}` : quote;
+}
+
+export function dougieNotice(s: GameState): Notice | null {
+  const loan = s.flags.loan;
+  const repaid = s.cards.oldMatePays;
+  const amount = money(DOUGIE_LOAN.repayment);
+  if (loan !== undefined) {
+    const due = loan + DOUGIE_LOAN.days;
+    return {
+      title: t("dougie.owed", { amount }),
+      meta: t("dougie.lent", { amount: money(DOUGIE_LOAN.principal), day: loan }),
+      body: s.day < due ? t("dougie.due", { day: due }) : t("dougie.overdue", { due, day: s.day + 1 }),
+    };
+  }
+  if (repaid === undefined) return null;
+  return {
+    title: t("dougie.repaid", { amount, day: repaid }),
+    body: s.dougieTip ? priceTipLine(s.dougieTip, s.dougieTip) : t("dougie.legacyQuote"),
+  };
+}
+
+export function terryQuoteLine(quote: { units: number; cost: number }): string {
+  return t(quote.units > 0 ? "terry.quote" : "terry.full", {
+    until: clock(RULES.dayEnd),
+    goods: goodCount(TERRY_GAIN.good, quote.units || TERRY_GAIN.units),
+    cost: money(quote.units > 0 ? quote.cost : TERRY_GAIN.cost),
+  });
+}
 
 /** "12 tapes, 3 watches": the goods in a seizure, in catalogue order. */
 export function goodsList(goods: PerGood<number>): string {
@@ -100,8 +137,7 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
           // Both tip paths record a remote price before advancing the clock. The
           // post-action snapshot only revisits prices at the player's current place.
           const seen = state.memory[e.tip.place][e.tip.good];
-          const quote = t("result.tipPrice", { ...at(e.tip.place, e.tip.good), price: money(e.tip.price) });
-          const line = seen ? `${quote} ${t("result.tipTime", { day: seen.day, time: clock(seen.hour) })}` : quote;
+          const line = priceTipLine(e.tip, seen);
           out.push(events.some((x) => x.type === "cardResolved") ? line : t("result.mags", { line }));
         } else if (e.tip.via === "ask") {
           out.push(t("result.mags", { line: rumourLine(e.tip, state.day + 1) }));
@@ -264,7 +300,7 @@ function confirmedNotice(e: Exclude<WorldEvent, { kind: "harmless" }>): Notice {
 }
 
 /** The evening paper: committed results and scheduled facts, so every line is true. */
-export function paperView(p: Paper): PaperView {
+export function paperView(p: Paper, cases: readonly PastCase[] = []): PaperView {
   const { log } = p;
   let head: string;
   let story: string;
@@ -280,7 +316,9 @@ export function paperView(p: Paper): PaperView {
     t("paper.arrested.head"),
     t("paper.arrested.story", { fine: money(log.fine), time: clock(RULES.arrestStart) }),
   ];
-  const pinch = PINCH_ORDER.map((k) => p.pinch.find((i) => i.kind === k)).find((i) => i !== undefined);
+  const pinch = PINCH_ORDER.map((k) => p.pinch.find((i) =>
+    i.kind === k && (i.kind !== "announced" || !isSafeRepeat(i.case, cases.find((c) => c.n === i.case.n - 1))),
+  )).find((i) => i !== undefined);
   const freshMorning = p.tomorrow.find((e) => !e.activated && e.startDay === p.day + 1);
   if (front) {
     [head, story] = front === "arrest" ? arrested() : [t(`paper.first.${front}.head`), t(`paper.first.${front}.story`)];

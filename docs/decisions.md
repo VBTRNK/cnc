@@ -483,6 +483,10 @@ the [balance workflow review](https://github.com/VBTRNK/cnc/issues/37).
   pairs give a mean of $53.70 and a bootstrap 95% interval of $27.92–$79.40.
   The stated return accounts for most of the mean on this once-per-run
   card. Recheck the exception if stock, policy or loan terms change.
+  The day-opening repayment recheck measured $32.23 on 1,596 pairs
+  (95% seed-cluster interval $13.75–$50.71). Disjoint seeds 401–800 gave
+  $45.71, for a pooled $38.97 across 3,192 pairs. The point estimate
+  remains within the ordinary cap. Retain the exception for this loan only.
 
 The [stock replay](balance-replay/issue-18.md) records the matched
 comparisons. ADR-014 records the released-policy results and $63 exception.
@@ -533,3 +537,28 @@ Date: 2026-11-22. [First-chapter cohesion](https://github.com/VBTRNK/cnc/issues/
   and 53,313 bytes at night under PostgreSQL's `octet_length(save::text)`,
   leaving at least 12,223 bytes (18.7%) under the 65,536-byte cap. The existing
   cloud functions accept both versions without a database migration.
+
+## ADR-019 — First-chapter encounters and save format 6
+
+Date: 2026-11-22. [First-chapter cohesion](https://github.com/VBTRNK/cnc/issues/36).
+
+- Keep the operation schedule and warnings. A single-site safe repeat after a
+  cold case earns a required Courier brief. Opening with no cargo defers the
+  sheet to an optional warning-day visit. A player short of cash can return that
+  day after earning it. First or material cases keep the affordable opening
+  prompt. The repeat rule was assessed with a safe-work policy that passes
+  suppliers, so it stays empty-pocketed throughout.
+- Keep the collector, Trading Standards and Dougie in the blocking pool. Terry
+  remains as an optional afternoon quote at the Docks. St Agatha's roof is
+  Old Town text. Retain card definitions and frozen odds for pending saves.
+  Keep Mags's one-hour cost and the existing lead and quote rules.
+- Pay Dougie's existing terms at day D+4 opening, including release after
+  arrest, so a short day cannot delay his return. The loan flag and the recorded
+  repayment day remain authoritative. Save format 6 adds one optional dated
+  quote because routine market memory can replace the original price. Older
+  repayments keep their date. The 5-to-6 migration preserves the saved state.
+- The existing cloud functions accept format 6. A prior client treats format 6
+  as a future save, and a stale upload loses the revision check. A rollback to
+  format 5 cannot continue a run already written as format 6. The filled case
+  and receipt fixture measured 52,578 bytes by day and 53,438 at night, leaving
+  12,098 bytes under the cloud cap.

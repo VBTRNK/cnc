@@ -5,7 +5,7 @@ import { CaseNotice } from "./CaseNotice.tsx";
 import { archivedCase, caseResult, currentCaseNotice, observation, resolvedCaseNotice } from "./caseWords.ts";
 import { Portrait } from "./Portrait.tsx";
 import { t } from "./text.ts";
-import { castLines, exhibits } from "./words.ts";
+import { castLines, dougieNotice, exhibits } from "./words.ts";
 
 /**
  * Pinch's file on top, closed by default: his line, the exhibits' letters and the newest one.
@@ -21,6 +21,7 @@ export function People({ state }: { state: GameState }) {
   const older = state.milestones.older.closed + state.milestones.older.cold;
   const name = t(state.detective.promoted ? "people.pinch.inspector" : "people.pinch.sergeant");
   const hasFile = pinned.length > 0 || cases.length > 0 || older > 0;
+  const loan = dougieNotice(state);
 
   // Opening pushes the toggle down the page, so focus goes to what it revealed; closing brings
   // it back into view.
@@ -125,6 +126,8 @@ export function People({ state }: { state: GameState }) {
           </>}
         </div>
       </section>
+
+      {loan && <CaseNotice notice={loan} />}
 
       <section aria-labelledby="k-cast">
         <h2 className="kicker" id="k-cast">

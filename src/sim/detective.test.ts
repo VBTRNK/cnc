@@ -1,8 +1,8 @@
 import { PLACE } from "./content.ts";
-import { tally } from "./detective.ts";
+import { tally, trailDestinations } from "./detective.ts";
 import { operationOn, police } from "./market.ts";
 import { loadSave, toSave } from "./save.ts";
-import { newGame, step } from "./sim.ts";
+import { falseTrailOffer, newGame, step } from "./sim.ts";
 import type { GameState, PinchItem } from "./state.ts";
 import { atLeast, below, play, rngWhere } from "./testing.ts";
 
@@ -152,8 +152,43 @@ describe("the false trail", () => {
     expect(trailDay().pending).toEqual({ kind: "card", card: "falseTrail", odds: 55 });
   });
 
-  it("isn't offered when the player can't afford it", () => {
-    expect(trailDay((s) => (s.cash = 149)).pending).toBeNull();
+  it("can be opened after earning enough on the warning day and is consumed after showing", () => {
+    const open = { type: "openFalseTrail" } as const;
+    const short = trailDay((s) => (s.cash = 120));
+    expect(short.pending).toBeNull();
+    expect(falseTrailOffer(short)).toMatchObject({ cost: 150, block: "noCash" });
+    expect(step(short, open)).toEqual({ ok: false, reason: "noCash" });
+    const earned = play(short, { type: "oddJob" }).state;
+    const opened = play(earned, open).state;
+    expect(opened).toMatchObject({ cash: 150, hour: earned.hour, rng: earned.rng, pending: { card: "falseTrail", odds: 55 } });
+    const load = loadSave(toSave(opened));
+    if (!load.ok) throw new Error(load.detail);
+    const left = play(load.state, { type: "resolveCard", choice: "leave" }).state;
+    expect(step(left, open)).toEqual({ ok: false, reason: "unavailable" });
+  });
+
+  it("defers an empty-pocket safe repeat and keeps the opening trigger with cargo or changed stakes", () => {
+    const edit = (s: GameState) => {
+      s.detective.seen.uptown = { oddJob: 6 };
+      s.milestones.cases.push({ n: 1, place: "uptown", habit: "oddJob", outcome: "cold", day: 2 });
+    };
+    const s = trailDay(edit);
+    expect(s.pending).toBeNull();
+    const moved = play(s, { type: "travel", to: "docks" }, { type: "buy", good: "smokes", units: 1 }).state;
+    expect(falseTrailOffer(moved)).toMatchObject({ block: null });
+    const expired = play(s, { type: "callItADay" }, { type: "startDay" }).state;
+    expect(falseTrailOffer(expired)).toBeNull();
+    expect(operationOn(expired, "uptown")).toBe(true);
+    expect(trailDay((x) => { edit(x); x.held.smokes = 1; }).pending).toMatchObject({ card: "falseTrail" });
+    expect(trailDay((x) => { edit(x); x.milestones.cases[0]!.outcome = "closed"; }).pending).toMatchObject({ card: "falseTrail" });
+  });
+
+  it("includes a due repayment before the prompt and can pay for a first false trail from it", () => {
+    const s = announcedCase((x) => { x.cash = 50; x.flags.loan = 2; });
+    const { state, events } = play(s, { type: "startDay" });
+    expect(state.cash).toBe(200);
+    expect(events.map((e) => e.type).slice(-4)).toEqual(["dayStarted", "cardResolved", "tip", "card"]);
+    expect(state.pending).toMatchObject({ card: "falseTrail" });
   });
 
   it("swallowed: $150, and the operation moves to the place with his lowest tally", () => {
@@ -180,9 +215,31 @@ describe("the false trail", () => {
       x.detective.seen = { docks: { oddJob: 6 }, oldtown: {}, uptown: { ask: 1 }, strip: { tapes: 4 } };
     });
     expect([s.pending, s.detective.case?.places]).toEqual([{ kind: "card", card: "falseTrailInspector", odds: 55 }, ["docks", "strip"]]);
+    const early = trailDestinations(s, s.detective.case!);
     s.events.push({ id: "d6-midday", slot: "midday", startDay: 6, startHour: 16, endDay: 7, activated: false, kind: "sweep", place: "oldtown" });
+    expect(trailDestinations(s, s.detective.case!)).toEqual(early);
+    expect(early).toEqual([["oldtown", "uptown"], ["uptown", "strip"], ["oldtown", "strip"]]);
     s.rng = rngWhere(below(0.5));
     expect(play(s, { type: "resolveCard", choice: "feed" }).state.detective.case?.places).toEqual(["uptown", "strip"]);
+  });
+
+  it("excludes confirmed sweeps, quotes true ties, and reports an impossible relocation", () => {
+    const s = trailDay();
+    const c = s.detective.case!;
+    expect(trailDestinations(s, c)).toEqual([["oldtown"], ["strip"]]);
+    s.events.push({ id: "yesterday", slot: "midday", startDay: 5, startHour: 16, endDay: 6, activated: true, kind: "sweep", place: "oldtown" });
+    expect(trailDestinations(s, c)).toEqual([["oldtown"]]);
+    s.events.pop();
+    s.hour = 16;
+    s.pending = null;
+    delete s.cards.falseTrail;
+    s.detective.seen.oldtown = { ask: 1 };
+    expect(trailDestinations(s, c)).toEqual([["oldtown"], ["strip"]]);
+    for (const place of ["oldtown", "docks", "strip"] as const) {
+      s.events.push({ id: place, slot: "midday", startDay: 6, startHour: 16, endDay: 7, activated: true, kind: "sweep", place });
+    }
+    expect(trailDestinations(s, c)).toEqual([]);
+    expect(step(s, { type: "openFalseTrail" })).toEqual({ ok: false, reason: "unavailable" });
   });
 
   it("never moves the operation onto a sweep", () => {

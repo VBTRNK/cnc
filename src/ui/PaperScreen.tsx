@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Paper } from "../sim/index.ts";
+import type { Paper, PastCase } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
 import { CaseNotice } from "./CaseNotice.tsx";
 import { t } from "./text.ts";
@@ -7,6 +7,7 @@ import { paperView } from "./words.ts";
 
 interface PaperProps {
   paper: Paper;
+  cases: readonly PastCase[];
   /** The result of the action that ended the day, if it just happened. */
   last: readonly string[];
   onStart: () => void;
@@ -14,8 +15,8 @@ interface PaperProps {
 }
 
 /** The evening paper: the day's story, tomorrow's known facts, and the next day. */
-export function PaperScreen({ paper, last, onStart, readOnly }: PaperProps) {
-  const view = paperView(paper);
+export function PaperScreen({ paper, cases, last, onStart, readOnly }: PaperProps) {
+  const view = paperView(paper, cases);
   const headRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     headRef.current?.focus();

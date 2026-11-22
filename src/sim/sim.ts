@@ -2,7 +2,7 @@
 // Pure and deterministic: no wall clock, no UI, randomness only from the generator
 // position saved in the state. An invalid action returns a refusal and draws nothing.
 
-import { CARDS, POOL, TRAIL, type CardId, type Chance, type Choice, type Conditions, type Effect } from "./cards.ts";
+import { CARDS, POOL, TERRY_GAIN, TRAIL, type CardId, type Chance, type Choice, type Conditions, type Effect } from "./cards.ts";
 import {
   CARDS_RULES,
   GOOD,
@@ -21,7 +21,7 @@ import {
   type SkillId,
   type UpgradeId,
 } from "./content.ts";
-import { announced, caughtHere, moveOperation, newDetective, pinchAtNight, seenDoing } from "./detective.ts";
+import { announced, canRelocate, caughtHere, isSafeRepeat, moveOperation, newDetective, pinchAtNight, seenDoing } from "./detective.ts";
 import {
   activateUpTo,
   clamp,
@@ -65,6 +65,8 @@ export type Action =
   | { type: "sell"; good: GoodId; units: number }
   | { type: "travel"; to: PlaceId }
   | { type: "askAround" }
+  | { type: "openFalseTrail" }
+  | { type: "buyTerry" }
   | { type: "lieLow" }
   | { type: "oddJob" }
   | { type: "pullJob" }
@@ -366,6 +368,14 @@ export function check(s: GameState, a: Action): Refusal | null {
       return fits(s, ringDistance(s.place, a.to));
     case "askAround":
       return fits(s, RULES.askHours) ?? (canAskAround(s) ? null : "noTips");
+    case "openFalseTrail": {
+      const offer = falseTrailOffer(s);
+      return offer ? offer.block : "unavailable";
+    }
+    case "buyTerry": {
+      const offer = terryOffer(s);
+      return offer ? offer.block : "unavailable";
+    }
     case "lieLow":
       return fits(s, RULES.lieLowHours);
     case "oddJob":
@@ -427,6 +437,11 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
       out.push({ type: "bought", good: a.good, units: a.units, cost });
       return;
     }
+    case "openFalseTrail":
+      return showCard(s, rng, falseTrailOffer(s)!.card, out);
+    case "buyTerry":
+      s.cards.terry = s.day;
+      return settle(s, rng, "terry", terryBuy.id, terryBuy.effects, null, out);
     case "sell":
       return commitChecked(s, rng, quoteSale(s, a.good, a.units) as SaleQuote, out);
     case "pullJob": {
@@ -715,12 +730,11 @@ function startDay(s: GameState, rng: Rng, out: DomainEvent[]): void {
   s.nextStart = RULES.dayStart;
   clockTo(s, hour, out);
   out.push({ type: "dayStarted", day: s.day, hour });
-  // The day between the announcement and the operation opens with Lenny's false trail.
+  if (conditionsHold(s, CARDS.oldMatePays.when)) showCard(s, rng, "oldMatePays", out);
   const c = s.detective.case;
-  if (c && s.day === operationStart(c) - 1) {
-    const id = TRAIL.find((t) => conditionsHold(s, CARDS[t].when));
-    if (id) showCard(s, rng, id, out);
-  }
+  if (c && carried(s) === 0 && isSafeRepeat(c, s.milestones.cases.at(-1))) return;
+  const offer = falseTrailOffer(s);
+  if (offer && !offer.block) showCard(s, rng, offer.card, out);
 }
 
 /** Records the prices where the player stands, for the goods it deals in. */
@@ -822,6 +836,25 @@ export function choiceBlock(s: GameState, choice: Choice): "noCash" | "noPockets
 /** Today's midday item, if it is a harmless line and already active. */
 const harmlessToday = (s: GameState): string | null =>
   s.events.find((e) => e.slot === "midday" && e.kind === "harmless" && e.startDay === s.day && e.activated)?.id ?? null;
+
+/** The warning day's offer lasts until shown or the day closes, even if cash is short now. */
+export function falseTrailOffer(s: GameState): { card: CardId; cost: number; block: "noCash" | "unavailable" | null } | null {
+  const c = s.detective.case;
+  if (s.phase !== "day" || s.pending || !c || c.caught || s.day !== operationStart(c) - 1
+    || TRAIL.some((id) => s.cards[id] === s.day)) return null;
+  const card = s.detective.promoted ? "falseTrailInspector" : "falseTrail";
+  const cost = CARDS[card].when.cash!;
+  return { card, cost, block: !canRelocate(s, c) ? "unavailable" : s.cash < cost ? "noCash" : null };
+}
+
+const terryBuy = CARDS.terry.choices[0]!;
+
+/** Terry stays at the Docks until close on an afternoon with a remaining harmless item. */
+export function terryOffer(s: GameState) {
+  if (s.phase !== "day" || s.hour < RULES.midday || s.hour >= RULES.dayEnd || s.pending
+    || !harmlessToday(s) || !conditionsHold(s, CARDS.terry.when) || cardResting(s, "terry")) return null;
+  return { ...gainOf(s, TERRY_GAIN), block: choiceBlock(s, terryBuy) };
+}
 
 /** The first card of the pool that fits takes the harmless line's place. */
 function encounter(s: GameState, rng: Rng, eventId: string, out: DomainEvent[]): void {
@@ -935,6 +968,7 @@ function settle(
     const tipPrice = price(s, t.place, t.good);
     if (!s.priceTips.includes(`${t.place}:${t.good}`)) s.priceTips.push(`${t.place}:${t.good}`);
     s.memory[t.place][t.good] = { price: tipPrice, day: s.day, hour: s.hour };
+    if (card === "oldMatePays") s.dougieTip = { ...t, price: tipPrice, day: s.day, hour: s.hour };
     out.push({ type: "tip", tip: { kind: "price", ...t, price: tipPrice } });
   }
   if (hours > 0) {

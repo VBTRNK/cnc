@@ -259,12 +259,19 @@ tally, and what people feel is in their authored lines.
   arrest. Giving up the goods cancels the sale or lets the risky job proceed to its own
   result. With empty pockets, a stop lets the job proceed after a pat-down. A sweep can't
   overlap an operation, under the events' overlap rule.
-- **False trail.** On the day between the announcement and the operation, the first card of
-  the day comes from Lenny (below), and only when the player can afford it:
+  A single-site repeat after a cold case about the same odd work, lying low or asking
+  around at the same place runs as a required Courier brief. The warning keeps its dates,
+  sites and practical effects. First cases and material changes still qualify to lead.
+- **False trail.** Lenny's offer lasts through the warning day. If affordable, the sheet
+  opens at day start unless this is a single-site safe repeat and the player wakes with
+  empty pockets. In that case, or after waking short of cash, the player can open it from
+  the Street warning once they can afford it. Showing the sheet uses the day's offer.
   - *Pay Lenny* costs $150 ($300 once Pinch is promoted). The chance Pinch takes the bait
     is 55% + 5 points per Savvy level, clamped 10–90%. The operation moves to free sites
     with the lowest tally and keeps its size and dates. The payment is spent either way.
-    The result names the actual effect, including unchanged or retained sites.
+    The quote names possible sets, including any site that could stay. Before 16:00 it
+    accounts for a possible sweep without revealing the hidden event. The result names
+    the actual effect, including unchanged or retained sites.
   - *Leave it.*
 
   Being seen elsewhere steers him too; that follows from the tally and needs no rule.
@@ -295,26 +302,32 @@ tally, and what people feel is in their authored lines.
     chance choice draws once between two effect lists, with odds of a base plus skill
     points, clamped 10-90%. A new kind of effect (a share of cash, Pinch's tally, a market
     event) comes with the first card that needs it.
-  - The first pool, ten cards:
+  - The blocking pool:
 
     | Card | Where, when | Choices |
     | --- | --- | --- |
-    | Terry's van | the Docks | 20 smokes for $90 · Pass |
-    | Customs blind eye | the Docks, day 6+ | 10 tapes for $90, heat +5 · Pass |
     | A genuine watch | Uptown, holding watches | Sell one at half as much again, heat +5 · Pass |
-    | Double or nothing | the Strip, cash $300+ | 50%: +$100 or −$100 · Pass |
-    | The church roof | Old Town, cash $500+ | Give $50, heat −8 · Walk on |
-    | No questions asked | anywhere, day 5+ | 3 fireworks for $360, heat +5 · Pass |
-    | A mugger | anywhere, cash $300+ | Hand over $50 · Stand up to him (Nerve chance: Nerve +2, or −$120) · Run, 1 h |
     | Trading Standards | anywhere, warm or worse, holding goods | Duck into a doorway, 1 h · Brazen it out (Patter chance: nothing, or lose half of one good) |
-    | Old mate | anywhere, cash $400+, once | Lend $100 (a flag) · Not now |
-    | Old mate pays up | 4+ days after the loan | A report: +$150 and a tip |
+    | Dougie | anywhere, cash $400+, once | Lend $100 · Not now |
+
+    Terry's van is an optional Docks market quote from 16:00 to 22:00 while the
+    day's harmless item remains. It gives up to 20 smokes for $90, scaled to free
+    pockets at the proportional price. Buying takes no time and starts Terry's
+    ten-day rest. Closing the quote leaves it available that day.
+
+    The roof at St Agatha's is Old Town street colour. Previously saved pending
+    cards keep their choices and frozen odds.
+
+    A loan on day D pays $150 and a price tip on opening day D+4, after the
+    morning market activates and before any Lenny prompt. An overdue saved loan
+    pays at the next opening, even on a 14:00 release. People shows the date and
+    terms while the loan is outstanding, then the payment date and original quote.
 
     No card may be a dominant earner: its mean value where it shows stays below a good hour
     of trading (about $50). [ADR-015](decisions.md#adr-015--revised-trader-balance-targets)
     records the exception for Old mate's loan. Measure each choice by forking the run at the encounter
-    (`CARDS=1`): every choice against the card's last (Pass, Walk on, Not now, Run, Brazen it
-    out), both played on with the same policy and generator to the same game day, the end of
+    (`CARDS=1`): every choice against the card's last, both played on with the same
+    policy and generator to the same game day, the end of
     the next day. Old mate's loan runs instead to the end of the day after the lending fork's
     repayment, cut off at the end of day + 14 and the run's last day; only loans repaid with
     a day to spare count, and those outstanding at the cutoff or cut short by the run's end
@@ -421,7 +434,8 @@ tally, and what people feel is in their authored lines.
   with too few hours left is hidden. Ask Mags names the one-hour cost and the available
   return: an uncertain lead for tomorrow's morning event or one dated quote from another
   neighbourhood. The lead states its forecast day, and the control shows the actual
-  accuracy when Savvy improves it. Optional updates follow the market and moves with
+  accuracy when Savvy improves it. An early lead can leave time to stage cargo before
+  the Courier confirms tomorrow's news. Optional updates follow the market and moves with
   a named source and dismissal. Odd jobs show the guaranteed pay and absence of stop
   risk. Risky jobs show their success chance and stop risk separately. The market lists the
   ten goods the place deals in by name: held count, name, the price in a

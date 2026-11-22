@@ -1,22 +1,24 @@
 // Seeded random play over many runs: every reachable state must keep the rules'
 // invariants, conserve cash and goods, honour the event schedule and survive a save.
 
-import { CARDS } from "./cards.ts";
+import { CARDS, POOL, TRAIL } from "./cards.ts";
 import { GOODS, PLACES, UPGRADES } from "./content.ts";
 import { operationOn } from "./market.ts";
 import { Rng } from "./rng.ts";
 import { loadSave, toSave, validateState } from "./save.ts";
-import { carried, check, maxBuy, maxSale, newGame, pockets, step, type Action, type DomainEvent } from "./sim.ts";
+import { carried, check, falseTrailOffer, maxBuy, maxSale, newGame, pockets, step, terryOffer, type Action, type DomainEvent } from "./sim.ts";
 import type { GameState, WorldEvent } from "./state.ts";
 
-const SEEDS = 150;
-const DAYS = 12;
+const SEEDS = 250;
+const DAYS = 20;
 
 function randomAction(s: GameState, r: Rng): Action {
   if (s.phase === "night") return { type: "startDay" };
   if (s.pending?.kind === "stop") return { type: "resolveStop", choice: r.pick(["bribe", "legIt", "handOver"] as const) };
   // Any choice, including ones that can't be afforded: those must be refused and change nothing.
   if (s.pending?.kind === "card") return { type: "resolveCard", choice: r.pick(CARDS[s.pending.card].choices).id };
+  if (falseTrailOffer(s)?.block === null && r.chance(0.5)) return { type: "openFalseTrail" };
+  if (terryOffer(s)?.block === null && r.chance(0.25)) return { type: "buyTerry" };
   const good = r.pick(GOODS);
   const options: Action[] = [
     { type: "buy", good, units: Math.max(1, r.int(1, Math.max(1, maxBuy(s, good)))) },
@@ -127,6 +129,7 @@ function runOne(seed: number) {
       continue;
     }
     actions.push(action);
+    if (action.type === "openFalseTrail" || action.type === "buyTerry") seen.add(action.type);
     for (const e of r.events) {
       account(ledger, e);
       seen.add(e.type === "job" ? `job:${e.outcome}` : e.type === "dayEnded" ? `end:${e.cause}` : e.type);
@@ -150,15 +153,15 @@ describe(`random play, ${SEEDS} seeds × ${DAYS} days`, () => {
 
   it("reaches every branch, the rare ones included", () => {
     const seen = new Set(runs.flatMap((r) => [...r.seen]));
-    for (const branch of [
+    const required = [
       "stopped", "pattedDown", "bribed", "bribeRefused", "rangRound", "leggedIt", "handedOver", "arrested", "upgraded",
       "levelUp", "tip", "job:success", "job:nothing", "job:hurt", "job:arrested",
       "end:clock", "end:called", "end:arrest", "end:hurt", "takings",
       "pinch:intro", "pinch:announced", "pinch:cold", "pinch:closed", "pinch:promoted", "pinch:credit",
-      ...Object.keys(CARDS).map((id) => `card:${id}`),
-    ]) {
-      expect(seen, branch).toContain(branch);
-    }
+      "openFalseTrail", "buyTerry",
+      ...[...POOL, ...TRAIL, "oldMatePays"].map((id) => `card:${id}`),
+    ];
+    expect(required.filter((branch) => !seen.has(branch))).toEqual([]);
   });
 
   it("schedules at most one morning event and one midday item per day, never overlapping", () => {

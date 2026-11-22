@@ -332,46 +332,46 @@ describe("run and comparison endpoints", () => {
   });
 
   it("retains every attempt when the actual last choice is refused", () => {
-    const card = CARDS.churchRoof;
+    const card = CARDS.oldMate;
     const last = card.choices.at(-1)!;
     const effects = last.effects;
     last.effects = [{ kind: "cash", amount: -100_000 }];
     try {
       const report = cardReport(selectRun("5", "2"));
       expect(report.parents.completed).toBe(2);
-      const refused = report.choices.find((c) => c.key === "churchRoof:give")!;
+      const refused = report.choices.find((c) => c.key === "oldMate:lend")!;
       expect(refused.samples).toMatchObject({ requested: 4, eligible: 4, completed: 0, measured: 0, failed: 4 });
-      expect(refused.samples.incomplete[0]?.pass).toMatchObject({ end: "failed", reason: "resolveCard walkOn: unavailable" });
+      expect(refused.samples.incomplete[0]?.pass).toMatchObject({ end: "failed", reason: "resolveCard notNow: unavailable" });
       expect(refused.diff.measured).toEqual({ n: 0, p10: null, p50: null, p90: null, mean: null });
       expect(refused.measuredMean95).toBeNull();
-      expect(formatCards(report)).toContain("last: resolveCard walkOn: unavailable");
+      expect(formatCards(report)).toContain("last: resolveCard notNow: unavailable");
       expect(report.comparisons.requested).toBe(report.comparisons.completed + report.comparisons.failed + report.comparisons.guard);
     } finally {
       last.effects = effects;
     }
   });
 
-  it("matches the day after repayment and distinguishes truncated and outstanding loans", () => {
+  it("values the loan on the day after its scheduled repayment, with horizon censoring", () => {
     const start = newGame(seed, "loan");
     start.cash = 600;
     start.cards.oldMate = 1;
     start.pending = { kind: "card", card: "oldMate", odds: null };
     const result = (rng: number, horizon: number) => compareCard(start, new Book(), oddJobsOnly, "lend", "notNow", rng, horizon);
-    expect(result(8970, 15)).toMatchObject({
+    const measured = result(8970, 15);
+    expect(measured).toMatchObject({
       status: "measured", diff: 50, take: { repaid: 5, outcome: { day: 6 } }, pass: { outcome: { day: 6 } },
     });
     const cut = result(8970, 5);
     expect(cut).toMatchObject({ status: "cutShort", take: { repaid: 5, outcome: { day: 5 } }, pass: { outcome: { day: 5 } } });
     const early = result(8970, 4);
     expect(early).toMatchObject({ status: "cutShort", take: { repaid: null, outcome: { day: 4 } }, pass: { outcome: { day: 4 } } });
-    const outstanding = result(60, 15);
-    expect(outstanding).toMatchObject({
-      status: "outstanding", diff: -100, take: { repaid: null, outcome: { day: 15 } }, pass: { outcome: { day: 15 } },
+    expect(result(60, 15)).toMatchObject({
+      status: "measured", diff: 50, take: { repaid: 5, outcome: { day: 6 } }, pass: { outcome: { day: 6 } },
     });
-    const summary = summarizeChoices("oldMate:lend", [cut, early, outstanding].map((sample) => ({
+    const summary = summarizeChoices("oldMate:lend", [cut, early, measured].map((sample) => ({
       seed, day: 1, situation: "", free: 20, ...sample,
     })));
-    expect(summary.samples).toMatchObject({ eligible: 3, completed: 3, cutShort: 2, measured: 0, outstanding: 1 });
+    expect(summary.samples).toMatchObject({ eligible: 3, completed: 3, cutShort: 2, measured: 1, outstanding: 0 });
   });
 
   it("counts unique encounters and estimates the measured mean by parent seed", () => {
