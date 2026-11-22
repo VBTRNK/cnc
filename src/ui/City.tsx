@@ -5,7 +5,6 @@ import {
   deals,
   has,
   hoursLeft,
-  operationOn,
   ringDistance,
   type Action,
   type GameState,
@@ -13,6 +12,8 @@ import {
   type PlaceId,
 } from "../sim/index.ts";
 import { Chevron, useNarrow } from "./bits.tsx";
+import { CaseNotice } from "./CaseNotice.tsx";
+import { operationNotice, sweepNotice } from "./caseWords.ts";
 import { knownPrice, marketNote, sweepAt, type PriceView } from "./known.ts";
 import { goodName, goodsByName, money, placeShort, placeValues, t } from "./text.ts";
 import { rumourLine, seenText } from "./words.ts";
@@ -31,6 +32,14 @@ interface CityProps {
 export function City({ state, dispatch, onCall }: CityProps) {
   const narrow = useNarrow();
   const phone = has(state, "phone");
+  const operation = state.detective.case;
+  const sweeps = state.events.filter((e) => e.kind === "sweep" && e.activated);
+  const warnings = (operation || sweeps.length > 0) && (
+    <section aria-label="Route warnings">
+      {operation && <CaseNotice id="city-operation" notice={operationNotice(operation, state.day)} />}
+      {sweeps.map((e) => e.kind === "sweep" && <CaseNotice key={e.id} id={`city-sweep-${e.place}`} notice={sweepNotice(e)} />)}
+    </section>
+  );
   const call = (phone || state.rumour) && (
     <div className="call">
       {phone && (
@@ -50,8 +59,9 @@ export function City({ state, dispatch, onCall }: CityProps) {
       <PriceTable state={state} narrow={narrow} onGo={(to) => dispatch({ type: "travel", to })} />
     </section>
   );
-  return narrow ? (
+  return narrow || warnings ? (
     <>
+      {warnings}
       {prices}
       {call}
     </>
@@ -70,6 +80,7 @@ interface Column {
   /** When its newest price was seen; null for here (live) or never seen. */
   newest: PriceView["seen"];
   notes: string[];
+  warnings: string[];
 }
 
 function column(state: GameState, place: PlaceId, goods: readonly GoodId[]): Column {
@@ -79,9 +90,16 @@ function column(state: GameState, place: PlaceId, goods: readonly GoodId[]): Col
       .filter((x): x is NonNullable<PriceView["seen"]> => x !== null)
       .sort((a, b) => b.day - a.day || b.hour - a.hour)[0] ?? null;
   const notes: string[] = [];
-  if (operationOn(state, place)) notes.push(t("city.head.operation"));
-  if (sweepAt(state, place)) notes.push(t("city.head.sweep"));
-  return { place, here: place === state.place, hours: ringDistance(state.place, place), newest, notes };
+  const warnings: string[] = [];
+  if (state.detective.case?.places.includes(place)) {
+    notes.push(t("city.head.operation"));
+    warnings.push("city-operation");
+  }
+  if (sweepAt(state, place)) {
+    notes.push(t("city.head.sweep"));
+    warnings.push(`city-sweep-${place}`);
+  }
+  return { place, here: place === state.place, hours: ringDistance(state.place, place), newest, notes, warnings };
 }
 
 function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean; onGo: (to: PlaceId) => void }) {
@@ -165,6 +183,7 @@ function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean
                       type="button"
                       className="go"
                       aria-label={t("city.goLabel", { place: placeValues(c.place).place!, hours: c.hours })}
+                      aria-describedby={c.warnings.length ? c.warnings.join(" ") : undefined}
                       onClick={() => onGo(c.place)}
                     >
                       <span className="go-word">{t("city.go")}</span>

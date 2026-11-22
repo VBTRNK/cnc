@@ -44,6 +44,8 @@ import {
 } from "./market.ts";
 import { Rng, seedState } from "./rng.ts";
 import type {
+  CaseArrest,
+  CaseHandover,
   DayLog,
   GameState,
   JobQuote,
@@ -54,6 +56,7 @@ import type {
   Quote,
   Rumour,
   SaleQuote,
+  Seizure,
   WorldEvent,
 } from "./state.ts";
 
@@ -110,7 +113,7 @@ export type DomainEvent =
   | { type: "oddJob"; pay: number }
   | { type: "job"; outcome: "success" | "nothing" | "hurt" | "arrested"; pay: number }
   | { type: "stopped"; stop: PendingStop }
-  | { type: "pattedDown" }
+  | { type: "pattedDown"; operation?: number }
   | { type: "bribed"; amount: number }
   | { type: "bribeRefused"; seized: PerGood<number>; saleOff: boolean }
   | { type: "rangRound"; heat: number }
@@ -497,7 +500,8 @@ function commitChecked(s: GameState, rng: Rng, quote: Quote, out: DomainEvent[])
   if (!rng.chance(quote.stopChance)) return run(s, rng, quote, out);
   s.today.stops += 1;
   if (carried(s) === 0) {
-    out.push({ type: "pattedDown" });
+    const c = s.detective.case;
+    out.push(c && operationOn(s, s.place) ? { type: "pattedDown", operation: c.n } : { type: "pattedDown" });
     return run(s, rng, quote, out);
   }
   // Goods nobody here deals in are valued at the city's usual price.
@@ -535,14 +539,21 @@ function resolveStop(s: GameState, rng: Rng, choice: "bribe" | "legIt" | "handOv
   if (choice === "legIt") {
     const success = rng.chance(stop.quote.legIt / 100);
     out.push({ type: "leggedIt", success });
-    if (!success) return arrest(s, rng, out);
+    if (!success) return arrest(s, rng, out, "escape");
     addHeat(s, RULES.legItHeat);
     return run(s, rng, stop.quote, out);
   }
-  caughtHere(s);
-  out.push({ type: "handedOver", seized: seize(s), saleOff: stop.quote.type === "sell" });
-  if (stop.quote.type === "job") run(s, rng, stop.quote, out);
+  const firstCatch = !s.detective.case?.caught;
+  const c = caughtHere(s);
+  const seized = seize(s);
+  const handover = c && firstCatch ? { place: s.place, action: stop.quote.type, goods: seizureFacts(seized) } : undefined;
+  if (c && handover) c.evidence = { ...c.evidence, handover };
+  out.push({ type: "handedOver", seized, saleOff: stop.quote.type === "sell" });
+  if (stop.quote.type === "job") run(s, rng, stop.quote, out, handover);
 }
+
+const seizureFacts = (goods: PerGood<number>): Seizure =>
+  GOODS.filter((g) => goods[g] > 0).map((g) => [g, goods[g]]);
 
 /** The police take every carried good. Returns what they took. */
 function seize(s: GameState): PerGood<number> {
@@ -554,7 +565,7 @@ function seize(s: GameState): PerGood<number> {
 }
 
 /** Runs a committed action exactly as quoted. Never checked again. */
-function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
+function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[], handover?: CaseHandover): void {
   if (q.type === "sell") {
     const cost = saleCost(s, q.good, q.units);
     s.paid[q.good] -= cost;
@@ -574,6 +585,7 @@ function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
   const r = rng.next();
   const outcome = r < success ? "success" : (r - success) / (1 - success) < 0.5 ? "nothing" : (r - success) / (1 - success) < 0.75 ? "hurt" : "arrested";
   const pay = outcome === "success" ? rng.int(q.pay[0], q.pay[1]) : 0;
+  if (handover) handover.job = { outcome, pay };
   moveClock(s, s.hour + q.hours, out);
   if (outcome === "success") {
     s.cash += pay;
@@ -587,7 +599,7 @@ function run(s: GameState, rng: Rng, q: Quote, out: DomainEvent[]): void {
     s.today.hurt = true;
     return endDay(s, rng, "hurt", out);
   }
-  if (outcome === "arrested") return arrest(s, rng, out);
+  if (outcome === "arrested") return arrest(s, rng, out, "job");
   if (s.hour >= RULES.dayEnd) endDay(s, rng, "clock", out);
 }
 
@@ -616,10 +628,11 @@ function clockTo(s: GameState, hour: number, out: DomainEvent[]): void {
   for (const event of activateUpTo(s, hour)) out.push({ type: "eventStarted", event });
 }
 
-function arrest(s: GameState, rng: Rng, out: DomainEvent[]): void {
-  caughtHere(s);
+function arrest(s: GameState, rng: Rng, out: DomainEvent[], cause: CaseArrest["cause"]): void {
+  const c = caughtHere(s);
   const seized = seize(s);
   const fine = Math.min(s.cash, Math.max(RULES.fineMin, Math.ceil(RULES.fineShare * s.cash)));
+  if (c) c.evidence = { ...c.evidence, arrest: { cause, place: s.place, goods: seizureFacts(seized), fine } };
   s.cash -= fine;
   s.today.fine = fine;
   s.heat = RULES.arrestHeat;
@@ -904,9 +917,13 @@ function settle(
       case "tip":
         tip = true;
         break;
-      case "moveOperation":
+      case "moveOperation": {
+        const c = s.detective.case;
+        const from = c?.places;
         places = moveOperation(s, rng);
+        if (c && from && c.places !== from) c.trail = { from, cost: cash - s.cash };
         break;
+      }
     }
   }
   const goods = perGood((g) => s.held[g] - held[g]);

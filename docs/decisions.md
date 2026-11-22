@@ -510,3 +510,26 @@ Date: 2026-11-22. [Market note mismatch](https://github.com/VBTRNK/cnc/issues/38
   priority over the price hint and reads "few left" so it names availability.
 - The [screen contract](design.md#look-and-feel) gives the note order and
   explains what City can show elsewhere.
+
+## ADR-018 — Case evidence and save format 5
+
+Date: 2026-11-22. [First-chapter cohesion](https://github.com/VBTRNK/cnc/issues/36).
+
+- Keep the operation, market and encounter rules. Record a supported
+  observation when the theory is picked, a resolved move with the former
+  sites and price paid, and the actual handover and arrest in the operation
+  when they occur. Use the existing case number across editions and the board.
+  A legacy case can use its theory and stamp, or an original warning from
+  its own edition, without inferring more from the day's aggregate losses.
+- Save format 4 validates exact state keys. Bump to 5 so the former client
+  protects the newer data as a future save. The 4-to-5 migration preserves
+  the state. Once a cloud revision moves to 5, a stale 4 upload loses the
+  revision check and the prior client stops syncing on reading the newer
+  format. An old client cannot play a version 5 run after rollback.
+- Keep 100 case summaries and 30 editions. Keep the latest resolution's move
+  and evidence with its summary so the collapsed recap survives edition
+  rotation. Earlier summaries can show those facts from their matching saved
+  editions while retained. The filled v5 fixture measured 52,453 bytes by day
+  and 53,313 bytes at night under PostgreSQL's `octet_length(save::text)`,
+  leaving at least 12,223 bytes (18.7%) under the 65,536-byte cap. The existing
+  cloud functions accept both versions without a database migration.

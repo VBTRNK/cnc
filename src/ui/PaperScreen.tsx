@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { Paper } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
+import { CaseNotice } from "./CaseNotice.tsx";
 import { t } from "./text.ts";
 import { paperView } from "./words.ts";
 
@@ -37,6 +38,16 @@ export function PaperScreen({ paper, last, onStart, readOnly }: PaperProps) {
         </h1>
         <p className="byline">{t("paper.byline")}</p>
         <p className="story">{view.story}</p>
+        {view.required.length > 0 && (
+          <ul className="paper-required">
+            {view.required.map((notice, i) => (
+              <li key={i}><CaseNotice notice={notice} /></li>
+            ))}
+          </ul>
+        )}
+        <button type="button" className="commit" disabled={readOnly} onClick={onStart}>
+          {t("paper.start", { day: paper.day + 1 })}
+        </button>
         {view.briefs.length > 0 && (
           <ul className="paper-briefs">
             {view.briefs.map((b) => (
@@ -49,9 +60,6 @@ export function PaperScreen({ paper, last, onStart, readOnly }: PaperProps) {
             <Chip key={c}>{c}</Chip>
           ))}
         </p>
-        <button type="button" className="commit" disabled={readOnly} onClick={onStart}>
-          {t("paper.start", { day: paper.day + 1 })}
-        </button>
       </article>
     </>
   );

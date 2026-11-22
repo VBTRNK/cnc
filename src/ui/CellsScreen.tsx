@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { RULES, type Paper } from "../sim/index.ts";
 import { Chip } from "./bits.tsx";
+import { arrestCost, caseArrest } from "./caseWords.ts";
 import { clock, money, t } from "./text.ts";
 import { heatText } from "./words.ts";
 
@@ -19,6 +20,7 @@ export function CellsScreen({ paper, lines, onDone }: CellsProps) {
   }, [paper.day]);
 
   const { log } = paper;
+  const arrest = caseArrest(paper);
   return (
     <article className="cells">
       <div className="bars" aria-hidden="true">
@@ -27,17 +29,18 @@ export function CellsScreen({ paper, lines, onDone }: CellsProps) {
       <h1 ref={headRef} tabIndex={-1} className="headline">
         {t("cells.head")}
       </h1>
+      {arrest && <p className="result"><mark>{arrestCost(arrest)} You start tomorrow at {clock(RULES.arrestStart)}.</mark></p>}
       {lines.length > 0 && (
         <p className="result">
           <mark>{lines.join(" ")}</mark>
         </p>
       )}
       <p className="chips-line cells-chips">
-        {log.seized > 0 && <Chip warn>{t("paper.chip.seized", { n: log.seized })}</Chip>}
-        <Chip warn>{t("paper.chip.fine", { amount: money(log.fine) })}</Chip>
+        {!arrest && log.seized > 0 && <Chip warn>{log.seized} units seized today</Chip>}
+        {!arrest && <Chip warn>{t("paper.chip.fine", { amount: money(log.fine) })}</Chip>}
         <Chip>{t("paper.chip.cash", { amount: money(paper.cash) })}</Chip>
         <Chip>{t("paper.chip.heat", { word: heatText(paper.heat) })}</Chip>
-        <Chip>{t("cells.out", { time: clock(RULES.arrestStart) })}</Chip>
+        {!arrest && <Chip>{t("cells.out", { time: clock(RULES.arrestStart) })}</Chip>}
       </p>
       <button type="button" className="commit" onClick={onDone}>
         {t("cells.go")}

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { GameState } from "../sim/index.ts";
+import { PINCH, type GameState } from "../sim/index.ts";
 import { Chevron } from "./bits.tsx";
+import { CaseNotice } from "./CaseNotice.tsx";
+import { archivedCase, caseResult, currentCaseNotice, observation, resolvedCaseNotice } from "./caseWords.ts";
 import { Portrait } from "./Portrait.tsx";
 import { t } from "./text.ts";
-import { castLines, exhibits, pastCaseLine, pinchLine } from "./words.ts";
+import { castLines, exhibits } from "./words.ts";
 
 /**
  * Pinch's file on top, closed by default: his line, the exhibits' letters and the newest one.
@@ -14,6 +16,8 @@ export function People({ state }: { state: GameState }) {
   const pinned = exhibits(state);
   const newest = pinned.at(-1);
   const cases = [...state.milestones.cases].reverse();
+  const active = state.detective.case;
+  const latest = active ? undefined : cases.shift();
   const older = state.milestones.older.closed + state.milestones.older.cold;
   const name = t(state.detective.promoted ? "people.pinch.inspector" : "people.pinch.sergeant");
   const hasFile = pinned.length > 0 || cases.length > 0 || older > 0;
@@ -27,8 +31,13 @@ export function People({ state }: { state: GameState }) {
     if (!toggled.current) return;
     toggled.current = false;
     if (open) firstHead.current?.focus();
-    else toggle.current?.scrollIntoView({ block: "nearest" });
+    else toggle.current?.focus();
   }, [open]);
+
+  const toggleFile = () => {
+    toggled.current = true;
+    setOpen(!open);
+  };
 
   return (
     <>
@@ -37,9 +46,22 @@ export function People({ state }: { state: GameState }) {
           <Portrait who="pinch" />
           <div>
             <h1 className="board-who">{name}</h1>
-            <p>{pinchLine(state)}</p>
           </div>
         </div>
+
+        {active ? <CaseNotice notice={currentCaseNotice(state, active)} /> : latest ? (
+          <CaseNotice notice={resolvedCaseNotice(latest)} />
+        ) : <p>{t(state.day >= PINCH.introDay ? "people.pinch.watching" : "people.pinch.unaware")}</p>}
+
+        {hasFile && (
+          <button ref={toggle} type="button" className="toggle" aria-expanded={open} aria-controls="pinch-file" onClick={toggleFile}>
+            <span>{t(open ? "people.file.close" : "people.file.open")}</span>
+            <span className="toggle-figure">
+              {!open && pinned.length > 0 && (pinned.length === 1 ? t("people.exhibits.one") : t("people.exhibits.count", { n: pinned.length }))}
+              <Chevron to={open ? "up" : "down"} className="toggle-chev" />
+            </span>
+          </button>
+        )}
 
         {!open && newest && (
           <>
@@ -59,11 +81,29 @@ export function People({ state }: { state: GameState }) {
           </>
         )}
 
-        {open && (
-          <>
+        <div id="pinch-file" hidden={!open}>
+          {open && <>
+            {(cases.length > 0 || older > 0) && (
+              <>
+                <h2 ref={firstHead} tabIndex={-1} className="label file-label">{t("people.cases")}</h2>
+                <ul className="cases">
+                  {cases.map((c) => (
+                    <li key={c.n} className="case">
+                      <p>{caseResult(archivedCase(state, c))}</p>
+                      <p>{observation(c).body}</p>
+                    </li>
+                  ))}
+                </ul>
+                {older > 0 && (
+                  <p className="cases-older">
+                    {t("people.case.older", { n: older, closed: state.milestones.older.closed, cold: state.milestones.older.cold })}
+                  </p>
+                )}
+              </>
+            )}
             {pinned.length > 0 && (
               <>
-                <h2 ref={firstHead} tabIndex={-1} className="label file-label">
+                <h2 ref={cases.length === 0 && older === 0 ? firstHead : undefined} tabIndex={-1} className="label file-label">
                   {t("people.exhibits.newestFirst")}
                 </h2>
                 <ol className="exhibit-rows">
@@ -81,47 +121,9 @@ export function People({ state }: { state: GameState }) {
                 </ol>
               </>
             )}
-            {(cases.length > 0 || older > 0) && (
-              <>
-                <h2 ref={pinned.length > 0 ? undefined : firstHead} tabIndex={-1} className="label file-label">
-                  {t("people.cases")}
-                </h2>
-                <ul className="cases">
-                  {cases.map((c) => (
-                    <li key={c.n} className="case">
-                      <p>{pastCaseLine(c)}</p>
-                      <p className="stamp">{t(c.outcome === "closed" ? "people.case.closed" : "people.case.cold")}</p>
-                    </li>
-                  ))}
-                </ul>
-                {older > 0 && (
-                  <p className="cases-older">
-                    {t("people.case.older", { n: older, closed: state.milestones.older.closed, cold: state.milestones.older.cold })}
-                  </p>
-                )}
-              </>
-            )}
-          </>
-        )}
-
-        {hasFile && (
-          <button
-            ref={toggle}
-            type="button"
-            className="toggle"
-            aria-expanded={open}
-            onClick={() => {
-              toggled.current = true;
-              setOpen(!open);
-            }}
-          >
-            <span>{t(open ? "people.file.close" : "people.file.open")}</span>
-            <span className="toggle-figure">
-              {!open && pinned.length > 0 && (pinned.length === 1 ? t("people.exhibits.one") : t("people.exhibits.count", { n: pinned.length }))}
-              <Chevron to={open ? "up" : "down"} className="toggle-chev" />
-            </span>
-          </button>
-        )}
+            <button type="button" className="toggle" onClick={toggleFile}>{t("people.file.close")}</button>
+          </>}
+        </div>
       </section>
 
       <section aria-labelledby="k-cast">

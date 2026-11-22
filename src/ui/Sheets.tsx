@@ -20,10 +20,11 @@ import {
   type UpgradeId,
 } from "../sim/index.ts";
 import { Chip, RiskChip } from "./bits.tsx";
+import { CaseNotice } from "./CaseNotice.tsx";
+import { localCase, operationNotice, sweepNotice } from "./caseWords.ts";
 import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { goodName, goodTagline, money, t, upgradeName, type TextKey } from "./text.ts";
-import { oddsText } from "./words.ts";
 
 interface CommitProps {
   state: GameState;
@@ -82,9 +83,9 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
   };
 
   return (
-    <Sheet label={goodName(good)} onClose={onClose}>
+    <Sheet label={goodName(good)} onClose={onClose} focusHeading>
       <div className="sheet-head">
-        <h2>{goodName(good)}</h2>
+        <h2 tabIndex={-1}>{goodName(good)}</h2>
         <p className="sheet-price">
           <span className="money">{money(unitPrice)}</span>
           {hint && <span className="hint-word">{t(`hint.${hint}`)}</span>}
@@ -144,10 +145,14 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
             </button>
           </div>
           {quote && typeof quote !== "string" && (
-            <p className="chips-line">
-              <ProfitChip profit={quote.proceeds - saleCost(state, good, units)} />
-              <RiskChip chance={quote.stopChance} />
-            </p>
+            <>
+              <QuoteWarning state={state} />
+              <p className="chips-line">
+                <ProfitChip profit={quote.proceeds - saleCost(state, good, units)} />
+                <RiskChip chance={quote.stopChance} />
+                <Chip>{t("chip.heat", { heat: Math.round(Math.min(quote.heat, RULES.heatMax - state.heat) * 10) / 10 })}</Chip>
+              </p>
+            </>
           )}
           <button
             type="button"
@@ -177,11 +182,12 @@ export function JobSheet({ state, onClose, commit }: CommitProps) {
   const q = quoteJob(state);
   if (typeof q === "string") return null;
   return (
-    <Sheet label={t("job.title")} onClose={onClose}>
-      <h2>{t("job.title")}</h2>
+    <Sheet label={t("job.title")} onClose={onClose} focusHeading>
+      <h2 tabIndex={-1}>{t("job.title")}</h2>
       <p>{t("job.story", { low: money(q.pay[0]), high: money(q.pay[1]) })}</p>
+      <QuoteWarning state={state} />
       <p className="chips-line">
-        <Chip kind="chance">{oddsText(q.success)}</Chip>
+        <Chip kind="chance">{q.success}% chance of success</Chip>
         <RiskChip chance={q.stopChance} />
       </p>
       <button type="button" className="commit" onClick={() => commit({ type: "pullJob" })}>
@@ -189,6 +195,13 @@ export function JobSheet({ state, onClose, commit }: CommitProps) {
       </button>
     </Sheet>
   );
+}
+
+function QuoteWarning({ state }: { state: GameState }) {
+  const c = localCase(state, true);
+  const sweep = state.events.find((e) => e.kind === "sweep" && e.activated && e.place === state.place);
+  if (c) return <CaseNotice heading="h3" notice={operationNotice(c, state.day)} />;
+  return sweep?.kind === "sweep" ? <CaseNotice heading="h3" notice={sweepNotice(sweep)} /> : null;
 }
 
 export function CallDaySheet({ state, onClose, commit }: CommitProps) {

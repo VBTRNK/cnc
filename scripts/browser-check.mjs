@@ -6,7 +6,7 @@
 //   npm run browser-check [-- <outdir>]    (screenshots go to <outdir>, default: a temp dir)
 //
 // BROWSER names a Chromium-based browser; the default is Edge on Windows. The page's
-// storage is cleared first, so run it against a profile of its own (it makes one).
+// storage is cleared first in an isolated temporary profile, separate from the captures.
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,6 +18,7 @@ const OUT = args.find((a) => !a.startsWith("--")) ?? mkdtempSync(join(tmpdir(), 
 const REPO = join(import.meta.dirname, "..");
 const URL0 = process.env.PREVIEW_URL ?? "http://localhost:4173/";
 const BROWSER = process.env.BROWSER ?? "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe";
+const PROFILE = mkdtempSync(join(tmpdir(), "cnc-browser-profile-"));
 mkdirSync(OUT, { recursive: true });
 const DL = join(OUT, "downloads");
 mkdirSync(DL, { recursive: true });
@@ -27,7 +28,7 @@ const testing = await import(pathToFileURL(`${REPO}/src/sim/testing.ts`).href);
 
 const edge = spawn(BROWSER, [
   "--headless=new", "--disable-gpu", "--remote-debugging-port=9333", "--no-first-run",
-  `--user-data-dir=${join(OUT, "profile")}`, "about:blank",
+  `--user-data-dir=${PROFILE}`, "about:blank",
 ], { stdio: "ignore" });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -215,11 +216,11 @@ try {
   await snap("trade-sheet-sell");
   const sellLabel = await text("dialog .commit");
   check("sell commit shows total and hours", /^Sell \d+ for \$\d+ · \d+ h$/.test(sellLabel), sellLabel);
-  check("sale shows a risk chip", /Risk (slight|some|real|high)/.test(await text("dialog .chips-line")));
+  check("sale shows a stop-risk chip", /(slight|some|real|high) stop risk/.test(await text("dialog .chips-line")));
   check("sale shows its profit", /(Profit|Loss) \$\d+/.test(await text("dialog .chips-line")), await text("dialog .chips-line"));
   await tap("dialog .commit");
   await sleep(300);
-  if (await evaluate(`!!document.querySelector("dialog.card")`)) await tap("dialog.card .choice-card", "Hand it over");
+  if (await evaluate(`!!document.querySelector("dialog.card")`)) await tap("dialog.card .choice-card", "Hand over all carried goods");
   check("result after selling", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
 
   // ---- Me, then reload resumes the same state -------------------------------------------
@@ -265,7 +266,7 @@ try {
   await key("Escape", "Escape", 27);
   await sleep(200);
   check("stop card survives Escape", await evaluate(`document.querySelector("dialog.card")?.open === true`));
-  await tap("dialog.card .choice-card", "Hand it over");
+  await tap("dialog.card .choice-card", "Hand over all carried goods");
   check("stop resolved", await evaluate(`!document.querySelector("dialog.card")`), await text(".result"));
 
   // ---- An arrest: the cells, then the paper -----------------------------------------------
@@ -318,11 +319,13 @@ try {
   await reload();
   await snap("pinch-stop");
   check("inside his operation the stop is Pinch", /Percy Pinch/.test(await text("dialog.card .dossier-who") ?? ""), await text("dialog.card .dossier-who"));
-  check("and he can't be bought", await evaluate(`[...document.querySelectorAll("dialog.card .choice-card")].find(b => b.textContent.includes("Slip him"))?.disabled === true`));
-  await tap("dialog.card .choice-card", "Hand it over");
+  check("and he can't be bought", /Pinch refuses bribes/.test(await text("dialog.card .card-context") ?? "") &&
+    await evaluate(`document.querySelectorAll("dialog.card .choice-card").length === 2`));
+  check("sale and carried quantities are distinct", /sale of 1 carton of smokes.*carrying 5 cartons/.test(await text("dialog.card .card-context") ?? ""));
+  await tap("dialog.card .choice-card", "Hand over all carried goods");
   await tap(".tabs button", "People");
   await snap("people");
-  check("People shows his open case", /Operation Kipper: The Docks Odd-Job Syndicate/.test(await text(".board") ?? ""), await text(".board"));
+  check("People shows his open case and the legacy theory", /Operation Kipper.*Underway at the Docks.*theory concerned odd jobs/.test(await text(".board .case-notice") ?? ""), await text(".board .case-notice"));
   check("the closed file shows the letters and the newest exhibit", (await text(".letters")) === "ExhibitsABCD" && /^Exhibit D · newest/.test(await text(".board .paper-note") ?? ""), `${await text(".letters")} / ${await text(".board .paper-note")}`);
   check("and how many exhibits the file holds", /Open the file4 exhibits/.test(await text(".board .toggle") ?? ""), await text(".board .toggle"));
   await tap(".board .toggle", "Open the file");
@@ -337,6 +340,78 @@ try {
   check("and the cast", (await evaluate(`document.querySelectorAll(".cast-member").length`)) === 3);
   check("People: no horizontal scroll", await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth`));
   await tap(".tabs button", "Street");
+
+  // S2 case playback in the shipped UI, including reloads on both sides of the stop.
+  const f0 = sim.newGame(42, "s2-browser");
+  f0.day = 5;
+  f0.cash = 990;
+  f0.events = [];
+  f0.held.fireworks = 1;
+  f0.paid.fireworks = 85;
+  f0.rng = testing.rngWhere(testing.atLeast(0.5));
+  f0.milestones.firsts = { sale: 1 };
+  const announced = testing.play(f0, { type: "sell", good: "fireworks", units: 1 }, { type: "callItADay" }).state;
+  await store(announced);
+  await reload();
+  check("S2: milestone displaces the case without losing the observation or warning", /A grand in the hand/.test(await text(".headline") ?? "") &&
+    /Operation Kipper.*days 7–8.*You sold fireworks.*Pinch refuses bribes/.test(await text(".paper-required") ?? ""));
+  check("S2: warnings precede Start day and totals follow it", await evaluate(`(() => {
+    const next = document.querySelector(".paper .commit");
+    return !!(next.compareDocumentPosition(document.querySelector(".paper-required")) & Node.DOCUMENT_POSITION_PRECEDING) &&
+      !!(next.compareDocumentPosition(document.querySelector(".paper-chips")) & Node.DOCUMENT_POSITION_FOLLOWING);
+  })()`));
+  await snap("s2-displaced-case");
+  const offered = testing.play(announced, { type: "startDay" }).state;
+  const moveDraw = testing.rngWhere(testing.below(0.5), testing.below(0.3));
+  await store({ ...offered, rng: testing.rngWhere(testing.atLeast(0.9)) });
+  await reload();
+  check("S2: reloaded Lenny card starts at its heading and shows frozen terms", /Lenny Scoop/.test(await focused()) &&
+    /Pay Lenny \$150.*55% chance.*You pay either way/.test(await text("dialog .choices") ?? ""));
+  await tap("dialog .choice-card", "Pay Lenny");
+  check("S2: paid rejection leaves the Docks warning", /You paid Lenny \$150.*kept Operation Kipper at the Docks/.test(await text(".strip") ?? ""));
+
+  await store({ ...offered, events: [], rng: moveDraw });
+  await reload();
+  await tap("dialog .choice-card", "Pay Lenny");
+  check("S2: move result names both old and new sites", /moved from the Docks to Old Town/.test(await text(".strip") ?? ""));
+  const moved = testing.play({ ...offered, events: [], rng: moveDraw }, { type: "resolveCard", choice: "feed" },
+    { type: "callItADay" }, { type: "startDay" }, { type: "travel", to: "oldtown" }).state;
+  moved.held.tapes = 2;
+  moved.paid.tapes = 20;
+  moved.rng = testing.rngWhere(testing.below(0.001), testing.atLeast(0.9));
+  await store(moved);
+  await reload();
+  await tap(".tabs button", "People");
+  check("S2: collapsed recap reconstructs the case after reload", /Underway in Old Town.*You sold fireworks at the Docks.*Lenny’s story moved/.test(await text(".board .case-notice") ?? ""));
+  await snap("s2-resumed-recap");
+  await tap(".tabs button", "City");
+  check("S2: the warning describes the affected destination", await evaluate(`document.querySelector("[aria-describedby=city-operation]")?.getAttribute("aria-label")?.includes("Old Town") ||
+    document.querySelector(".here-col .head-note")?.textContent === "Pinch"`));
+  await tap(".tabs button", "Street");
+  await tap("button.good", "Bootleg Tapes");
+  check("S2: the affected sale quote gives the refusal, stop risk and heat", /Operation Kipper.*Pinch refuses bribes.*stop risk.*Heat \+/.test(await text("dialog .sheet-body") ?? ""));
+  await tap("dialog .commit", "Sell");
+  check("S2: quote transfers focus to the stop heading", /Percy Pinch/.test(await focused()) &&
+    await evaluate(`document.querySelectorAll("dialog[open]").length === 1`));
+  await reload();
+  await tap("dialog .choice-card", "Hand over all carried goods");
+  await tap(".moves .row-button", "Call it a day");
+  await tap("dialog .commit");
+  await reload();
+  check("S2: the seized-goods closure and the move survive in the Courier", /Operation Kipper closed on day 7.*the Docks to Old Town.*2 tapes in Old Town.*sale was cancelled/.test(await text(".paper .story") ?? ""));
+  await tap(".paper .commit");
+  await tap(".tabs button", "People");
+  check("S2: People repeats the move and closure under a named status", /Closed · day 7.*the Docks to Old Town.*2 tapes in Old Town.*sale was cancelled/.test(await text(".board .case-notice") ?? ""));
+  await snap("s2-closed-recap");
+
+  const legged = testing.play(moved, { type: "sell", good: "tapes", units: 1 }, { type: "resolveStop", choice: "legIt" }).state;
+  await store(legged);
+  await reload();
+  check("S2: cells give the saved seizure, fine and late start", /took 2 tapes and fined you.*start tomorrow at 14:00/.test(await text(".cells .result") ?? ""));
+  await tap(".cells .commit");
+  check("S2: the arrest lead resolves the case once", /Operation Kipper closed.*tried to run/.test(await text(".paper .story") ?? "") &&
+    !(await text(".paper-required") ?? "").includes("Kipper"));
+  await tap(".paper .commit");
 
   // ---- Export -------------------------------------------------------------------------
   await tap(".tabs button", "Me");
@@ -739,6 +814,31 @@ try {
   await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
   await sleep(300);
   if (await evaluate(`parseFloat(getComputedStyle(document.documentElement).fontSize) === 32`)) {
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 540 });
+    for (const [name, action] of [["sale", { type: "sell", good: "tapes", units: 1 }], ["job", { type: "pullJob" }]]) {
+      await store(testing.play(moved, action).state);
+      await reload();
+      check(`S2 320/200 % ${name}: the stop opens at the officer heading`, /Percy Pinch/.test(await focused()));
+      await key("Tab", "Tab", 9);
+      const legVisible = await evaluate(`(() => {
+        const d = document.querySelector("dialog"), b = document.activeElement;
+        const port = d.getBoundingClientRect(), r = b.getBoundingClientRect();
+        return b.querySelector(".choice-title")?.textContent === "Leg it" && r.top >= port.top - 1 && r.top < port.bottom &&
+          b.scrollWidth <= b.clientWidth && (r.height > port.height - 16 || r.bottom <= port.bottom + 1);
+      })()`);
+      check(`S2 320/200 % ${name}: Leg it is readable from the start on focus`, legVisible);
+      await snap(`s2-320x200-${name}-leg-it`);
+      await key("Tab", "Tab", 9);
+      check(`S2 320/200 % ${name}: handover has the right count and consequence`, await evaluate(`(() => {
+        const b = document.activeElement, d = document.querySelector("dialog").getBoundingClientRect();
+        const r = b.getBoundingClientRect();
+        return b.textContent.includes("Give up 2 tapes") && b.textContent.includes(${JSON.stringify(name === "sale" ? "sale is cancelled" : "job goes ahead")}) &&
+          r.top >= d.top - 1 && r.bottom <= d.bottom + 1 && b.scrollWidth <= b.clientWidth;
+      })()`));
+    }
+    await s("Emulation.setDeviceMetricsOverride", { ...PHONE, width: 320, height: 640 });
+    await store(day9);
+    await reload();
     const fits = `(() => { const w = document.documentElement.clientWidth, out = [];
       for (const e of document.querySelectorAll(".status *, .tabs button, main *")) { const r = e.getBoundingClientRect(); if (r.width && (r.left < -0.5 || r.right > w + 0.5)) out.push(e.tagName + "." + (e.getAttribute("class") ?? "") + " " + Math.round(r.left) + "-" + Math.round(r.right) + " " + (e.textContent ?? "").trim().slice(0, 16)); }
       return { page: document.documentElement.scrollWidth <= w, out: [...new Set(out)].slice(0, 6) }; })()`;
@@ -854,7 +954,7 @@ try {
   check("keyboard: travel", (await text(".place-name")) === "The Strip", await text(".place-name"));
   await tabTo("button.good", "Untaxed Smokes"); await enter();
   await tabTo("dialog .commit"); await enter();
-  if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand it over"); await enter(); }
+  if (await evaluate(`!!document.querySelector("dialog.card")`)) { await tabTo("dialog.card .choice-card", "Hand over all carried goods"); await enter(); }
   check("keyboard: sell", /Sold|took the lot/.test(await text(".result") ?? ""), await text(".result"));
   await tabTo("button.row-button", "Call it a day"); await enter();
   await tabTo("dialog .commit"); await enter();

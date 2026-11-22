@@ -8,6 +8,7 @@ interface SheetProps {
   /** A blocking card can't be dismissed: the player must choose. */
   blocking?: boolean;
   className?: string;
+  focusHeading?: boolean;
   children: ReactNode;
 }
 
@@ -15,7 +16,7 @@ interface SheetProps {
  * A modal sheet on the native <dialog>: the page behind it is inert, focus stays inside
  * while it is open and returns to the control that opened it. Mounted means open.
  */
-export function Sheet({ label, onClose, blocking = false, className = "", children }: SheetProps) {
+export function Sheet({ label, onClose, blocking = false, className = "", focusHeading = false, children }: SheetProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -23,11 +24,16 @@ export function Sheet({ label, onClose, blocking = false, className = "", childr
     if (!dialog) return;
     const opener = document.activeElement;
     if (!dialog.open) dialog.showModal();
+    if (focusHeading) {
+      dialog.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
+      dialog.scrollTop = 0;
+    }
     return () => {
       if (dialog.open) dialog.close();
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+      if (opener instanceof HTMLElement && opener !== document.body && opener.isConnected && !opener.matches(":disabled")) opener.focus();
+      else if (focusHeading) document.querySelector<HTMLElement>(".place-name")?.focus();
     };
-  }, []);
+  }, [focusHeading]);
 
   return (
     <dialog
@@ -46,6 +52,12 @@ export function Sheet({ label, onClose, blocking = false, className = "", childr
       }}
       onClick={(e) => {
         if (!blocking && e.target === ref.current) onClose?.();
+      }}
+      onFocus={(e) => {
+        if (e.target instanceof HTMLElement && e.target.classList.contains("choice-card") &&
+            e.target.offsetHeight > e.currentTarget.clientHeight - 16) {
+          e.target.scrollIntoView({ block: "start" });
+        }
       }}
     >
       <div className="sheet-body">

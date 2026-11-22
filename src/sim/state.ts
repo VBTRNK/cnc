@@ -91,28 +91,58 @@ export interface PendingCard {
 
 export type Pending = PendingStop | PendingCard;
 
-/** Pinch's open case. The operation runs `PINCH.warning` days after the announcement, for two days. */
-export interface OpenCase {
+/** Only goods actually taken in this incident, in catalogue order. */
+export type Seizure = [good: GoodId, units: number][];
+
+export interface CaseHandover {
+  place: PlaceId;
+  action: Quote["type"];
+  goods: Seizure;
+  job?: { outcome: "success" | "nothing" | "hurt" | "arrested"; pay: number };
+}
+
+export interface CaseArrest {
+  place: PlaceId;
+  cause: "escape" | "job";
+  goods: Seizure;
+  fine: number;
+}
+
+export interface CaseEvidence {
+  handover?: CaseHandover;
+  arrest?: CaseArrest;
+}
+
+interface CaseTheory {
   /** Case number, from 1; it picks the codename. */
   n: number;
-  /** The place his theory is about, and what he saw there most: the case's label. */
+  /** The theory's origin and the habit it concerns. */
   place: PlaceId;
   habit: HabitId;
+  /** The selected habit had a positive tally when the case opened. Absent on legacy cases. */
+  observed?: true;
+}
+
+/** Pinch's open case. The operation runs `PINCH.warning` days after the announcement, for two days. */
+export interface OpenCase extends CaseTheory {
   /** The day whose evening paper announced it. */
   announced: number;
   /** Where the operation runs: one place, two once he is promoted. A false trail moves it. */
   places: PlaceId[];
   /** He caught the player inside the operation: an arrest, or goods handed over. */
   caught: boolean;
+  /** The previous sites and the payment when Lenny actually moved the operation. */
+  trail?: { from: PlaceId[]; cost: number };
+  evidence?: CaseEvidence;
 }
 
-export interface PastCase {
-  n: number;
-  place: PlaceId;
-  habit: HabitId;
+export interface PastCase extends CaseTheory {
   outcome: "closed" | "cold";
   /** The day it closed or went cold. */
   day: number;
+  /** A known move, kept with the resolution even after the warning's edition expires. */
+  trail?: { from: PlaceId[]; to: PlaceId[] };
+  evidence?: CaseEvidence;
 }
 
 export interface Detective {

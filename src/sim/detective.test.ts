@@ -66,7 +66,7 @@ describe("theory and the warned operation", () => {
 
   it("opens a case on the place with the highest tally, labelled by what he saw most there, in that night's paper", () => {
     const s = announcedCase();
-    expect(s.detective.case).toEqual({ n: 1, place: "uptown", habit: "watches", announced: 5, places: ["uptown"], caught: false });
+    expect(s.detective.case).toEqual({ n: 1, place: "uptown", habit: "watches", announced: 5, places: ["uptown"], caught: false, observed: true });
     expect(items(s)).toEqual(["announced"]);
     expect(s.paper?.case?.places).toEqual(["uptown"]);
     expect(s.milestones.firsts.case).toBe(5);
@@ -94,7 +94,10 @@ describe("theory and the warned operation", () => {
     s = play(s, { type: "resolveStop", choice: "handOver" }, { type: "callItADay" }).state;
     expect(items(s)).toEqual(["closed"]);
     expect(s.detective.case).toBeNull();
-    expect(s.milestones.cases).toEqual([{ n: 1, place: "uptown", habit: "watches", outcome: "closed", day: 7 }]);
+    expect(s.milestones.cases).toEqual([{
+      n: 1, place: "uptown", habit: "watches", outcome: "closed", day: 7, observed: true,
+      evidence: { handover: { place: "uptown", action: "sell", goods: [["watches", 4]] } },
+    }]);
     expect(s.detective.next).toBe(10);
   });
 
