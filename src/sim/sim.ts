@@ -213,11 +213,13 @@ export const carried = (s: GameState): number => GOODS.reduce((n, g) => n + s.he
 export const hoursLeft = (s: GameState): number => RULES.dayEnd - s.hour;
 
 /** Patter's selling rate as tenths of units per hour, so the rounding is exact. */
-const rateTenths = (s: GameState, good: GoodId): number => GOOD[good].rate * (10 + skill(s, "patter"));
+const rateTenths = (good: GoodId, patter: number): number => GOOD[good].rate * (10 + patter);
+export const saleHoursAtLevel = (good: GoodId, units: number, patter: number): number =>
+  Math.ceil((units * 10) / rateTenths(good, patter));
 export const saleHours = (s: GameState, good: GoodId, units: number): number =>
-  Math.ceil((units * 10) / rateTenths(s, good));
+  saleHoursAtLevel(good, units, skill(s, "patter"));
 export const unitsIn = (s: GameState, good: GoodId, hours: number): number =>
-  Math.floor((hours * rateTenths(s, good)) / 10);
+  Math.floor((hours * rateTenths(good, skill(s, "patter"))) / 10);
 
 export function stopChance(s: GameState, hours: number): number {
   const perHour = (RULES.stopBase + RULES.stopPerHeat * s.heat) * police(s, s.place);
@@ -441,7 +443,7 @@ function apply(s: GameState, rng: Rng, a: Action, out: DomainEvent[]): void {
     }
     case "askAround":
       s.tipsGiven[s.place] = (s.tipsGiven[s.place] ?? 0) + 1;
-      s.xp.savvy += 1;
+      s.xp.savvy += RULES.askSavvy;
       seenDoing(s, "ask", RULES.askHours);
       if (s.rumour === null) {
         s.rumour = drawRumour(s, rng, "ask");

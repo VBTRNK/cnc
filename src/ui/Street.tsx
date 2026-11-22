@@ -1,11 +1,13 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
 import {
   RULES,
   canAskAround,
   deals,
   hoursLeft,
+  level,
   quoteJob,
   riskWord,
+  rumourAccuracy,
   type Action,
   type DomainEvent,
   type GameState,
@@ -16,8 +18,8 @@ import { CaseNotice } from "./CaseNotice.tsx";
 import { localCase, operationNotice, sweepNotice } from "./caseWords.ts";
 import { knownPrice, marketNote } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
-import { goodName, goodsByName, money, placeName, t, upper } from "./text.ts";
-import { briefs, oddsText } from "./words.ts";
+import { goodName, goodsByName, money, placeName, t } from "./text.ts";
+import { briefs, jobSuccessText } from "./words.ts";
 
 interface StreetProps {
   state: GameState;
@@ -66,9 +68,9 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
     focusAfter.current = null;
     const next = id
       ? [...(tipsRef.current?.querySelectorAll<HTMLElement>("[data-tip]") ?? [])].find((e) => e.dataset.tip === id)
-      : document.querySelector<HTMLElement>(narrow ? ".moves .row-button" : ".moves button");
+      : document.querySelector<HTMLElement>(".moves button");
     next?.focus();
-  }, [news.length, narrow]);
+  }, [news.length]);
 
   const place = !c && !sweep && <p className="flavour">{t(`street.flavour.${state.place}`)}</p>;
   const tips = news.length > 0 && (
@@ -91,7 +93,7 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
       ))}
     </ul>
   );
-  const moves = <Moves state={state} onOpen={onOpen} dispatch={dispatch} />;
+  const moves = <Moves state={state} narrow={narrow} onOpen={onOpen} dispatch={dispatch} />;
   const market = (
     <section className="market" aria-labelledby="k-market">
       <h2 className="kicker" id="k-market">
@@ -117,66 +119,80 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
       </h1>
       {c && <CaseNotice notice={operationNotice(c, state.day)} />}
       {sweep?.kind === "sweep" && <CaseNotice notice={sweepNotice(sweep)} />}
-      {narrow ? (
-        <>
-          {market}
-          {moves}
-          {tips}
-          {place}
-        </>
-      ) : (
-        <>
-          {place}
-          {tips}
-          {moves}
-          {market}
-        </>
-      )}
+      {narrow ? <>{market}{moves}</> : <>{moves}{market}</>}
+      {tips}
+      {place}
     </>
   );
 }
 
-/** Ask around, Lie low, Odd job and Pull a job two by two; Call it a day a row below them. */
-function Moves({ state, onOpen, dispatch }: Pick<StreetProps, "state" | "onOpen" | "dispatch">) {
+/** End-day control before the timed moves on narrow screens, after them elsewhere. */
+function Moves({ state, narrow, onOpen, dispatch }: Pick<StreetProps, "state" | "onOpen" | "dispatch"> & { narrow: boolean }) {
   const left = hoursLeft(state);
   const job = quoteJob(state);
   const risk = typeof job === "string" ? null : riskWord(job.stopChance);
+  const canAsk = left >= RULES.askHours && canAskAround(state);
+  const accuracy = rumourAccuracy(level(state.xp.savvy + RULES.askSavvy));
+  const dayRef = useRef<HTMLButtonElement>(null);
+  const restoreAsk = useRef(false);
+  useEffect(() => {
+    if (restoreAsk.current && !canAsk && document.activeElement === document.body) dayRef.current?.focus();
+    restoreAsk.current = false;
+  }, [state, canAsk]);
+
+  const endDay = (
+    <button ref={dayRef} type="button" className="row-button" onClick={() => onOpen({ kind: "callDay" })}>
+      <span>{t("action.callDay")}</span>
+      <Chevron />
+    </button>
+  );
   return (
     <section className="moves" aria-labelledby="k-moves">
       <h2 className="kicker" id="k-moves">
         {t("street.moves")}
       </h2>
+      {narrow && endDay}
       <div className="move-grid">
-        {left >= RULES.askHours && canAskAround(state) && (
-          <Move label={t("action.ask")} hours={RULES.askHours} onClick={() => dispatch({ type: "askAround" })} />
+        {canAsk && (
+          <Move label={t("action.ask")} hours={RULES.askHours} onClick={(event) => {
+            restoreAsk.current = document.activeElement === event.currentTarget;
+            dispatch({ type: "askAround" });
+          }}>
+            {state.rumour ? t("action.askQuote") : t("action.askRumour", { day: state.day + 1 })}
+            {!state.rumour && accuracy > RULES.rumourTruth && (
+              <span className="move-detail">{t("action.askAccuracy", { accuracy })}</span>
+            )}
+          </Move>
         )}
         {left >= RULES.lieLowHours && (
           <Move label={t("action.lieLow")} hours={RULES.lieLowHours} onClick={() => dispatch({ type: "lieLow" })} />
         )}
         {left >= RULES.oddJobHours && (
           <Move label={t("action.oddJob")} hours={RULES.oddJobHours} onClick={() => dispatch({ type: "oddJob" })}>
-            <span className="figure">{money(RULES.oddJobPay)} guaranteed</span>
+            {t("action.oddJobPay", { pay: money(RULES.oddJobPay) })}
           </Move>
         )}
         {typeof job !== "string" && risk && (
           <Move label={t("action.job")} hours={job.hours} onClick={() => onOpen({ kind: "job" })}>
-            {upper(oddsText(job.success))} ·{" "}
+            {jobSuccessText(job.success)} ·{" "}
             <span className={risk === "real" || risk === "high" ? "warn" : undefined}>
-              {t("risk.figure", { word: t(`risk.${risk}`) })}
+              {t("risk.chip", { word: t(`risk.${risk}`) })}
             </span>
           </Move>
         )}
       </div>
-      <button type="button" className="row-button" onClick={() => onOpen({ kind: "callDay" })}>
-        <span>{t("action.callDay")}</span>
-        <Chevron />
-      </button>
+      {!narrow && endDay}
     </section>
   );
 }
 
-/** A move: its name and hours, and at most one figure line below (payout, odds, risk). */
-function Move({ label, hours, onClick, children }: { label: string; hours: number; onClick: () => void; children?: ReactNode }) {
+/** A move with its name, duration and details for the decision. */
+function Move({ label, hours, onClick, children }: {
+  label: string;
+  hours: number;
+  onClick: MouseEventHandler<HTMLButtonElement>;
+  children?: ReactNode;
+}) {
   return (
     <button type="button" className="move" onClick={onClick}>
       <span className="move-name">{label}</span>

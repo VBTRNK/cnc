@@ -36,7 +36,10 @@ describe("what the player reads", () => {
     if (!state.paper) throw new Error("no paper");
     const view = paperView(state.paper);
     expect(view.head).toBe("Police sweep on the Strip");
-    expect(view.required).toContainEqual(expect.objectContaining({ title: "Fireworks shortage in Old Town" }));
+    expect(view.required).toContainEqual(expect.objectContaining({
+      title: "Fireworks shortage in Old Town",
+      meta: "Confirmed · From 10:00 on day 2 through day 3",
+    }));
     noPlaceholders([view.head, view.story, ...view.briefs, ...view.chips]);
   });
 
@@ -202,8 +205,15 @@ describe("the People tab", () => {
     });
   });
 
-  it("lets Mags voice what asking around turns up", () => {
-    const { state, events } = play(newGame(1, "words"), { type: "askAround" });
-    expect(resultLines(events, state)[0]).toMatch(/^Mags: “Word is .*”$/);
+  it("dates Mags's forecast and stamps the next price quote before its hour is spent", () => {
+    const s = newGame(1, "words");
+    s.rng = rngWhere(below(0.7));
+    const ask = { type: "askAround" } as const;
+    const first = play(s, ask);
+    expect(resultLines(first.events, first.state)[0]).toBe("Mags: Rumour for day 2. Fireworks may run short in Old Town.");
+    expect(briefs(first.state).at(-1)).toMatchObject({ from: "mags", line: "Rumour for day 2. Fireworks may run short in Old Town." });
+    const second = play(first.state, ask);
+    expect(second.state.hour).toBe(12);
+    expect(resultLines(second.events, second.state)[0]).toMatch(/^Mags: Quote from .+ per unit for .+\. Day 1 at 11:00\. Prices can change\.$/);
   });
 });

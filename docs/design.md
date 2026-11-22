@@ -393,9 +393,10 @@ tally, and what people feel is in their authored lines.
   and of the tabs.
 - **Narrow layout.** Below 22.25 rem wide (356 px at default text, or any phone with large
   text) each screen leads with what the player came for, in reading and focus order alike.
-  Street: the market right under the place name, each good on two lines, then the moves in
-  one column, then the tips and the place's line. City: the price table first, then Call
-  around. Me: the Form stacks. Type never shrinks to fit; the layout changes instead. With
+  Street: the place name and any local warning, then the market with each good on two
+  lines, Call it a day, the timed moves in one column, and the optional tips and local line.
+  City: any route warnings, the price table, then Call around. Me: the Form stacks.
+  Type never shrinks to fit; the layout changes instead. With
   very large text on a small phone, portraits go above their lines, the trade stepper's
   controls narrow to 48 px each, and the tabs sit two by two.
 - **Section break.** A 4 px double ink rule with a Courier kicker, a real heading naming the
@@ -403,10 +404,10 @@ tally, and what people feel is in their authored lines.
 - **Group and row.** A list starts on a 1.5 px ink rule and its rows split by dividers, with
   no boxes around rows. A row that opens a sheet ends in a chevron. A held count leads its row
   as a bare Anton numeral, read out as "3 held".
-- **Control.** 48 px high, a 1.5 px ink outline on sheet: only controls carry an ink outline.
-  The label left in Newsreader, the hours or money right in Courier, and at most one figure
-  line below (payout, odds, risk, heat; red when it warns). An action that ends something
-  or opens a sheet, like Call it a day, is a row with a chevron, not a box.
+- **Control.** At least 48 px high, a 1.5 px ink outline on sheet: only controls carry an ink outline.
+  The label left in Newsreader, the hours or money right in Courier, and decision details
+  below (payout, odds, risk or information gained). Risk warnings use red and words.
+  A row with a chevron opens a trade or end-day sheet.
 - **Chip.** A label, never tappable: 26 px, a 1 px outline in the rule tone, no fill, Courier
   14 px. Solid for a certain effect, dashed with a die for a chance, dashed with a question
   mark for unknown; red when it warns.
@@ -415,30 +416,40 @@ tally, and what people feel is in their authored lines.
 - **Good names.** At most 20 characters, no part over 12 between spaces or hyphens, so a name
   fits two lines in City's goods column on a 390 px phone. A Vitest test holds the catalogue
   to it and the browser check measures it.
-- **Street.** The place name, its line, today's tips (the speaker in bold, each dismissable
-  by a button named for its tip),
-  then Moves and the Market. The moves sit two by two (Ask around, Lie low, Odd job, Pull a
-  job), with Call it a day as a row below; a move with too few hours left is not shown. The
-  market lists the ten goods the place deals in by name: held count, name, the price in a
+- **Street.** After the place name, a local operation or sweep names its window and effect.
+  The wider layout shows the moves two by two and Call it a day before the market. A move
+  with too few hours left is hidden. Ask Mags names the one-hour cost and the available
+  return: an uncertain lead for tomorrow's morning event or one dated quote from another
+  neighbourhood. The lead states its forecast day, and the control shows the actual
+  accuracy when Savvy improves it. Optional updates follow the market and moves with
+  a named source and dismissal. Odd jobs show the guaranteed pay and absence of stop
+  risk. Risky jobs show their success chance and stop risk separately. The market lists the
+  ten goods the place deals in by name: held count, name, the price in a
   large right-aligned column and at most one note. Then it lists any held good the place
   doesn't deal in, with no price and *no buyers*. City shows the same notes for these goods
   in the current place's column. For a dealt good, the first applicable note is *sold out*,
   *short*, *few left*, *glut*, or a price hint (*cheap* or *pricey*).
-  Tapping a good, sold out or not, opens a sheet from the bottom: the name, the good's
-  tagline in one line that wraps at large text, a buy or sell switch,
+  Tapping a good opens a sheet from the bottom: the name, the current local price, any
+  confirmed event for the good, a buy or sell switch,
   a quantity stepper with a maximum shortcut (on its own line when the row doesn't fit), and
   one button that names the trade and its total; for a sale also its hours, with the profit
-  and stop-risk chips ("Sell 6 for $288 · 2 h"). For a good nobody here deals in, the sheet
+  and stop-risk chips ("Sell 6 for $288 · 2 h"). The sale names its added heat and any live
+  operation or sweep affecting it. If Patter changes the rounded duration for the selected
+  quantity, the quote says how many hours it saves. For a good nobody here deals in, the sheet
   shows only its tagline, how many are held, what they cost and "No buyers here."
-- **City.** With the phone, Call around comes first as a control with its heat figure, and
-  tomorrow's word under it. Then the prices: goods down and places across, each place's
-  column headed by its name and any warning (Sweep, Pinch), the way there (Go and its hours,
-  or the Here mark), and when its prices were seen ("now", "13:00", "day 8", "never"). An
+- **City.** When a route has a warning, its dates, places and consequences come before
+  Prices. The Sweep and Pinch column cues name which route is affected, and each affected
+  Go button is described by the corresponding warning. The table shows goods down and
+  places across, with Go and its travel hours or the Here mark. The Last seen row marks
+  local prices as current and dates the newest quote in each remote column. An individual
+  older quote keeps its own timestamp even alongside a shortage, glut or price hint. An
   unseen price is a question mark (read as "not seen"), a pair the place doesn't deal in a
   dash (read as "not dealt here", or "no buyers" for a held good at the current place).
-  Elsewhere, an event or a price's own age when older than its column's can take the place
-  of a price hint. The goods column (5.75 rem) and the table's least
-  width (19.75 rem) are in rem: the head sticks under whatever sticks at the top (the rail,
+  Visits, tips and phone calls can all supply remembered prices, which can change in the
+  meantime. Call around states its next heat cost and refreshes every price at the current
+  hour without spending time. On wider layouts without warnings it comes first. A dated,
+  attributed rumour is shown apart from the prices. The goods column (5.75 rem) and the
+  table's least width (19.75 rem) are in rem: the head sticks under whatever sticks at the top (the rail,
   or the strip alone) where the table fits; narrower, the table scrolls sideways under a
   fixed goods column, a keyboard stop of its own, the last column in view cut under a fade,
   with the place names again above the last rows (the last four, or the last half of a
@@ -448,15 +459,16 @@ tally, and what people feel is in their authored lines.
   marked), the newest exhibit on paper and "Open the file" with the count. Opened, it lists
   every exhibit newest first and his earlier operations with their stamps, and the letters
   hide; focus moves to the first of them. The cast follows, one current line each.
-- **Me.** Form: Patter, Nerve and Savvy side by side, each a large level numeral over five
-  pips and what it does. The Classifieds: an ad for each upgrade not yet bought, with its
-  price and Buy, or how much is short; owned ones as rows marked Yours. The Small print: how
+- **Me.** The Classifieds come first: an ad for each upgrade not yet bought, with its
+  price and Buy, or how much is short; owned ones as rows marked Yours. Form follows with
+  Patter, Nerve and Savvy, each with its level, five pips and its effect. The Small print: how
   the run is saved and one button for the cloud, export and a new run.
 - **Event card.** The character and the situation sit in a dossier: a manila folder with a
   halftone portrait and a stamp. The choices sit below it on plain paper. Each choice
   carries its effects as chips.
-- **Newspaper.** A masthead, one headline with a short story, a few one-line briefs, the
-  day's totals as chips, and one button that starts the next day.
+- **Newspaper.** A masthead and one lead story. Required updates before Start day include
+  confirmed market news with the place, time window and consequence. Optional briefs and
+  the day's totals follow the button.
 - **Portraits** are tabloid-cartoon caricatures on a halftone ground in a thin ink frame:
   brush-ink outlines, Ben-Day dot shadows, sheet and newsprint fills and one spot of red. Each
   outline tells who it is (Pinch's trilby and monocle, Lenny's fedora and press card, Mags's

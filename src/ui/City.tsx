@@ -46,9 +46,14 @@ export function City({ state, dispatch, onCall }: CityProps) {
         <button type="button" className="move move-row" onClick={onCall}>
           <span className="move-name">{t("city.ring")}</span>
           <span className="move-hours warn">{t("chip.heat", { heat: callHeat(state) })}</span>
+          <span className="move-figure">{t("city.callEffect")}</span>
         </button>
       )}
-      {state.rumour && <p className="rumour">{rumourLine(state.rumour)}</p>}
+      {state.rumour && (
+        <p className="rumour">
+          <b>{t(state.rumour.via === "ask" ? "brief.who.mags" : "brief.who.phone")}</b> {rumourLine(state.rumour, state.day + 1)}
+        </p>
+      )}
     </div>
   );
   const prices = (
@@ -56,6 +61,7 @@ export function City({ state, dispatch, onCall }: CityProps) {
       <h2 className="kicker" id="k-prices">
         {t("city.prices")}
       </h2>
+      <p className="market-source">{t("city.priceSource")}</p>
       <PriceTable state={state} narrow={narrow} onGo={(to) => dispatch({ type: "travel", to })} />
     </section>
   );
@@ -201,7 +207,7 @@ function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean
               </th>
               {cols.map((c) => (
                 <td key={c.place} className={hc(c)}>
-                  {c.here ? t("city.seenNow") : c.newest ? seenText(state, c.newest.day, c.newest.hour) : t("city.unseen")}
+                  {c.here ? t("city.current") : c.newest ? seenText(state, c.newest.day, c.newest.hour) : t("city.unseen")}
                 </td>
               ))}
             </tr>
@@ -244,7 +250,10 @@ function PriceTable({ state, narrow, onGo }: { state: GameState; narrow: boolean
 
 function PriceCell({ state, col, good }: { state: GameState; col: Column; good: GoodId }) {
   const view = deals(col.place, good) ? knownPrice(state, col.place, good) : null;
-  const note = marketNote(state, col.place, good, view, col.newest);
+  const note = marketNote(state, col.place, good, view);
+  const age = view?.seen && col.newest && (view.seen.day !== col.newest.day || view.seen.hour !== col.newest.hour)
+    ? seenText(state, view.seen.day, view.seen.hour)
+    : null;
   const cls = [col.here && "here-col", !view && "undealt", view?.price === null && "unknown"].filter(Boolean).join(" ");
   return (
     <td className={cls || undefined}>
@@ -261,6 +270,7 @@ function PriceCell({ state, col, good }: { state: GameState; col: Column; good: 
       ) : (
         money(view.price)
       )}
+      {age && <span className="cell-age">{age}</span>}
       {note && <span className={note.warn ? "cell-hint warn" : "cell-hint"}>{note.text}</span>}
     </td>
   );
