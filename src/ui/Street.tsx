@@ -5,8 +5,6 @@ import {
   deals,
   hoursLeft,
   operationOn,
-  price,
-  priceHint,
   quoteJob,
   riskWord,
   type Action,
@@ -15,7 +13,7 @@ import {
   type GoodId,
 } from "../sim/index.ts";
 import { Chevron, CloseIcon, useNarrow } from "./bits.tsx";
-import { eventAt, sweepAt } from "./known.ts";
+import { knownPrice, marketNote, sweepAt } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
 import { codename, goodName, goodsByName, money, placeName, t, upper } from "./text.ts";
 import { briefs, oddsText } from "./words.ts";
@@ -189,16 +187,10 @@ function Move({ label, hours, onClick, children }: { label: string; hours: numbe
 }
 
 function GoodRow({ state, good, onOpen }: { state: GameState; good: GoodId; onOpen: () => void }) {
-  const cell = state.market[state.place][good];
-  const dealt = deals(state.place, good);
+  const view = deals(state.place, good) ? knownPrice(state, state.place, good) : null;
+  const price = view?.price ?? null;
   const held = state.held[good];
-  const event = eventAt(state, state.place, good);
-  const hint = priceHint(state, state.place, good);
-  let note: { text: string; warn: boolean } | null = null;
-  if (!dealt) note = { text: t("note.noBuyers"), warn: true };
-  else if (cell.stock === 0) note = { text: t("note.soldOut"), warn: true };
-  else if (event === "shortage") note = { text: t("note.short"), warn: true };
-  else if (event === "glut") note = { text: t("note.glut"), warn: false };
+  const note = marketNote(state, state.place, good, view);
 
   // Sold out stays tappable: the sheet can still sell, and says why it can't buy. A held good
   // nobody here deals in opens a sheet that says so.
@@ -213,8 +205,8 @@ function GoodRow({ state, good, onOpen }: { state: GameState; good: GoodId; onOp
         )}
       </span>
       <span className="good-name">{goodName(good)}</span>
-      <span className="good-price">{dealt ? money(price(state, state.place, good)) : ""}</span>
-      <span className={note?.warn ? "good-hint warn" : "good-hint"}>{note ? note.text : hint ? t(`hint.${hint}`) : ""}</span>
+      <span className="good-price">{price === null ? "" : money(price)}</span>
+      <span className={note?.warn ? "good-hint warn" : "good-hint"}>{note?.text}</span>
       <Chevron />
     </button>
   );

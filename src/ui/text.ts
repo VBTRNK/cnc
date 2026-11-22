@@ -44,7 +44,7 @@ const TEXT = {
   "note.short": "short",
   "note.glut": "glut",
   "note.soldOut": "sold out",
-  "note.low": "low",
+  "note.fewLeft": "few left",
   "note.noBuyers": "no buyers",
 
   // Street

@@ -500,3 +500,13 @@ Date: 2026-11-21. [Balance runner follow-up](https://github.com/VBTRNK/cnc/issue
   existing simulation results. The stock replay uses the same report.
   The [balance guide](balance.md#read-strategy-reports) describes the fields
   and the interval calculation.
+
+## ADR-017 — Shared market notes on Street and City
+
+Date: 2026-11-22. [Market note mismatch](https://github.com/VBTRNK/cnc/issues/38).
+
+- Street and City's current-place column use the same note for every good
+  listed on Street. A single note fits the phone layout. Low stock takes
+  priority over the price hint and reads "few left" so it names availability.
+- The [screen contract](design.md#look-and-feel) gives the note order and
+  explains what City can show elsewhere.
