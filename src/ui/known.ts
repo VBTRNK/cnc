@@ -2,26 +2,15 @@
 // midday brief), and prices live where you stand, else as last seen, tipped or rung round.
 
 import {
+  marketEventOn,
   price,
   priceHint,
   usualPrice,
   type GameState,
   type GoodId,
-  type MarketKind,
   type PlaceId,
 } from "../sim/index.ts";
 import { t } from "./text.ts";
-import { seenText } from "./words.ts";
-
-/** The active shortage or glut on a place and good, if any. Active events are public. */
-export function eventAt(s: GameState, place: PlaceId, good: GoodId): MarketKind | null {
-  for (const e of s.events) {
-    if (e.activated && (e.kind === "shortage" || e.kind === "glut") && e.place === place && e.good === good) {
-      return e.kind;
-    }
-  }
-  return null;
-}
 
 export const sweepAt = (s: GameState, place: PlaceId): boolean =>
   s.events.some((e) => e.activated && e.kind === "sweep" && e.place === place);
@@ -64,20 +53,17 @@ export function knownPrice(s: GameState, place: PlaceId, good: GoodId): PriceVie
 
 /** One note for Street and City. A null view marks an undealt good. */
 export function marketNote(
-  s: GameState, place: PlaceId, good: GoodId, view: PriceView | null, newest: PriceView["seen"] = null,
+  s: GameState, place: PlaceId, good: GoodId, view: PriceView | null,
 ): { text: string; warn: boolean } | null {
   if (!view) {
     return place === s.place && s.held[good] > 0 ? { text: t("note.noBuyers"), warn: true } : null;
   }
-  const event = eventAt(s, place, good);
+  const event = marketEventOn(s, place, good)?.kind;
   if (view.soldOut) return { text: t("note.soldOut"), warn: true };
   if (event === "shortage") return { text: t("note.short"), warn: true };
   if (view.low) return { text: t("note.fewLeft"), warn: false };
   if (event === "glut") return { text: t("note.glut"), warn: false };
   if (view.price === null) return null;
-  if (view.seen && newest && (view.seen.day !== newest.day || view.seen.hour !== newest.hour)) {
-    return { text: seenText(s, view.seen.day, view.seen.hour), warn: false };
-  }
   return view.hint ? { text: t(`hint.${view.hint}`), warn: false } : null;
 }
 

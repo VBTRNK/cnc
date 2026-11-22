@@ -291,9 +291,11 @@ export const tomorrowsMorning = (s: GameState) =>
       e.slot === "morning" && e.startDay === s.day + 1 && (e.kind === "shortage" || e.kind === "glut"),
   );
 
+export const rumourAccuracy = (savvy: number): number => RULES.rumourTruth + RULES.savvyRumour * savvy;
+
 /** Draws the day's rumour about tomorrow. True with 70% + 5 points per Savvy level. */
 export function drawRumour(s: GameState, rng: Rng, via: Rumour["via"]): Rumour {
-  const truthChance = (RULES.rumourTruth + RULES.savvyRumour * skill(s, "savvy")) / 100;
+  const truthChance = rumourAccuracy(skill(s, "savvy")) / 100;
   const event = tomorrowsMorning(s);
   if (rng.chance(truthChance)) {
     return { claim: event ? { kind: event.kind, place: event.place, good: event.good } : null, truthful: true, via };

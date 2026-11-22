@@ -174,6 +174,7 @@ export const RULES = {
   jobSuccessHeat: 8,
   jobFailHeat: 15,
   askHours: 1,
+  askSavvy: 1,
   tipsPerPlace: 2,
   rumourTruth: 70,
 

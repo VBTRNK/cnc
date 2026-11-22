@@ -284,17 +284,21 @@ try {
   check("then the paper", /Fined \$\d+/.test(await text(".paper .story") ?? ""), await text(".paper .story"));
 
   // ---- The phone: call around from City ------------------------------------------------------
-  const phoned = sim.toSave({ ...sim.newGame(2, "phonecheck"), upgrades: ["phone"] });
+  const phoneStart = { ...sim.newGame(2, "phonecheck"), upgrades: ["phone"] };
+  const phoned = sim.toSave(phoneStart);
+  const saveMatches = (state) => evaluate("localStorage.getItem('cnc.save') === " + JSON.stringify(sim.toSave(state)));
   await evaluate(`localStorage.setItem("cnc.save", ${JSON.stringify(phoned)}); localStorage.setItem("cnc.save.backup", ${JSON.stringify(phoned)})`);
   await reload();
   await tap(".tabs button", "City");
   check("prices not yet seen show as unknown", (await evaluate(`document.querySelectorAll(".price-table .unknown").length`)) > 0);
+  check("S3: the burner discloses its coverage, time and next heat", /Heat \+5.*Record prices across the city · no time spent/.test(await text(".call .move") ?? ""));
   await tap(".call .move", "Call around");
   await snap("city-called");
   check("calling around gives a result line in the strip", /^Called around/.test(await text(".strip .result") ?? ""), await text(".strip .result"));
   check("calling around notes every price", await evaluate(`document.querySelectorAll(".price-table .unknown").length === 0`));
   check("the next call costs more heat", /Heat \+10/.test(await text(".call .move-hours") ?? ""), await text(".call .move-hours"));
-  check("every place's column says when it was seen", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "now|now|now|now");
+  check("S3: the call preserves the clock and matches the sim's full price snapshot and heat", await saveMatches(testing.play(phoneStart, { type: "ringRound" }).state));
+  check("S3: a fresh snapshot elsewhere is dated and the local price is current", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "current|10:00|10:00|10:00");
   await tap(".tabs button", "Street");
 
   // ---- A saved encounter card, Pinch himself at a stop, his board on People ----------------
@@ -615,6 +619,7 @@ try {
   const day9 = { ...L0, day: 9, hour: 15, cash: 1420, heat: 30, upgrades: ["coat", "phone"], xp: { patter: 30, nerve: 10, savvy: 25 } };
   // Pricey phones with a single unit left, so stock and price compete for the note.
   Object.assign(day9.market.docks.phones, { baseline: Math.ceil(sim.usualPrice("phones") * 1.25), freshStock: 2, stock: 1 });
+  day9.market.docks.ebikes.demand = 3;
   day9.held = { ...L0.held, smokes: 3, ebikes: 5, gum: 4 };
   day9.paid = { ...L0.paid, smokes: 3 * sim.price(L0, "docks", "smokes"), ebikes: 5 * 400, gum: 4 * 10 };
   // No stop on the sale below: the next draw is high.
@@ -627,6 +632,7 @@ try {
     uptown: seenAt("uptown", 8, 18, (g) => G.indexOf(g) % 3 !== 2),
     strip: {},
   };
+  day9.memory.uptown[G[3]].hour = 16;
   day9.events = [
     { id: "layout-sweep", slot: "midday", startDay: 8, startHour: 16, endDay: 9, activated: true, kind: "sweep", place: "oldtown" },
     { id: "layout-short", slot: "morning", startDay: 9, startHour: 10, endDay: 10, activated: true, kind: "shortage", place: "docks", good: G[1] },
@@ -660,6 +666,9 @@ try {
   await sleep(200);
   await tap("button.good", "Pre-Loved E-Bikes");
   check("layout: a buyer-only good offers its sale with no stock", /^Sell \d+ for \$[\d,]+ · \d+ h$/.test(await text("dialog .commit") ?? ""), await text("dialog .commit"));
+  const sale = sim.quoteSale(day9, "ebikes", sim.maxSale(day9, "ebikes"));
+  check("S3: Patter's saved hours come from the selected sale", typeof sale !== "string" &&
+    (await text("dialog .sheet-body")).includes("Patter saves " + (sim.saleHoursAtLevel("ebikes", sale.units, 0) - sale.hours) + " h on this sale."));
   await tap("dialog .commit");
   const ebikesHeld = `[...document.querySelectorAll("button.good")].find(b => b.textContent.includes("Pre-Loved E-Bikes"))?.querySelector(".held span")?.textContent ?? "0"`;
   check("layout: and the sale goes through", /^Sold \d+ e-bikes for/.test(await text(".strip .result") ?? "") && Number(await evaluate(ebikesHeld)) < 5,
@@ -693,9 +702,12 @@ try {
   check("layout 390: City's goods names fit two lines", overTwoLines(await lineCounts(".price-table tbody th")).length === 0, overTwoLines(await lineCounts(".price-table tbody th")).join("; "));
   check("layout 390: the table fits without scrolling sideways", await evaluate(`(() => { const t = document.querySelector(".table-scroll"); return t.scrollWidth <= t.clientWidth; })()`));
   check("layout 390: place warnings sit in the column heads", (await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`)) === "Sweep|Pinch", await evaluate(`[...document.querySelectorAll(".head-note")].map(e => e.textContent).join("|")`));
-  check("layout 390: the Seen row", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "now|13:00|day 8|never", await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`));
-  check("layout 390: a price older than its column's says when, by day or by hour", await evaluate(`(() => { const h = [...document.querySelectorAll(".cell-hint")].map(e => e.textContent); return h.includes("11:00") && h.includes("day 7"); })()`),
-    await evaluate(`[...document.querySelectorAll(".cell-hint")].map(e => e.textContent).join("|")`));
+  check("layout 390: the Last seen row", (await evaluate(`[...document.querySelectorAll(".seen-row td")].map(td => td.textContent).join("|")`)) === "current|13:00|day 8 18:00|unseen");
+  check("S3: a market note cannot hide the individual price's age", await evaluate(`(() => {
+    const ages = [...document.querySelectorAll(".cell-age")];
+    return ages.some(e => e.textContent === "11:00") && ages.some(e => e.textContent === "day 7 12:00")
+      && ages.some(e => e.textContent === "day 8 16:00" && e.parentElement.querySelector(".cell-hint").textContent === "glut");
+  })()`));
   check("layout 390: no repeated place names where the head sticks", (await evaluate(`document.querySelectorAll(".repeat-row").length`)) === 0);
   check("layout 390: City has twelve rows and a dash for each pair not dealt, named apart from an unseen price",
     await evaluate(`(() => { const u = [...document.querySelectorAll(".price-table td.undealt")]; const q = [...document.querySelectorAll(".price-table td.unknown")];
@@ -708,6 +720,7 @@ try {
   await evaluate(`(() => { document.activeElement.blur(); window.scrollTo(0, 0); })()`);
   await sleep(200);
   log.push(`  layout 390: City shows ${await arrival(".price-table tbody tr")} price rows on arrival`);
+  check("S3: route warnings leave the Go buttons and a price row visible at 390 px", await arrival("button.go") === 3 && await arrival(".price-table tbody tr") > 0);
   await snap("layout-390-city");
   // Scroll the head up to 60 px past the rail, as far as the page goes.
   const room = await evaluate(`(() => { const h = document.querySelector(".price-table thead").getBoundingClientRect(), r = document.querySelector(".top").getBoundingClientRect(), b = document.querySelector(".price-table tbody").getBoundingClientRect();
@@ -847,6 +860,8 @@ try {
     await sleep(200);
     const street = await evaluate(fits);
     check("layout 320/200 %: the rail and the tabs fit", street.page && street.out.length === 0, JSON.stringify(street));
+    check("S3: narrow Street reads Market, Call it a day, then timed moves",
+      await evaluate(`[...document.querySelectorAll(".market, .moves .row-button, .moves .move-grid")].map(e => e.className).join("|") === "market|row-button|move-grid"`));
     await snap("layout-320x200-street");
     await tap("button.good");
     const big = await evaluate(STEPPER);
@@ -898,6 +913,8 @@ try {
     await snap("layout-320x200-short-result");
     // City: no room for a whole place column beside the pinned goods column and the fade, so
     // the goods column scrolls too and the fade goes; each Go is shown whole when focused.
+    await store(day9);
+    await reload();
     await tap(".tabs button", "City");
     check("layout 320/200 %: City's goods column scrolls and the fade goes", await evaluate(`getComputedStyle(document.querySelector("tbody .stick")).position === "static" && !${FADE_SHOWN} && document.querySelectorAll("button.go").length >= 2`),
       await evaluate(`document.querySelectorAll("button.go").length + " Go"`));
@@ -916,12 +933,73 @@ try {
   await reload();
   await tap(".tabs button", "Street");
   const names = await evaluate(`[...document.querySelectorAll(".tip button")].map(b => b.getAttribute("aria-label"))`);
-  check("tips: each dismiss button is named for its tip", names.length === 2 && new Set(names).size === 2 && names.every((n) => /^Dismiss Mags's tip: /.test(n)), names.join(" | "));
+  check("tips: each dismiss button is named for its confirmed update", names.length === 2 && new Set(names).size === 2 && names.every((n) => /^Dismiss confirmed news: /.test(n)), names.join(" | "));
   await evaluate(`document.querySelector(".tip button").focus()`);
   await key("Enter", "Enter", 13);
   check("tips: focus moves to the next tip's button", await evaluate(`document.activeElement?.matches(".tip button") && document.querySelectorAll(".tip").length === 1`), await focused());
   await key("Enter", "Enter", 13);
   check("tips: after the last, focus moves to the first move", await evaluate(`!document.querySelector(".tip") && document.activeElement?.matches(".moves button")`), await focused());
+
+  // ---- S3: the information and risk shown at a choice --------------------------------------
+  const magsStart = sim.newGame(4, "mags-quote");
+  magsStart.xp.savvy = 9;
+  magsStart.rng = testing.rngWhere((n) => n >= 0.7 && n < 0.75);
+  const ask = { type: "askAround" };
+  await store(magsStart);
+  await reload();
+  const moveText = (label) => evaluate(`[...document.querySelectorAll(".moves .move")].find(b => b.querySelector(".move-name").textContent === ${JSON.stringify(label)})?.textContent ?? ""`);
+  check("S3: Ask Mags names its hour, forecast day and the Savvy threshold this ask crosses",
+    /Ask Mags1 hUnconfirmed morning news for day 2.*75% forecast accuracy with Savvy/.test(await moveText("Ask Mags")));
+  check("S3: odd work says what is guaranteed and risky work gives two distinct chances",
+    /3 h.*\$30 guaranteed · no stop risk/.test(await moveText("Odd job")) &&
+    /4 h.*60% chance of success · slight stop risk/.test(await moveText("Risky job")));
+  await tap(".moves .move", "Ask Mags");
+  const firstAsk = testing.play(magsStart, ask);
+  check("S3: the first ask costs an hour and gives the matching uncertain forecast and Savvy level",
+    await saveMatches(firstAsk.state) && /Mags: Rumour for day 2\. Fireworks may run short in Old Town/.test(await text(".strip") ?? ""));
+  await tap(".tabs button", "City");
+  check("S3: City keeps the rumour attributed away from the prices", (await text(".rumour") ?? "").startsWith("Mags: Rumour for day 2."));
+  await tap(".tabs button", "Street");
+  check("S3: the next ask offers one remote quote for its hour", /1 hOne price quote from another neighbourhood/.test(await moveText("Ask Mags")));
+  await evaluate(`[...document.querySelectorAll(".moves .move")].find(b => b.textContent.startsWith("Ask Mags")).focus()`);
+  await key("Enter", "Enter", 13);
+  const secondAsk = testing.play(firstAsk.state, ask);
+  check("S3: the dated quote matches the saved price and precedes the spent hour", await saveMatches(secondAsk.state) &&
+    /^Mags: Quote from .* per unit for .*\. Day 1 at 11:00\. Prices can change\./.test(await text(".strip") ?? ""));
+  check("S3: focus stays in Moves when the completed ask uses up its control", await evaluate(`document.activeElement.matches(".moves .row-button")`), await focused());
+  await tap(".moves .row-button", "Call it a day");
+  await tap("dialog .commit", "Call it a day");
+  check("S3: the Courier confirms the market window before Start day", await evaluate(`(() => {
+    const news = [...document.querySelectorAll(".paper-required li")].find(e => e.textContent.includes("Fireworks shortage in Old Town"));
+    return news?.textContent.includes("Confirmed · From 10:00 on day 2 through day 3") && news.getBoundingClientRect().bottom < document.querySelector(".paper .commit").getBoundingClientRect().top;
+  })()`));
+  await snap("s3-confirmed-market-news");
+
+  await store(day9);
+  await reload();
+  await tap("button.good", "Bootleg Tapes");
+  check("S3: the current quote names its market and the applicable stock and price change",
+    /Current price at the Docks.*Tapes shortage at the Docks.*through day 10.*Prices are higher and stock is tighter/.test(await text("dialog .sheet-body") ?? ""));
+  await key("Escape", "Escape", 27);
+  await tap(".tabs button", "City");
+  check("S3: each affected Go points to its own route warning", await evaluate(`(() => {
+    const descriptions = [...document.querySelectorAll("button.go")].map(b => document.getElementById(b.getAttribute("aria-describedby"))?.textContent ?? "");
+    return descriptions.some(t => /Police sweep.*Old Town.*22:00 on day 9.*Ordinary bribe rules apply/.test(t))
+      && descriptions.some(t => /Operation.*the Strip.*days 9–10.*Pinch refuses bribes/.test(t))
+      && descriptions.some(t => t === "");
+  })()`));
+  await tap("button.go", "Old Town");
+  const travelled = testing.play(day9, { type: "travel", to: "oldtown" }).state;
+  check("S3: travel matches the existing quote and focuses the destination", await saveMatches(travelled) &&
+    (await focused()).includes("Old Town") && /Police sweep.*Old Town/.test(await text(".case-notice") ?? ""));
+  await tap(".moves .move", "Risky job");
+  const job = sim.quoteJob(travelled);
+  check("S3: the risky job sheet distinguishes sweep, success and stop risk", typeof job !== "string" &&
+    (await text("dialog .sheet-body") ?? "").includes(Number(job.success.toFixed(1)) + "% chance of success") &&
+    /Police sweep.*Ordinary bribe rules apply.*stop risk/.test(await text("dialog .sheet-body") ?? ""));
+  await snap("s3-sweep-job");
+  await key("Escape", "Escape", 27);
+  check("S3: Escape takes the player back to the risky job", (await focused()).includes("Risky job"), await focused());
 
   // ---- Desktop: the wide layout and a keyboard-only day ---------------------------------------
   await evaluate(`localStorage.clear()`);

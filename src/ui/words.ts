@@ -56,6 +56,7 @@ export function oddsWord(percent: number): OddsWord {
 
 export const oddsText = (percent: number): string => t(`odds.${oddsWord(percent)}`);
 export const heatText = (heat: number): string => t(`heat.${heatWord(heat)}`);
+export const jobSuccessText = (chance: number): string => t("job.success", { chance: Number(chance.toFixed(1)) });
 
 const at = (place: PlaceId, good?: GoodId) => ({ ...placeValues(place), ...(good ? goodValues(good) : {}) });
 
@@ -66,9 +67,9 @@ export function goodsList(goods: PerGood<number>): string {
     .join(", ");
 }
 
-export function rumourLine(r: Rumour): string {
-  if (!r.claim) return t("result.rumourNone");
-  return t(r.claim.kind === "shortage" ? "result.rumourShortage" : "result.rumourGlut", at(r.claim.place, r.claim.good));
+export function rumourLine(r: Rumour, day: number): string {
+  if (!r.claim) return t("result.rumourNone", { day });
+  return t(r.claim.kind === "shortage" ? "result.rumourShortage" : "result.rumourGlut", { day, ...at(r.claim.place, r.claim.good) });
 }
 
 /** The one-line result of the last action: whole sentences, in the order things happened. */
@@ -96,10 +97,14 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
       case "tip":
         // Mags voices what asking around turns up; a card's tip is the card's own.
         if (e.tip.kind === "price") {
-          const line = t("result.tipPrice", { ...at(e.tip.place, e.tip.good), price: money(e.tip.price) });
+          // Both tip paths record a remote price before advancing the clock. The
+          // post-action snapshot only revisits prices at the player's current place.
+          const seen = state.memory[e.tip.place][e.tip.good];
+          const quote = t("result.tipPrice", { ...at(e.tip.place, e.tip.good), price: money(e.tip.price) });
+          const line = seen ? `${quote} ${t("result.tipTime", { day: seen.day, time: clock(seen.hour) })}` : quote;
           out.push(events.some((x) => x.type === "cardResolved") ? line : t("result.mags", { line }));
         } else if (e.tip.via === "ask") {
-          out.push(t("result.mags", { line: rumourLine(e.tip) }));
+          out.push(t("result.mags", { line: rumourLine(e.tip, state.day + 1) }));
         }
         break;
       case "laidLow":
@@ -123,7 +128,7 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
         out.push(t(e.saleOff ? "result.bribeRefusedSale" : "result.bribeRefused"));
         break;
       case "rangRound":
-        out.push(t("result.rangRound", { word: heatText(state.heat) }));
+        out.push(t("result.rangRound", { day: state.day, time: clock(state.hour), word: heatText(state.heat) }));
         break;
       case "leggedIt":
         out.push(t(e.success ? "result.leggedIt" : "result.legItFailed"));
@@ -173,36 +178,33 @@ export interface Brief {
   /** Who it comes from, set in bold before the line: "Mags:". */
   who: string;
   /** The same, for its dismiss button's name. */
-  from: "mags" | "phone";
+  from: "mags" | "phone" | "news";
   line: string;
 }
 
 function eventLine(e: WorldEvent): string {
-  switch (e.kind) {
-    case "shortage":
-      return t(e.slot === "morning" ? "brief.morningShortage" : "brief.shortage", at(e.place, e.good));
-    case "glut":
-      return t(e.slot === "morning" ? "brief.morningGlut" : "brief.glut", at(e.place, e.good));
-    case "sweep":
-      return t("brief.sweep", at(e.place));
-    case "harmless":
-      return t(`brief.harmless.${e.line}`);
-  }
+  if (e.kind === "harmless") return t(`brief.harmless.${e.line}`);
+  const notice = eventNotice(e);
+  return `${notice.title}. ${noticeStory(notice)}`;
 }
 
-/** Today's news: the day-1 line, events that started today, the phone's midday tip. */
+/** Today's updates: opening advice, public events and the lead about tomorrow. */
 export function briefs(s: GameState): Brief[] {
   if (s.phase !== "day") return [];
   const out: Brief[] = [];
-  // The day's news is Mags's, from the kiosk; the phone's tip is the phone's.
   const mags = t("brief.who.mags");
   if (s.day === 1) out.push({ id: "d1-line", who: mags, from: "mags", line: t("brief.day1") });
   const today = s.events
     .filter((e) => e.activated && e.startDay === s.day)
     .sort((a, b) => b.startHour - a.startHour);
-  for (const e of today) out.push({ id: e.id, who: mags, from: "mags", line: eventLine(e) });
-  if (s.rumour?.via === "phone") {
-    out.push({ id: `d${s.day}-phone`, who: t("brief.who.phone"), from: "phone", line: rumourLine(s.rumour) });
+  for (const e of today) {
+    if (e.kind === "sweep" && e.place === s.place) continue; // Already beside the place heading.
+    const from = e.kind === "harmless" ? "mags" : "news";
+    out.push({ id: e.id, who: t(`brief.who.${from}`), from, line: eventLine(e) });
+  }
+  if (s.rumour) {
+    const from = s.rumour.via === "ask" ? "mags" : "phone";
+    out.push({ id: `d${s.day}-rumour`, who: t(`brief.who.${from}`), from, line: rumourLine(s.rumour, s.day + 1) });
   }
   return out;
 }
@@ -256,6 +258,11 @@ function pinchStory(item: Exclude<PinchItem, { kind: "credit" }>, day: number): 
 
 const noticeStory = (n: Notice): string => [n.meta && `${n.meta}.`, n.body].filter(Boolean).join(" ");
 
+function confirmedNotice(e: Exclude<WorldEvent, { kind: "harmless" }>): Notice {
+  const notice = eventNotice(e);
+  return { ...notice, meta: `Confirmed · ${notice.meta}` };
+}
+
 /** The evening paper: committed results and scheduled facts, so every line is true. */
 export function paperView(p: Paper): PaperView {
   const { log } = p;
@@ -292,11 +299,11 @@ export function paperView(p: Paper): PaperView {
   } else if (p.unseenMidday) {
     const e = p.unseenMidday;
     head = middayHead(e);
-    story = e.kind === "harmless" ? t("paper.harmless.story") : noticeStory(eventNotice(e));
+    story = e.kind === "harmless" ? t("paper.harmless.story") : noticeStory(confirmedNotice(e));
     used.add(e.id);
   } else if (freshMorning && (freshMorning.kind === "shortage" || freshMorning.kind === "glut")) {
     head = t(freshMorning.kind === "shortage" ? "paper.tomorrowShortage.head" : "paper.tomorrowGlut.head", at(freshMorning.place, freshMorning.good));
-    story = noticeStory(eventNotice(freshMorning));
+    story = noticeStory(confirmedNotice(freshMorning));
     used.add(freshMorning.id);
   } else if (log.best) {
     const b = log.best;
@@ -333,7 +340,7 @@ export function paperView(p: Paper): PaperView {
   }
   for (const e of [...p.tomorrow, ...(midday ? [midday] : [])]) {
     if (used.has(e.id) || e.kind === "harmless") continue;
-    required.push(eventNotice(e));
+    required.push(confirmedNotice(e));
     used.add(e.id);
   }
   // Old Reg's worries trail the pub's sale, every fourth day until it is sold.
@@ -514,9 +521,8 @@ export function castLines(s: GameState): { who: "lenny" | "mags" | "reg"; name: 
   ];
 }
 
-/** How old a remembered price is, as City's Seen row gives it: "now", "13:00", "day 8". */
+/** Same-day prices only need their hour. Older quotes keep the day and hour. */
 export function seenText(s: GameState, day: number, hour: number): string {
-  if (day === s.day && hour === s.hour) return t("city.seenNow");
   if (day === s.day) return t("city.seenToday", { time: clock(hour) });
-  return t("city.seenDay", { day });
+  return t("city.seenDay", { day, time: clock(hour) });
 }

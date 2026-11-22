@@ -6,6 +6,7 @@ export { announced, tally } from "./detective.ts";
 export {
   heatWord,
   level,
+  marketEventOn,
   operationOn,
   operationStart,
   police,
@@ -13,6 +14,7 @@ export {
   priceHint,
   riskWord,
   ringDistance,
+  rumourAccuracy,
   usualPrice,
 } from "./market.ts";
 export * from "./sim.ts";

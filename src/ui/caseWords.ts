@@ -1,4 +1,4 @@
-import { GOODS, PINCH, operationStart, type CaseArrest, type GameState, type OpenCase, type Paper, type PastCase, type Seizure, type WorldEvent } from "../sim/index.ts";
+import { GOODS, PINCH, RULES, operationStart, type CaseArrest, type GameState, type OpenCase, type Paper, type PastCase, type Seizure, type WorldEvent } from "../sim/index.ts";
 import { clock, codename, goodCount, goodKind, goodValues, money, placeValues, placesText, upper } from "./text.ts";
 
 export interface Notice {
@@ -39,8 +39,8 @@ export function operationNotice(c: OpenCase, day: number): Notice {
 export function sweepNotice(e: Extract<WorldEvent, { kind: "sweep" }>): Notice {
   return {
     title: "Police sweep",
-    meta: `${upper(caseAt(e.place))} · through 22:00 on day ${e.endDay}`,
-    body: "Stop risk is higher. Ordinary bribe rules apply.",
+    meta: `${upper(caseAt(e.place))} · through ${clock(RULES.dayEnd)} on day ${e.endDay}`,
+    body: "Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.",
     warning: true,
   };
 }

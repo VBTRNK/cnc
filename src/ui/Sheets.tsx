@@ -6,6 +6,7 @@ import {
   carried,
   deals,
   hoursLeft,
+  marketEventOn,
   maxBuy,
   maxSale,
   pockets,
@@ -14,6 +15,7 @@ import {
   quoteJob,
   quoteSale,
   saleCost,
+  saleHoursAtLevel,
   type Action,
   type GameState,
   type GoodId,
@@ -21,10 +23,11 @@ import {
 } from "../sim/index.ts";
 import { Chip, RiskChip } from "./bits.tsx";
 import { CaseNotice } from "./CaseNotice.tsx";
-import { localCase, operationNotice, sweepNotice } from "./caseWords.ts";
+import { caseAt, eventNotice, localCase, operationNotice, sweepNotice } from "./caseWords.ts";
 import { Portrait } from "./Portrait.tsx";
 import { Sheet } from "./Sheet.tsx";
 import { goodName, goodTagline, money, t, upgradeName, type TextKey } from "./text.ts";
+import { jobSuccessText } from "./words.ts";
 
 interface CommitProps {
   state: GameState;
@@ -56,9 +59,9 @@ export function TradeSheet(props: CommitProps & { good: GoodId }) {
 /** A held good nobody here deals in: what you carry and what it cost, and nothing to trade. */
 function UndealtSheet({ state, good, onClose }: CommitProps & { good: GoodId }) {
   return (
-    <Sheet label={goodName(good)} onClose={onClose}>
+    <Sheet label={goodName(good)} onClose={onClose} focusHeading>
       <div className="sheet-head">
-        <h2>{goodName(good)}</h2>
+        <h2 tabIndex={-1}>{goodName(good)}</h2>
       </div>
       <p className="tagline">{goodTagline(good)}</p>
       <p className="facts">{t("trade.undealt.facts", { held: state.held[good], paid: money(state.paid[good]) })}</p>
@@ -77,6 +80,8 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
   const unitPrice = price(state, state.place, good);
   const hint = priceHint(state, state.place, good);
   const quote = mode === "sell" && units > 0 ? quoteSale(state, good, units) : null;
+  const marketEvent = marketEventOn(state, state.place, good);
+  const patterHours = quote && typeof quote !== "string" ? saleHoursAtLevel(good, units, 0) - quote.hours : 0;
   const switchTo = (m: "buy" | "sell") => {
     setMode(m);
     setChosen(null);
@@ -91,6 +96,7 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
           {hint && <span className="hint-word">{t(`hint.${hint}`)}</span>}
         </p>
       </div>
+      <p className="facts">{t("trade.currentPrice", { at: caseAt(state.place) })}</p>
       <p className="tagline">{goodTagline(good)}</p>
       <p className="facts">
         {t("trade.facts", {
@@ -99,6 +105,7 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
           free: pockets(state) - carried(state),
         })}
       </p>
+      {marketEvent && <CaseNotice heading="h3" notice={eventNotice(marketEvent)} />}
 
       <div className="switch" role="group" aria-label={t("trade.mode")}>
         {(["buy", "sell"] as const).map((m) => (
@@ -152,6 +159,7 @@ function DealtSheet({ state, good, onClose, commit }: CommitProps & { good: Good
                 <RiskChip chance={quote.stopChance} />
                 <Chip>{t("chip.heat", { heat: Math.round(Math.min(quote.heat, RULES.heatMax - state.heat) * 10) / 10 })}</Chip>
               </p>
+              {patterHours > 0 && <p className="facts">{t("trade.patter", { hours: patterHours })}</p>}
             </>
           )}
           <button
@@ -184,10 +192,10 @@ export function JobSheet({ state, onClose, commit }: CommitProps) {
   return (
     <Sheet label={t("job.title")} onClose={onClose} focusHeading>
       <h2 tabIndex={-1}>{t("job.title")}</h2>
-      <p>{t("job.story", { low: money(q.pay[0]), high: money(q.pay[1]) })}</p>
+      <p>{t("job.story", { low: money(q.pay[0]), high: money(q.pay[1]), at: caseAt(state.place) })}</p>
       <QuoteWarning state={state} />
       <p className="chips-line">
-        <Chip kind="chance">{q.success}% chance of success</Chip>
+        <Chip kind="chance">{jobSuccessText(q.success)}</Chip>
         <RiskChip chance={q.stopChance} />
       </p>
       <button type="button" className="commit" onClick={() => commit({ type: "pullJob" })}>
