@@ -4,6 +4,7 @@ import type { GameSession } from "./game/session.ts";
 import type { Conflict } from "./game/sync.ts";
 import type { Action } from "./sim/index.ts";
 import { CardSheet } from "./ui/CardSheet.tsx";
+import { caseArrest } from "./ui/caseWords.ts";
 import { CellsScreen } from "./ui/CellsScreen.tsx";
 import { City } from "./ui/City.tsx";
 import { CloudChoice } from "./ui/Cloud.tsx";
@@ -130,7 +131,8 @@ export function App({ saves }: { saves: CloudSaves }) {
   if (state.phase === "night" && state.paper) {
     const paper = state.paper;
     // The action that ended the day still gets its line, before the paper takes over.
-    const last = snap.events.some((e) => e.type === "dayEnded") ? resultLines(snap.events, state) : [];
+    const events = caseArrest(paper) ? snap.events.filter((e) => e.type !== "arrested") : snap.events;
+    const last = events.some((e) => e.type === "dayEnded") ? resultLines(events, state) : [];
     const night = `${state.runId}:${paper.day}`;
     return (
       <main className="night">

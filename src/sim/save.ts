@@ -23,7 +23,7 @@ import { baseStock, neutralDemand, neutralPrice, undealtCell, usualPrice } from 
 import type { GameState } from "./state.ts";
 
 export const SAVE_FORMAT = "crime-and-crown-save";
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** The goods of save formats 1-3, dealt everywhere; format 4 added the rest (ADR-014). */
 const FIRST_GOODS: readonly GoodId[] = ["smokes", "tapes", "watches", "fireworks"];
@@ -122,6 +122,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     }
     return { ...doc, state };
   },
+  // 5: case evidence is optional. The original facts and current choices are kept as saved.
+  4: (doc) => doc,
 };
 
 export type LoadResult =
@@ -321,21 +323,48 @@ const places = all(list(oneOf(PLACES), 2), (x, path) => {
   const a = x as unknown[];
   return a.length > 0 && new Set(a).size === a.length ? null : `${path}: places`;
 });
-const openCase = shape({
+const theory = {
   n: int(1),
   place: oneOf(PLACES),
   habit: oneOf(HABITS),
+  observed: oneOf([true]),
+};
+const seizure = all(list((x, path) => {
+  if (!Array.isArray(x) || x.length !== 2) return `${path}: pair`;
+  return oneOf(GOODS)(x[0], `${path}[0]`) ?? int(1, RULES.coatPockets)(x[1], `${path}[1]`);
+}, GOODS.length), (x, path) => {
+  const goods = x as [GoodId, number][];
+  return new Set(goods.map(([g]) => g)).size === goods.length &&
+    goods.reduce((sum, [, n]) => sum + n, 0) <= RULES.coatPockets ? null : `${path}: goods in pockets`;
+});
+const handover = shape({
+  place: oneOf(PLACES),
+  action: oneOf(["sell", "job"]),
+  goods: seizure,
+  job: shape({ outcome: oneOf(["success", "nothing", "hurt", "arrested"]), pay: int(0, MAX_CASH) }),
+}, ["job"]);
+const arrest = shape({
+  place: oneOf(PLACES),
+  cause: oneOf(["escape", "job"]),
+  goods: seizure,
+  fine: int(0, MAX_CASH),
+});
+const evidence = shape({ handover, arrest }, ["handover", "arrest"]);
+const openCase = shape({
+  ...theory,
   announced: day,
   places,
   caught: bool,
-});
+  trail: shape({ from: places, cost: int(1, MAX_CASH) }),
+  evidence,
+}, ["observed", "trail", "evidence"]);
 const pastCase = shape({
-  n: int(1),
-  place: oneOf(PLACES),
-  habit: oneOf(HABITS),
+  ...theory,
   outcome: oneOf(["closed", "cold"]),
   day,
-});
+  trail: shape({ from: places, to: places }),
+  evidence,
+}, ["observed", "trail", "evidence"]);
 const pinchItem: Check = (x, path) => {
   if (!isObject(x)) return `${path}: object`;
   switch (x.kind) {

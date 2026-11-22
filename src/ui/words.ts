@@ -7,13 +7,13 @@ import {
   MILESTONES,
   PINCH,
   RULES,
+  TRAIL,
   UPGRADE_COST,
   cardSale,
   chanceOdds,
   gainOf,
   has,
   heatWord,
-  operationStart,
   type CardId,
   type Choice,
   type DomainEvent,
@@ -21,9 +21,7 @@ import {
   type GameState,
   type GoodId,
   type MilestoneId,
-  type OpenCase,
   type Paper,
-  type PastCase,
   type PerGood,
   type PinchItem,
   type PlaceId,
@@ -31,21 +29,19 @@ import {
   type WorldEvent,
 } from "../sim/index.ts";
 import {
-  caseLabel,
   clock,
-  codename,
   goodCount,
   goodValues,
   hasText,
   money,
   placeValues,
-  placesText,
   skillName,
   t,
   upper,
   type TextKey,
   type Values,
 } from "./text.ts";
+import { caseArrest, caseAt, caseDates, caseResult, caseSites, eventNotice, localCase, observation, operationName, operationNotice, sitesChanged, trailLine, type Notice } from "./caseWords.ts";
 
 export type OddsWord = "likely" | "good" | "even" | "poor" | "long";
 
@@ -118,7 +114,7 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
         else out.push(t(e.outcome === "hurt" ? "result.job.hurt" : "result.job.arrested"));
         break;
       case "pattedDown":
-        out.push(t("result.pattedDown"));
+        out.push(e.operation === undefined ? t("result.pattedDown") : "Pinch patted you down. Your pockets were empty, so the job went ahead.");
         break;
       case "bribed":
         out.push(t("result.bribed", { amount: money(e.amount) }));
@@ -138,9 +134,15 @@ export function resultLines(events: readonly DomainEvent[], state: GameState): s
         out.push(goods ? t("result.arrested", { goods, fine }) : t("result.arrestedEmpty", { fine }));
         break;
       }
-      case "handedOver":
-        out.push(t(e.saleOff ? "result.handedOverSale" : "result.handedOver"));
+      case "handedOver": {
+        const goods = goodsList(e.seized);
+        const c = state.phase === "day" ? localCase(state, true) : null;
+        out.push(goods
+          ? `You handed over ${goods}. ${e.saleOff ? "The sale was cancelled." : "The job went ahead."}`
+          : t(e.saleOff ? "result.handedOverSale" : "result.handedOver"));
+        if (c) out.push(`${operationName(c)} closes tonight.`);
         break;
+      }
       case "upgraded":
         out.push(t(`result.upgraded.${e.upgrade}`, { pockets: RULES.coatPockets }));
         break;
@@ -210,6 +212,7 @@ export function briefs(s: GameState): Brief[] {
 export interface PaperView {
   head: string;
   story: string;
+  required: Notice[];
   briefs: string[];
   chips: string[];
 }
@@ -227,63 +230,46 @@ const middayHead = (e: WorldEvent): string => {
   }
 };
 
-function tomorrowBrief(e: WorldEvent, day: number): string | null {
-  const fresh = !e.activated && e.startDay === day + 1;
-  switch (e.kind) {
-    case "shortage":
-      return t(fresh ? "paper.brief.tomorrowShortage" : "paper.brief.stillShortage", at(e.place, e.good));
-    case "glut":
-      return t(fresh ? "paper.brief.tomorrowGlut" : "paper.brief.stillGlut", at(e.place, e.good));
-    case "sweep":
-      return t("paper.brief.stillSweep", at(e.place));
-    case "harmless":
-      return null;
-  }
-}
-
-/** A case's values for its lines: codename, label, places and days. */
-function caseValues(c: OpenCase | PastCase): Values {
-  const label = caseLabel(c.place, c.habit);
-  const values: Values = { Codename: codename(c.n), label, Label: upper(label) };
-  if ("places" in c) {
-    const first = operationStart(c);
-    Object.assign(values, {
-      places: placesText(c.places),
-      Places: upper(placesText(c.places)),
-      at: placesText(c.places, "at"),
-      first,
-      last: first + PINCH.operationDays - 1,
-    });
-  }
-  return values;
-}
-
 /** Front-page milestones, in the order they lead; a first case or promotion is Pinch's story. */
 const FRONT = ["crown", "grand", "phone", "coat", "arrest", "escape", "job", "sale"] as const satisfies readonly MilestoneId[];
 const PINCH_ORDER: readonly PinchItem["kind"][] = ["promoted", "closed", "cold", "announced", "intro"];
 
-const pinchHead = (item: PinchItem): [string, string] => {
-  const v = "case" in item ? caseValues(item.case) : {};
+function pinchStory(item: Exclude<PinchItem, { kind: "credit" }>, day: number): Notice {
   switch (item.kind) {
-    case "credit":
-      return [t("paper.brief.credit"), ""];
-    default:
-      return [t(`paper.pinch.${item.kind}.head`, v), t(`paper.pinch.${item.kind}.story`, v)];
+    case "announced": {
+      const c = item.case;
+      const notice = operationNotice(c, day);
+      const { head, body } = observation(c);
+      return {
+        title: head,
+        body: `${body} ${notice.title} runs ${caseSites(c.places)} on ${caseDates(c)}. ${notice.body}${c.habit === "oddJob" && c.observed ? " Odd jobs still pay as usual." : ""}`,
+      };
+    }
+    case "closed":
+    case "cold":
+      return { title: `${operationName(item.case)} ${item.kind === "closed" ? "closed" : "went cold"}`, body: caseResult(item.case) };
+    case "intro":
+    case "promoted":
+      return { title: t(`paper.pinch.${item.kind}.head`), body: t(`paper.pinch.${item.kind}.story`) };
   }
-};
-const pinchBrief = (item: PinchItem): string =>
-  t(`paper.brief.${item.kind}`, "case" in item ? caseValues(item.case) : {});
+}
+
+const noticeStory = (n: Notice): string => [n.meta && `${n.meta}.`, n.body].filter(Boolean).join(" ");
 
 /** The evening paper: committed results and scheduled facts, so every line is true. */
 export function paperView(p: Paper): PaperView {
   const { log } = p;
   let head: string;
   let story: string;
-  let used: WorldEvent | null = null;
+  const used = new Set<string>();
   let usedPinch: PinchItem | null = null;
 
   const front = FRONT.find((m) => p.firsts.includes(m));
-  const arrested = (): [string, string] => [
+  const closure = p.pinch.find((item) => item.kind === "closed");
+  const inCase = caseArrest(p);
+  const arrested = (): [string, string] => closure?.kind === "closed" && inCase
+    ? [`Nicked ${caseAt(inCase.place)}`, caseResult(closure.case)]
+    : [
     t("paper.arrested.head"),
     t("paper.arrested.story", { fine: money(log.fine), time: clock(RULES.arrestStart) }),
   ];
@@ -291,22 +277,27 @@ export function paperView(p: Paper): PaperView {
   const freshMorning = p.tomorrow.find((e) => !e.activated && e.startDay === p.day + 1);
   if (front) {
     [head, story] = front === "arrest" ? arrested() : [t(`paper.first.${front}.head`), t(`paper.first.${front}.story`)];
-  } else if (pinch) {
-    [head, story] = pinchHead(pinch);
+    if (front === "arrest" && inCase) usedPinch = closure ?? null;
+  } else if (pinch && pinch.kind !== "credit") {
+    const n = pinchStory(pinch, p.day);
+    head = n.title;
+    story = noticeStory(n);
     usedPinch = pinch;
   } else if (log.arrested) {
     [head, story] = arrested();
+    if (inCase) usedPinch = closure ?? null;
   } else if (log.hurt) {
     head = t("paper.hurt.head");
     story = t("paper.hurt.story");
   } else if (p.unseenMidday) {
-    head = middayHead(p.unseenMidday);
-    story = t(p.unseenMidday.kind === "harmless" ? "paper.harmless.story" : "paper.midday.story");
-    used = p.unseenMidday;
+    const e = p.unseenMidday;
+    head = middayHead(e);
+    story = e.kind === "harmless" ? t("paper.harmless.story") : noticeStory(eventNotice(e));
+    used.add(e.id);
   } else if (freshMorning && (freshMorning.kind === "shortage" || freshMorning.kind === "glut")) {
     head = t(freshMorning.kind === "shortage" ? "paper.tomorrowShortage.head" : "paper.tomorrowGlut.head", at(freshMorning.place, freshMorning.good));
-    story = t("paper.tomorrow.story");
-    used = freshMorning;
+    story = noticeStory(eventNotice(freshMorning));
+    used.add(freshMorning.id);
   } else if (log.best) {
     const b = log.best;
     head = t("paper.best.head", at(b.place, b.good));
@@ -316,29 +307,38 @@ export function paperView(p: Paper): PaperView {
     story = t("paper.quiet.story");
   }
 
-  const briefs: string[] = [];
-  // A midday item nobody saw always makes the paper: as the headline, or else as the first
-  // brief, ahead of anything the three-brief cap could cut.
-  if (p.unseenMidday && used?.id !== p.unseenMidday.id) {
-    briefs.push(eventLine(p.unseenMidday));
-    used = p.unseenMidday;
+  const required: Notice[] = [];
+  const colour: string[] = [];
+  const midday = p.unseenMidday;
+  if (midday && !used.has(midday.id) && midday.kind === "harmless") colour.push(eventLine(midday));
+  for (const item of p.pinch) {
+    if (item === usedPinch) continue;
+    if (item.kind === "credit") colour.push(t("paper.brief.credit"));
+    else if (item.kind === "announced") {
+      const notice = operationNotice(item.case, p.day);
+      required.push({
+        ...notice,
+        body: `${observation(item.case).body} ${notice.body}${item.case.habit === "oddJob" && item.case.observed ? " Odd jobs still pay as usual." : ""}`,
+      });
+    } else required.push(pinchStory(item, p.day));
   }
-  for (const item of p.pinch) if (item !== usedPinch) briefs.push(pinchBrief(item));
+  if (log.arrested && !inCase && (front ? front !== "arrest" : usedPinch !== null)) {
+    const [title, body] = arrested();
+    required.push({ title, body });
+  }
   const c = p.case;
-  if (c && !p.pinch.some((i) => i.kind === "announced")) {
-    const first = operationStart(c);
-    const v = caseValues(c);
-    if (first === p.day + 1) briefs.push(t("paper.brief.opTomorrow", v));
-    else if (first <= p.day && p.day + 1 < first + PINCH.operationDays) briefs.push(t("paper.brief.opStill", v));
+  if (c && !p.pinch.some((i) => i.kind === "announced" && i.case.n === c.n)) {
+    const notice = operationNotice(c, p.day);
+    required.push({ ...notice, body: [trailLine(c), notice.body].filter(Boolean).join(" ") });
   }
-  for (const e of p.tomorrow) {
-    if (e.id === used?.id) continue;
-    const line = tomorrowBrief(e, p.day);
-    if (line) briefs.push(line);
+  for (const e of [...p.tomorrow, ...(midday ? [midday] : [])]) {
+    if (used.has(e.id) || e.kind === "harmless") continue;
+    required.push(eventNotice(e));
+    used.add(e.id);
   }
   // Old Reg's worries trail the pub's sale, every fourth day until it is sold.
   if (!p.crown && p.day % 4 === 0) {
-    briefs.push(t(`paper.brief.reg.${(p.day / 4 - 1) % 3}` as TextKey, { cost: money(UPGRADE_COST.crown) }));
+    colour.push(t(`paper.brief.reg.${(p.day / 4 - 1) % 3}` as TextKey, { cost: money(UPGRADE_COST.crown) }));
   }
 
   const chips: string[] = [];
@@ -352,7 +352,7 @@ export function paperView(p: Paper): PaperView {
   chips.push(t("paper.chip.cash", { amount: money(p.cash) }));
   chips.push(t("paper.chip.heat", { word: heatText(p.heat) }));
 
-  return { head, story, briefs: briefs.slice(0, 3), chips };
+  return { head, story, required, briefs: colour.slice(0, 3), chips };
 }
 
 // ---- Cards ---------------------------------------------------------------------------
@@ -368,6 +368,7 @@ export function cardText(id: CardId, suffix: string, values: Values = {}): strin
 
 /** The text keys every card needs, for the test that they all exist. */
 export function cardKeys(id: CardId): string[] {
+  if (TRAIL.includes(id)) return ["card.falseTrail.who", "card.falseTrail.leave"];
   const card = CARDS[id];
   const keys = [`card.${textId(id)}.${card.choices.length === 0 ? "report" : "story"}`];
   if (card.choices.length > 0) keys.push(`card.${textId(id)}.who`);
@@ -379,13 +380,10 @@ export function cardKeys(id: CardId): string[] {
   return keys;
 }
 
-/** The values a card's story needs: for the false trail, where and what. */
-export function cardValues(s: GameState, id: CardId): Values {
-  const c = s.detective.case;
-  const values: Values = c ? caseValues(c) : {};
+/** The price in a card's choice label, when it has a cash cost. */
+export function cardValues(id: CardId): Values {
   const cost = CARDS[id].choices.flatMap((ch) => ch.effects).find((e) => e.kind === "cash" && e.amount < 0);
-  if (cost?.kind === "cash") values.cost = money(-cost.amount);
-  return values;
+  return cost?.kind === "cash" ? { cost: money(-cost.amount) } : {};
 }
 
 export interface ChipView {
@@ -455,12 +453,24 @@ export function choiceChips(s: GameState, choice: Choice, odds: number | null): 
 
 /** The line a card's choice leaves on Street. */
 export function cardResult(e: Extract<DomainEvent, { type: "cardResolved" }>, s: GameState): string {
+  const c = s.detective.case;
+  if (TRAIL.includes(e.card)) {
+    if (!c) return e.choice === "leave" ? "You kept your cash." : `You paid Lenny ${money(-e.cash)}. There was no warning to move.`;
+    const name = operationName(c);
+    const sites = caseSites(c.places);
+    const dates = caseDates(c);
+    if (e.choice === "leave") return `You kept your cash. ${name} stays ${sites} on ${dates}.`;
+    const paid = `You paid Lenny ${money(-e.cash)}.`;
+    if (!e.won) return `${paid} Pinch kept ${name} ${sites} on ${dates}.`;
+    return c.trail
+      ? `${paid} ${name} moved ${sitesChanged(c.trail.from, c.places)} It still runs on ${dates}.`
+      : `${paid} ${name} stayed ${sites} on ${dates}.`;
+  }
   const gained = perGoodAbs(e.goods);
   const values: Values = {
     goods: goodsList(gained),
     cost: money(Math.max(0, -e.cash)),
     amount: money(Math.abs(e.cash)),
-    ...(s.detective.case ? caseValues(s.detective.case) : {}),
   };
   if (e.choice === null) return cardText(e.card, "report", values);
   const suffix = e.won === null ? "done" : e.won ? "won" : "lost";
@@ -492,20 +502,6 @@ export function exhibits(s: GameState): Exhibit[] {
     .sort((a, b) => a.day - b.day)
     .map((x, i) => ({ letter: String.fromCharCode(65 + (i % 26)), what: x.what, reading: x.reading }));
 }
-
-/** His line on the board: the open case, his rest, or what he is doing. */
-export function pinchLine(s: GameState): string {
-  const c = s.detective.case;
-  if (c) {
-    const on = s.day >= operationStart(c);
-    return t(on ? "people.case.on" : "people.case.announced", caseValues(c));
-  }
-  const last = s.milestones.cases.at(-1);
-  if (last && s.day < s.detective.next) return t("people.pinch.resting", caseValues(last));
-  return t(s.day >= PINCH.introDay || last ? "people.pinch.watching" : "people.pinch.unaware");
-}
-
-export const pastCaseLine = (c: PastCase): string => t("people.case.past", caseValues(c));
 
 /** One current line per cast member; flags and milestones change them. */
 export function castLines(s: GameState): { who: "lenny" | "mags" | "reg"; name: string; line: string }[] {

@@ -4,7 +4,6 @@ import {
   canAskAround,
   deals,
   hoursLeft,
-  operationOn,
   quoteJob,
   riskWord,
   type Action,
@@ -13,9 +12,11 @@ import {
   type GoodId,
 } from "../sim/index.ts";
 import { Chevron, CloseIcon, useNarrow } from "./bits.tsx";
-import { knownPrice, marketNote, sweepAt } from "./known.ts";
+import { CaseNotice } from "./CaseNotice.tsx";
+import { localCase, operationNotice, sweepNotice } from "./caseWords.ts";
+import { knownPrice, marketNote } from "./known.ts";
 import type { Overlay } from "./overlay.ts";
-import { codename, goodName, goodsByName, money, placeName, t, upper } from "./text.ts";
+import { goodName, goodsByName, money, placeName, t, upper } from "./text.ts";
 import { briefs, oddsText } from "./words.ts";
 
 interface StreetProps {
@@ -36,11 +37,8 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
   const news = briefs(state)
     .map((b) => ({ ...b, id: `${state.runId}:${b.id}` }))
     .filter((b) => !dismissed.has(b.id));
-  const flavour = operationOn(state, state.place)
-    ? t("street.flavour.operation", { Codename: codename(state.detective.case?.n ?? 1) })
-    : sweepAt(state, state.place)
-      ? t("street.flavour.sweep")
-      : t(`street.flavour.${state.place}`);
+  const c = localCase(state);
+  const sweep = state.events.find((e) => e.kind === "sweep" && e.activated && e.place === state.place);
 
   // Travelling or a new day removes the control that had focus; keep it on the page.
   const headRef = useRef<HTMLHeadingElement>(null);
@@ -72,7 +70,7 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
     next?.focus();
   }, [news.length, narrow]);
 
-  const place = <p className="flavour">{flavour}</p>;
+  const place = !c && !sweep && <p className="flavour">{t(`street.flavour.${state.place}`)}</p>;
   const tips = news.length > 0 && (
     <ul className="tips" ref={tipsRef}>
       {news.map((b, i) => (
@@ -117,6 +115,8 @@ export function Street({ state, events, dismissed, onDismiss, onOpen, dispatch }
       <h1 ref={headRef} tabIndex={-1} className="place-name">
         {placeName(state.place)}
       </h1>
+      {c && <CaseNotice notice={operationNotice(c, state.day)} />}
+      {sweep?.kind === "sweep" && <CaseNotice notice={sweepNotice(sweep)} />}
       {narrow ? (
         <>
           {market}
@@ -155,7 +155,7 @@ function Moves({ state, onOpen, dispatch }: Pick<StreetProps, "state" | "onOpen"
         )}
         {left >= RULES.oddJobHours && (
           <Move label={t("action.oddJob")} hours={RULES.oddJobHours} onClick={() => dispatch({ type: "oddJob" })}>
-            <span className="figure">{t("chip.gain", { amount: money(RULES.oddJobPay) })}</span>
+            <span className="figure">{money(RULES.oddJobPay)} guaranteed</span>
           </Move>
         )}
         {typeof job !== "string" && risk && (

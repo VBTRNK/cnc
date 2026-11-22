@@ -1,7 +1,8 @@
 import { CARD_IDS, CARDS, newGame, type DomainEvent, type GameState, type Paper } from "../sim/index.ts";
 import { atLeast, below, noGoods, play, rngWhere } from "../sim/testing.ts";
 import { hasText, t } from "./text.ts";
-import { briefs, cardKeys, choiceChips, exhibits, oddsWord, paperView, pinchLine, resultLines } from "./words.ts";
+import { currentCaseNotice } from "./caseWords.ts";
+import { briefs, cardKeys, choiceChips, exhibits, oddsWord, paperView, resultLines } from "./words.ts";
 
 const noPlaceholders = (lines: string[]) => {
   for (const line of lines) expect(line).not.toMatch(/[{}]/);
@@ -35,7 +36,7 @@ describe("what the player reads", () => {
     if (!state.paper) throw new Error("no paper");
     const view = paperView(state.paper);
     expect(view.head).toBe("Police sweep on the Strip");
-    expect(view.briefs).toContain("Tomorrow: fireworks short in Old Town.");
+    expect(view.required).toContainEqual(expect.objectContaining({ title: "Fireworks shortage in Old Town" }));
     noPlaceholders([view.head, view.story, ...view.briefs, ...view.chips]);
   });
 
@@ -122,8 +123,8 @@ describe("the paper", () => {
       p.firsts = ["coat"];
     })).head).toBe("Big coat, bigger plans");
     const view = paperView(paper(pinch));
-    expect(view.head).toBe("Pinch exposes the Uptown Watch Cartel");
-    expect(view.story).toBe("Operation Kipper hits Uptown on day 7 and day 8. “They won't see it coming,” says Pinch, who has just told them.");
+    expect(view.head).toBe("Pinch opens a case in Uptown");
+    expect(view.story).toContain("Pinch’s theory concerned watches in Uptown. Operation Kipper runs in Uptown on days 7–8.");
     expect(paperView(paper((p) => {
       p.log.arrested = true;
       p.log.fine = 50;
@@ -136,23 +137,24 @@ describe("the paper", () => {
       p.pinch = [{ kind: "intro" }];
       p.unseenMidday = { id: "d3-midday", slot: "midday", startDay: 3, startHour: 16, endDay: 4, activated: true, kind: "harmless", line: "parade" };
     }));
-    expect(view.head).toBe("New man on the beat");
+    expect(view.head).toBe("New on the beat");
     expect(view.briefs).toContain("A brass band parade. Everyone's watching the tuba.");
   });
 
-  it("keeps an unseen midday item ahead of three Pinch briefs under the cap", () => {
-    const past = { n: 1, place: "uptown" as const, habit: "watches" as const, outcome: "cold" as const, day: 26 };
+  it("keeps distinct required updates in a crowded edition without the optional cap", () => {
+    const past = { n: 2, place: "uptown" as const, habit: "watches" as const, outcome: "cold" as const, day: 26 };
     const view = paperView(paper((p) => {
       p.day = 26;
       p.firsts = ["arrest"];
       p.log.arrested = true;
       p.log.fine = 50;
-      p.pinch = [{ kind: "cold", case: past }, { kind: "promoted" }, { kind: "announced", case: kase }, { kind: "credit" }];
+      p.case = { ...kase, announced: 26 };
+      p.pinch = [{ kind: "cold", case: past }, { kind: "promoted" }, { kind: "announced", case: p.case }, { kind: "credit" }];
       p.unseenMidday = { id: "d26-midday", slot: "midday", startDay: 26, startHour: 16, endDay: 27, activated: true, kind: "sweep", place: "uptown" };
+      p.tomorrow = [p.unseenMidday, { id: "morning", kind: "glut", good: "tapes", place: "docks", slot: "morning", startDay: 27, endDay: 28, startHour: 10, activated: false }];
     }));
     expect(view.head).toBe("Nicked!");
-    expect(view.briefs).toHaveLength(3);
-    expect(view.briefs[0]).toBe("Police sweep uptown until tomorrow night.");
+    expect(view.required.map((n) => n.title)).toEqual(["Operation Winkle went cold", "Pinch made Inspector", "Operation Kipper", "Police sweep", "Tapes glut at the Docks"]);
   });
 
   it("warns of an operation the night before, and leads a quiet day with its best sale", () => {
@@ -165,7 +167,7 @@ describe("the paper", () => {
     }));
     expect(view.head).toBe("Tapes fly on the Strip");
     expect(view.story).toBe("12 tapes gone for $240, and nobody the wiser.");
-    expect(view.briefs).toEqual(["Tomorrow: Operation Kipper uptown. Pinch can't be bought."]);
+    expect(view.required).toEqual([{ title: "Operation Kipper", meta: "Scheduled in Uptown · days 7–8", body: "Sales and risky jobs face higher stop risk. Pinch refuses bribes." }]);
   });
 
   it("is bylined by Lenny and carries Old Reg's worries until the pub is sold", () => {
@@ -189,12 +191,15 @@ describe("the People tab", () => {
     ]);
   });
 
-  it("says what Pinch is up to", () => {
+  it("describes the supported legacy theory without claiming the player did it", () => {
     const s = newGame(1, "words");
-    expect(pinchLine(s)).toBe("Hasn't noticed you. Yet.");
     s.day = 6;
     s.detective.case = { n: 2, place: "docks", habit: "oddJob", announced: 5, places: ["docks"], caught: false };
-    expect(pinchLine(s)).toBe("Operation Winkle: The Docks Odd-Job Syndicate. The Docks, day 7 and day 8.");
+    expect(currentCaseNotice(s, s.detective.case)).toEqual({
+      title: "Operation Winkle",
+      meta: "Scheduled at the Docks · days 7–8",
+      body: "Pinch’s theory concerned odd jobs at the Docks. Sales and risky jobs face higher stop risk. Pinch refuses bribes.",
+    });
   });
 
   it("lets Mags voice what asking around turns up", () => {

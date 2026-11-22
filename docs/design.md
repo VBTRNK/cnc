@@ -255,23 +255,26 @@ tally, and what people feel is in their authored lines.
 - **Warned operation.** He announces it in that evening's paper. The operation runs the day
   after next, from 10:00 for two full days, so there is always one whole day of warning. In
   its place the police factor is doubled, and a stop there is Pinch himself, who can't be
-  bribed: *Slip him something* is not offered; *Leg it* and *Hand it over* are. Nothing else
-  changes. A sweep can't overlap an operation, under the events' overlap rule.
+  bribed. The choices are *Leg it* and *Hand over all carried goods*. Running can end in
+  arrest. Giving up the goods cancels the sale or lets the risky job proceed to its own
+  result. With empty pockets, a stop lets the job proceed after a pat-down. A sweep can't
+  overlap an operation, under the events' overlap rule.
 - **False trail.** On the day between the announcement and the operation, the first card of
   the day comes from Lenny (below), and only when the player can afford it:
-  - *Feed him a story:* $150 ($300 once Pinch is promoted). Pinch swallows it with 55% + 5
-    points per Savvy level, clamped 10-90%; then the operation moves to the place with his
-    lowest tally, and the result line names it. Otherwise the money is gone and nothing
-    changes.
+  - *Pay Lenny* costs $150 ($300 once Pinch is promoted). The chance Pinch takes the bait
+    is 55% + 5 points per Savvy level, clamped 10–90%. The operation moves to free sites
+    with the lowest tally and keeps its size and dates. The payment is spent either way.
+    The result names the actual effect, including unchanged or retained sites.
   - *Leave it.*
 
   Being seen elsewhere steers him too; that follows from the tally and needs no rule.
 - **Consequence and resolution.** The case is *closed* if the player is arrested or hands
   goods over in a stop inside the operation, that night, and the operation ends with it;
   otherwise it goes *cold* after its second day. Neither adds a
-  penalty: the arrest or the seizure is the cost. The paper reports his triumph or his flop,
-  the case goes on his board, and he rests three days before the next theory. An arrest
-  outside an operation earns only a line in which he takes the credit.
+  penalty beyond the arrest or seizure. The paper and People give the actual outcome,
+  including a job's outcome after handover or a later arrest in the same operation. A
+  job's own arrest result is attributed to the job. An unrelated arrest has its own account.
+  Pinch rests three days before the next theory.
 - **Promotion,** once: at the third day end after the player buys the Crown he becomes
   Detective Inspector, so the purchase has three days to be enjoyed. From then on an
   operation covers the two places with the highest tallies. His record of closed and cold
@@ -329,18 +332,24 @@ tally, and what people feel is in their authored lines.
   - **Old Reg,** landlord of the Crown & Anchor on the Strip: maudlin, broke, wants out. His
     worries trail the pub's sale in the paper.
 - **The newspaper** is the story of the run. One headline, chosen in this order: a
-  milestone today; Pinch (a case announced, closed or cold, his promotion); an arrest; an
-  unseen midday item; tomorrow's morning event; the day's best sale; a stock line. At most
-  three briefs. Pinch appears only at chain events and milestones.
+  milestone today; Pinch (his promotion, a closed, cold or announced case, his introduction);
+  an arrest; an unseen midday item; tomorrow's morning event; the day's best sale; a stock
+  line. Required updates before *Start day* keep complete case stories, open operation
+  warnings, sweeps and confirmed market news. A known in-operation arrest can report the
+  whole closure in the lead. Each event or case update appears once. Up to three optional
+  briefs and the day's totals follow the button.
 - **Milestones** live in compact state beside the capped news log, so trimming old papers
   loses none: the day of each first (sale, $1,000, coat, phone, job, arrest, escape, case,
-  the Crown, promotion), the best day, and the last 100 cases' place, label and outcome,
-  with older cases kept as closed and cold totals, so a save stays inside the cloud's size
-  cap however long the run.
-- **People tab.** Pinch's board on top: each milestone pinned as an exhibit with his
-  reading of it ("Exhibit C: a larger coat. *Significant Expansion of Distribution
-  Capacity.*"), the open case with its days, and past cases stamped *closed* or *cold*.
-  Below it the cast, one current line each.
+  the Crown, promotion), the best day, and the last 100 cases by number, theory, date and
+  outcome, with older cases kept as closed and cold totals. The latest resolution keeps
+  any known move and evidence independently of the 30 retained editions. Other resolutions
+  use their own editions for detail while those editions survive.
+- **People tab.** The collapsed board shows the current operation and any known move,
+  or the latest resolved case. An open file shows earlier operations newest first, then
+  exhibits in the same order, with Pinch's reading of each. The board and Courier
+  attribute his interpretation separately from the observation and result. Street and
+  City carry the current warning at affected places, with sale and risky-job quotes
+  applying it at the point of commitment. Below the board the cast has one current line each.
 - **The first chapter: claim the Crown.** The third purchase on Me, shown from day 1: the
   Crown & Anchor, $2,500. Buying it ends chapter one with a front page and a title from
   Lenny ("the Guv'nor"); the run goes on. It takes $75 a night, and Pinch knows where the
@@ -511,7 +520,10 @@ tally, and what people feel is in their authored lines.
   snapshot, and that and any storage failure are shown to the player.
 - The snapshot is `{ format, version, state }` (`src/sim/save.ts`). The loader reports a
   save as corrupt, from the future, without a migration path, or invalid, and migrates on
-  a copy.
+  a copy. Format 5 records supported case observations, successful changes to operation
+  sites, and case-specific closure evidence. Saved editions preserve their own sites and
+  facts. A format 4 snapshot upgrades without inventing missing evidence or altering a
+  pending choice, economy, or RNG position. See [ADR-018](decisions.md#adr-018--case-evidence-and-save-format-5).
 - The local store (`src/game/store.ts`) writes each snapshot to `localStorage` twice, as
   the save and its backup copy. It keeps the text of a save it migrated or couldn't read,
   keeps the save that an import or a new run replaced, and never writes over a save from

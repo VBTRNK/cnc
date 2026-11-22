@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
-import { PINCH, PLACES, loadSave, newGame, step, toSave, type GameState } from "../src/sim/index.ts";
+import { GOODS, PINCH, PLACES, loadSave, newGame, step, toSave, type CaseEvidence, type GameState, type PlaceId, type Seizure } from "../src/sim/index.ts";
 import { play } from "../src/sim/testing.ts";
 
 // The `cnc.saves` migration in an in-process Postgres (PGlite), with the roles Supabase
@@ -174,9 +174,9 @@ describe("cnc.put_save and cnc.get_save", () => {
 });
 
 /**
- * A capacity fixture for the largest save play makes (CS4): a full news log of 30 papers, 100 past cases kept,
- * every dealt price remembered, and a stop waiting for the player's choice. It must validate,
- * and fit `cnc.put_save`'s cap of 65,536 bytes of `jsonb::text` with 15% to spare (49,277 bytes at 2026-11-21).
+ * The stock capacity fixture (CS4): 30 papers, 100 past cases, every dealt price remembered,
+ * and a pending stop. The format 5 variant keeps these counts and puts the rich cases on
+ * the fastest actual closure cadence.
  */
 function worstCase(): GameState {
   let s = newGame(3, "worst-case");
@@ -214,17 +214,74 @@ function worstCase(): GameState {
   return s;
 }
 
+function fillCaseEvidence(s: GameState): void {
+  // Two full, mixed pockets in different incidents are deliberately more detail than
+  // a typical closure holds. A case can close at most once every five days.
+  const goods: Seizure = GOODS.map((g, i) => [g, i === 0 ? 2 : 3]);
+  const evidence: CaseEvidence = {
+    handover: { place: "uptown", action: "job", goods, job: { outcome: "success", pay: 325 } },
+    arrest: { place: "oldtown", cause: "escape", goods, fine: 135_000 },
+  };
+  for (const c of s.milestones.cases) c.observed = true;
+  const latest = s.milestones.cases.at(-1)!;
+  latest.outcome = "closed";
+  latest.evidence = evidence;
+  const trail: { from: PlaceId[]; cost: number } = { from: ["docks", "strip"], cost: 300 };
+  const resolvedTrail: NonNullable<typeof latest.trail> = { from: trail.from, to: ["uptown", "oldtown"] };
+  latest.trail = resolvedTrail;
+  let announced = 0;
+  for (const [i, p] of s.news.entries()) {
+    p.pinch = [];
+    p.case = null;
+    const cycle = (i + 3) % 5;
+    const n = 95 + Math.floor((i + 3) / 5);
+    if (cycle === 0 || cycle === 1) {
+      if (cycle === 0) announced = p.day;
+      p.case = { n, announced, place: "strip", habit: "ebikes", caught: false, observed: true,
+        places: cycle === 0 ? ["docks", "strip"] : ["uptown", "oldtown"] };
+      if (cycle === 0) p.pinch = [{ kind: "announced", case: p.case }];
+      else p.case.trail = trail;
+    }
+    if (cycle === 2) p.pinch = [{
+      kind: "closed",
+      case: { n, place: "strip", habit: "ebikes", day: p.day, outcome: "closed", observed: true, trail: resolvedTrail, evidence },
+    }];
+  }
+  s.detective.case = { n: 101, place: "strip", habit: "brie", announced: s.day - 2, places: ["docks", "oldtown"],
+    caught: true, observed: true, trail, evidence: { handover: evidence.handover! } };
+}
+
 describe("the largest save", () => {
   it("validates and round-trips through cnc.put_save, with 15% to spare under the cap", async () => {
     const s = worstCase();
     expect(s.news.length).toBe(30);
+    const old = { ...JSON.parse(toSave(s)), version: 4 };
+    const base = await put(A, null, U1, JSON.stringify(old));
+    expect(base.outcome).toBe("saved");
+    const size = async () => (await db.query<{ n: number }>("select octet_length(save::text)::int as n from cnc.saves")).rows[0]!.n;
+    const oldBytes = await size();
+
+    fillCaseEvidence(s);
     const text = toSave(s);
-    expect(loadSave(text)).toMatchObject({ ok: true });
-    expect(await put(A, null, U1, text)).toMatchObject({ outcome: "saved" });
-    const [row] = (await db.query<{ n: number }>("select octet_length(save::text)::int as n from cnc.saves")).rows;
-    expect(row!.n, `${row!.n} bytes`).toBeLessThan(0.85 * 65_536);
+    const loaded = loadSave(text);
+    expect(loaded.ok, loaded.ok ? undefined : loaded.detail).toBe(true);
+    const latest = await put(A, base.revision, U2, text);
+    expect(latest.outcome).toBe("saved");
+    const dayBytes = await size();
+    expect(dayBytes, `${dayBytes} bytes`).toBeLessThan(0.85 * 65_536);
     expect(loadSave(JSON.stringify((await get(A))!.save))).toMatchObject({ ok: true, state: s });
     expect(step(s, { type: "resolveStop", choice: "handOver" }).ok).toBe(true);
+    expect(await put(A, base.revision, U3, JSON.stringify(old))).toMatchObject({ outcome: "conflict", revision: latest.revision });
+    expect((await get(A))?.format_version).toBe(5);
+
+    // At night the current edition also appears separately in `paper`.
+    const night = { ...s, phase: "night" as const, hour: 22, pending: null, detective: { ...s.detective, case: null },
+      day: s.news.at(-1)!.day, paper: s.news.at(-1)!, today: s.news.at(-1)!.log };
+    expect(loadSave(toSave(night))).toMatchObject({ ok: true, state: night });
+    expect(await put(A, latest.revision, U3, toSave(night))).toMatchObject({ outcome: "saved" });
+    const nightBytes = await size();
+    expect(nightBytes, `${nightBytes} bytes`).toBeLessThan(0.85 * 65_536);
+    if (process.env.CNC_REPORT_SAVE_SIZE) console.log({ oldBytes, dayBytes, nightBytes });
   });
 });
 

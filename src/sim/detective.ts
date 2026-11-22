@@ -49,8 +49,11 @@ function ranked(s: GameState, rng: Rng, from: readonly PlaceId[], n: number, ord
 }
 
 /** The player was caught inside the operation: an arrest, or goods handed over. */
-export function caughtHere(s: GameState): void {
-  if (s.detective.case && operationOn(s, s.place)) s.detective.case.caught = true;
+export function caughtHere(s: GameState): OpenCase | null {
+  const c = s.detective.case;
+  if (!c || !operationOn(s, s.place)) return null;
+  c.caught = true;
+  return c;
 }
 
 /** The day between the announcement and the operation: the false trail's day. */
@@ -91,8 +94,18 @@ export function pinchAtNight(s: GameState, rng: Rng, crown: boolean): PinchItem[
     if (d.case.caught || s.day >= lastDay) {
       const outcome = d.case.caught ? "closed" : "cold";
       const past: PastCase = { n: d.case.n, place: d.case.place, habit: d.case.habit, outcome, day: s.day };
+      if (d.case.observed) past.observed = true;
+      if (d.case.trail) past.trail = { from: d.case.trail.from, to: d.case.places };
+      if (d.case.evidence) past.evidence = d.case.evidence;
       const m = s.milestones;
-      m.cases.push(past);
+      m.cases.push({ ...past });
+      // The latest result survives in the collapsed recap even after its edition ages
+      // out. Earlier cases use their retained editions for detailed closure facts.
+      const previous = m.cases.at(-2);
+      if (previous) {
+        delete previous.trail;
+        delete previous.evidence;
+      }
       while (m.cases.length > PINCH.casesKept) {
         const old = m.cases.shift() as PastCase;
         m.older[old.outcome] += 1;
@@ -115,14 +128,16 @@ export function pinchAtNight(s: GameState, rng: Rng, crown: boolean): PinchItem[
   if (!d.case && s.day >= d.next && PLACES.some((p) => tally(s, p) > 0)) {
     const places = ranked(s, rng, PLACES, d.promoted ? 2 : 1, "top");
     const place = places[0] as PlaceId;
+    const habit = topHabit(s, place);
     const opened: OpenCase = {
       n: (s.milestones.cases.at(-1)?.n ?? 0) + 1,
       place,
-      habit: topHabit(s, place),
+      habit,
       announced: s.day,
       places,
       caught: false,
     };
+    if ((d.seen[place][habit] ?? 0) > 0) opened.observed = true;
     d.case = opened;
     s.milestones.firsts.case ??= s.day;
     items.push({ kind: "announced", case: structuredClone(opened) });

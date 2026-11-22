@@ -3,7 +3,8 @@
 // reconciliation, switching codes, concurrent and uncertain writes, and that a slot
 // never reaches another code's save.
 
-import { SAVE_VERSION, toSave, type Action, type GameState } from "../sim/index.ts";
+import { SAVE_VERSION, newGame, toSave, type Action, type GameState } from "../sim/index.ts";
+import { atLeast, below, play, rngWhere } from "../sim/testing.ts";
 import type { CloudApi, CloudRow, FetchResult, PutResult } from "./cloud.ts";
 import { CODE_KEY, CloudSaves, sameRun } from "./cloudSaves.ts";
 import { GUEST, codeSlot, keysFor, memoryStorage, type StorageLike } from "./store.ts";
@@ -537,6 +538,38 @@ describe("two devices", () => {
     await one.settle();
     expect(one.snap().sync).toMatchObject({ kind: "failed", reason: "future" });
     expect(server.rows.get(code)?.uploadId).toBe("newer");
+  });
+
+  it("resumes a v4 pending stop and retains the chosen v5 closure through a cloud conflict", async () => {
+    const server = new Server();
+    const s = newGame(42, "legacy-pinch");
+    s.day = 7;
+    s.detective.case = { n: 1, place: "docks", habit: "fireworks", announced: 5, places: ["docks"], caught: false };
+    s.held.tapes = 2;
+    s.rng = rngWhere(below(0.001), atLeast(0.9));
+    const stopped = play(s, { type: "sell", good: "tapes", units: 1 }).state;
+    const v4 = JSON.stringify({ ...JSON.parse(toSave(stopped)), version: 4 });
+    server.put(CODE, null, "from-v4", v4);
+
+    const one = device(server);
+    const two = device(server);
+    expect(await one.use(CODE)).toBeNull();
+    expect(await two.use(CODE)).toBeNull();
+    expect(one.state()).toEqual(stopped);
+    expect(two.state()).toEqual(stopped);
+    expect(server.writes).toHaveLength(1);
+
+    one.act({ type: "resolveStop", choice: "handOver" }, { type: "callItADay" });
+    await one.settle();
+    expect(server.rows.get(CODE)?.formatVersion).toBe(SAVE_VERSION);
+    two.act({ type: "resolveStop", choice: "legIt" });
+    await two.settle();
+    expect(two.snap().conflict?.cloud?.milestones.cases.at(-1)?.evidence?.handover?.goods).toEqual([["tapes", 2]]);
+    expect(two.state().milestones.cases.at(-1)?.evidence?.arrest?.cause).toBe("escape");
+    expect(two.cloud.resolve("cloud")).toBe(true);
+    expect(two.state()).toEqual(one.state());
+    const displaced = two.storage.getItem(keysFor(codeSlot(CODE)).replaced);
+    expect(displaced && JSON.parse(displaced).state.milestones.cases.at(-1).evidence.arrest.cause).toBe("escape");
   });
 });
 

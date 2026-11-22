@@ -244,7 +244,7 @@ export const PINCH = {
   tallyFloor: 0.1,
   /** A milestone: cash at or above this. */
   grand: 1000,
-  /** Cases kept in full on his board; older ones live on as closed and cold totals, so a save stays bounded. */
+  /** Case summaries on the board; older ones live on as closed and cold totals. */
   casesKept: 100,
 } as const;
 

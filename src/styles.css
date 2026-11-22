@@ -1569,6 +1569,56 @@ fieldset.choices {
   font-size: 1.125rem;
 }
 
+.case-notice {
+  margin-block: 0.75rem;
+  padding-block-start: 0.4rem;
+  border-top: var(--divider);
+  font-size: 1.0625rem;
+  overflow-wrap: anywhere;
+}
+
+.case-notice > h2,
+.case-notice > h3 {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.case-notice > p {
+  margin-top: 0.25rem;
+}
+
+.case-notice .case-meta {
+  font-family: var(--mono);
+  font-size: 0.9375rem;
+}
+
+.paper-required {
+  margin-top: 1rem;
+}
+
+.paper .commit {
+  margin-block-start: 1rem;
+}
+
+.card .dossier-who {
+  margin-right: 0;
+}
+
+.card-context {
+  margin-block-start: 0.75rem;
+}
+
+.card-context > p + p {
+  margin-block-start: 0.5rem;
+}
+
+.sheet .choice-card {
+  scroll-margin-block-start: 0.25rem;
+}
+
 .paper-briefs {
   margin-top: 1rem;
   border-top: var(--divider);
