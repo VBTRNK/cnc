@@ -281,12 +281,15 @@ tally, and what people feel is in their authored lines.
   penalty beyond the arrest or seizure. The paper and People give the actual outcome,
   including a job's outcome after handover or a later arrest in the same operation. A
   job's own arrest result is attributed to the job. An unrelated arrest has its own account.
+  The case keeps the supported observation from its theory, each resolved move with its
+  former sites and price paid, and the actual handover or arrest in the operation.
   Pinch rests three days before the next theory.
 - **Promotion,** once: on the third day end counting the Crown purchase night, Pinch
-  becomes Detective Inspector. The Courier reports the promotion even when a milestone
-  leads. Pinch cites the pub's publicity to justify his wider remit. Each newly announced
-  operation covers the two places with the highest tallies. The promotion leaves already
-  announced sites and dates in place. His record of closed and cold cases is colour.
+  becomes Detective Inspector. The Courier reports the promotion and its practical effect
+  even when a milestone leads or the story runs as a brief. Pinch cites the pub's publicity
+  to justify his wider remit. Each newly announced operation covers the two
+  places with the highest tallies. The promotion leaves already announced sites and dates
+  in place. His record of closed and cold cases is colour.
 - **Events.** Blocking choice cards (two or three choices) are for dilemmas: stops, the
   false trail, encounters and the Crown. Everything else is a report or a line in the paper.
   An *encounter* takes the midday slot's harmless third: at 16:00, the first authored card
@@ -322,7 +325,8 @@ tally, and what people feel is in their authored lines.
     A loan on day D pays $150 and a price tip on opening day D+4, after the
     morning market activates and before any Lenny prompt. An overdue saved loan
     pays at the next opening, even on a 14:00 release. People shows the date and
-    terms while the loan is outstanding, then the payment date and original quote.
+    terms while the loan is outstanding, then the payment date and original quote. See
+    [ADR-019](decisions.md#adr-019--first-chapter-encounters-and-save-format-6).
 
     No card may be a dominant earner: its mean value where it shows stays below a good hour
     of trading (about $50). [ADR-015](decisions.md#adr-015--revised-trader-balance-targets)
@@ -368,7 +372,8 @@ tally, and what people feel is in their authored lines.
   for $2,500. Reg wants to retire and hands over the keys in the purchase receipt. The
   pub pays $75 at every day end, including the purchase night, and adds 2 to Pinch's
   tally for the Strip. Lenny's purchase-night front page calls the new owner "the
-  Guv'nor" and closes chapter one. Start the next day on Street in the same run.
+  Guv'nor" and closes chapter one. Ownership stays visible above the remaining ads. Start
+  the next day on Street in the same run. See [ADR-020](decisions.md#adr-020--the-crown-closes-the-local-chapter).
   Local trading, future cases and any unbought upgrades are available after the sale.
 - **Measured** with the strategy runs (`DETAIL=1` reports cases, Pinch's stops and each
   card's value per choice; `CARDS=1` each choice's value): every encounter a real choice in
@@ -563,10 +568,14 @@ tally, and what people feel is in their authored lines.
   snapshot, and that and any storage failure are shown to the player.
 - The snapshot is `{ format, version, state }` (`src/sim/save.ts`). The loader reports a
   save as corrupt, from the future, without a migration path, or invalid, and migrates on
-  a copy. Format 5 records supported case observations, successful changes to operation
-  sites, and case-specific closure evidence. Saved editions preserve their own sites and
-  facts. A format 4 snapshot upgrades without inventing missing evidence or altering a
-  pending choice, economy, or RNG position. See [ADR-018](decisions.md#adr-018--case-evidence-and-save-format-5).
+  a copy. Format 6 keeps Dougie's original quote as an optional dated record, since routine
+  market memory can replace the price; older repayments keep their dates. Format 5 records
+  supported case observations, successful changes to operation sites, and case-specific
+  closure evidence. Saved editions preserve their own sites and facts. Older snapshots
+  upgrade without inventing missing evidence or altering a pending choice, economy, or RNG
+  position. A build that stops at format 5 cannot continue a run saved as format 6. See
+  [ADR-018](decisions.md#adr-018--case-evidence-and-save-format-5) and
+  [ADR-019](decisions.md#adr-019--first-chapter-encounters-and-save-format-6).
 - The local store (`src/game/store.ts`) writes each snapshot to `localStorage` twice, as
   the save and its backup copy. It keeps the text of a save it migrated or couldn't read,
   keeps the save that an import or a new run replaced, and never writes over a save from
