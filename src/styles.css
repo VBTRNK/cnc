@@ -1564,6 +1564,7 @@ fieldset.choices {
   padding: var(--gutter);
   border: var(--rule);
   background: var(--sheet);
+  container-type: inline-size;
 }
 
 .masthead {
@@ -1572,9 +1573,12 @@ fieldset.choices {
   text-align: center;
 }
 
+/* The display type keeps its size until a single word would leave the paper (320 px at
+   200% text), then shrinks to the paper's width; a longer word still breaks rather than spill. */
 .masthead-name {
   font-family: var(--display);
-  font-size: 2.25rem;
+  font-size: min(2.25rem, 26cqi);
+  overflow-wrap: anywhere;
   line-height: 1.1;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1589,7 +1593,8 @@ fieldset.choices {
 .headline {
   margin-top: 1rem;
   font-family: var(--display);
-  font-size: 2.25rem;
+  font-size: min(2.25rem, 26cqi);
+  overflow-wrap: anywhere;
   font-weight: 400;
   line-height: 1.05;
   text-transform: uppercase;

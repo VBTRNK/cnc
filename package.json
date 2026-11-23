@@ -14,7 +14,8 @@
     "test": "vitest run && node --test tests/agent-hooks.test.cjs",
     "verify": "npm run typecheck && npm test && vite build",
     "strategies": "node scripts/strategies.ts",
-    "browser-check": "node scripts/browser-check.mjs"
+    "browser-check": "node scripts/browser-check.mjs",
+    "replay": "vitest run tests/chapter-replay.test.ts"
   },
   "dependencies": {
     "@fontsource/anton": "5.3.0",

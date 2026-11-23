@@ -44,6 +44,10 @@ Changing a rule, invariant or public contract means recording it in
 - `npm run build` then `npm run preview` serves the production build under
   the headers in `vercel.json`; check CSP changes there, never in dev.
   `npm run browser-check` then drives it headlessly (flows, saves, CSP).
+- `npm run replay` replays the first chapter and compares every Courier
+  edition with `tests/fixtures/chapter-replay.txt` (also part of `verify`).
+  After a deliberate copy or rule change, run `npm run replay -- -u` and
+  review the transcript diff; it belongs in the PR.
 - Vitest runs with globals; test files never import `"vitest"` (see
   `vite.config.ts`).
 

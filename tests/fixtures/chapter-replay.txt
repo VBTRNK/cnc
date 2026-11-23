@@ -1,0 +1,482 @@
+## Authored Docks fireworks fixture (seed 42, day-5 fireworks sale)
+  [announcement night] day 5 · HEAD Pinch sees a plot in your fireworks sales
+      story: You sold fireworks at the Docks. Pinch calls it organised crime. Operation Kipper runs at the Docks on days 7–8. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+opening case: {"open":{"n":1,"habit":"fireworks","place":"docks","places":["docks"]},"last":null}
+morning pending: {"kind":"card","card":"falseTrail","odds":55}
+
+### Leave Lenny's offer, case goes cold
+  [warning day] day 6 · HEAD E-bikes dry up at the Docks
+      story: Confirmed · From 16:00 on day 6 through day 7. Prices are higher and stock is tighter.
+      required: {"title":"Operation Kipper","meta":"Scheduled at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+  [op day 1] day 7 · HEAD Brass band brings city to a halt
+      story: Nothing in it for you, but the city talks of little else.
+      required: {"title":"Operation Kipper","meta":"Underway at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+  [op day 2] day 8 · HEAD Operation Kipper went cold
+      story: Operation Kipper went cold on day 8. It ended without an arrest or seizure in the operation.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Eau d’Alibi shortage in Old Town","meta":"Confirmed · From 16:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"cold","day":8,"observed":true}}
+
+### Pay Lenny short of cash (unaffordable)
+  {"ok":false,"reason":"unavailable"}
+
+### Pay Lenny, Pinch keeps the place
+  [paid, kept] day 6 · HEAD E-bikes dry up at the Docks
+      story: Confirmed · From 16:00 on day 6 through day 7. Prices are higher and stock is tighter.
+      required: {"title":"Operation Kipper","meta":"Scheduled at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+  {"open":{"n":1,"habit":"fireworks","place":"docks","places":["docks"]},"last":null}
+
+### Pay Lenny, case moves
+  [paid, moved] day 6 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"Operation Kipper","meta":"Scheduled in Old Town · days 7–8","body":"Lenny’s story moved the operation from the Docks to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+  {"open":{"n":1,"habit":"fireworks","place":"docks","places":["oldtown"]},"last":null}
+
+### Stop in the operation, hand over (closed by handover, no arrest)
+  [after handover] day 7 · HEAD Operation Kipper closed
+      story: Operation Kipper closed on day 7. You handed over 2 tapes at the Docks. The sale was cancelled.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"handover":{"place":"docks","action":"sell","goods":[["tapes",2]]}}}}
+
+### Stop in the operation, leg it (escape draw, then fail draw)
+  [leg it] day 7 · HEAD The one that got away
+      story: You ran from a police stop and got away.
+      required: {"title":"Operation Kipper","meta":"Underway at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":{"n":1,"habit":"fireworks","place":"docks","places":["docks"]},"last":null} · arrested today false
+  [leg it] day 7 · HEAD Nicked at the Docks
+      story: Operation Kipper closed on day 7. Pinch stopped you at the Docks. You tried to run and were arrested. The police took 2 tapes and fined you $51.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"arrest":{"cause":"escape","place":"docks","goods":[["tapes",2]],"fine":51}}}} · arrested today true
+
+### Job in the operation, four draws, hand over if stopped
+  [job] day 7 · HEAD Job done
+      story: Your first successful risky job is in the books.
+      required: {"title":"Operation Kipper closed","body":"Operation Kipper closed on day 7. You handed over 2 tapes at the Docks. The job went ahead and paid $301."}
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"handover":{"place":"docks","action":"job","goods":[["tapes",2]],"job":{"outcome":"success","pay":301}}}}}
+  [job] day 7 · HEAD Operation Kipper closed
+      story: Operation Kipper closed on day 7. You handed over 2 tapes at the Docks. The job went ahead and came to nothing.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"handover":{"place":"docks","action":"job","goods":[["tapes",2]],"job":{"outcome":"nothing","pay":0}}}}}
+  [job] day 7 · HEAD Operation Kipper closed
+      story: Operation Kipper closed on day 7. You handed over 2 tapes at the Docks. You were hurt on the job.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"handover":{"place":"docks","action":"job","goods":[["tapes",2]],"job":{"outcome":"hurt","pay":0}}}}}
+  [job] day 7 · HEAD Nicked at the Docks
+      story: Operation Kipper closed on day 7. You handed over 2 tapes at the Docks. The job went ahead and ended in arrest. The police fined you $51.
+      required: {"title":"Eau d’Alibi shortage at the Docks","meta":"Confirmed · From 10:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones shortage on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+      brief: A brass band parade. Everyone's watching the tuba.
+  {"open":null,"last":{"n":1,"place":"docks","habit":"fireworks","outcome":"closed","day":7,"observed":true,"evidence":{"handover":{"place":"docks","action":"job","goods":[["tapes",2]],"job":{"outcome":"arrested","pay":0}},"arrest":{"cause":"job","place":"docks","goods":[],"fine":51}}}}
+
+## Natural seeds, 30 days, reload every night
+
+### trader seed 15838
+  [trader] day 3 · HEAD A grand in the hand
+      story: You reached $1,000 in cash for the first time.
+      required: {"title":"New on the beat","body":"Detective Sergeant Percy Pinch is watching who turns up where and what they do there. “The regulars are usually good for a story,” says Lenny Scoop."}
+      required: {"title":"Brie glut on the Strip","meta":"Confirmed · From 10:00 on day 3 through day 4","body":"Prices are lower and stock is more plentiful."}
+  [trader] day 4 · HEAD Tapes fly on the Strip
+      story: 13 tapes sold for $299.
+      required: {"title":"Trainers glut in Uptown","meta":"Confirmed · From 16:00 on day 4 through day 5","body":"Prices are lower and stock is more plentiful."}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [trader] day 5 · HEAD Pinch sees a plot in your fireworks sales
+      story: You sold fireworks in Old Town. Pinch calls it organised crime. Operation Kipper runs in Old Town on days 7–8. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+  [trader] day 6 · HEAD Phones fly in Old Town
+      story: 2 hot phones sold for $288.
+      required: {"title":"Operation Kipper","meta":"Scheduled in Old Town · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+  [trader] day 7 · HEAD Bingo balls fly at the Docks
+      story: 1 set of bingo balls sold for $390.
+      required: {"title":"Operation Kipper","meta":"Underway in Old Town · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Brie shortage at the Docks","meta":"Confirmed · From 16:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+  [trader] day 8 · HEAD Operation Kipper went cold
+      story: Operation Kipper went cold on day 8. It ended without an arrest or seizure in the operation.
+      required: {"title":"Soda glut in Uptown","meta":"Confirmed · From 10:00 on day 9 through day 10","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 9","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [trader] day 11 · HEAD Pinch investigates a quiet spell
+      story: You kept your head down on the Strip. Pinch calls the quiet suspicious. Operation Winkle runs on the Strip on days 13–14. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"E-bikes shortage on the Strip","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Bubblegum glut in Uptown","meta":"Confirmed · From 10:00 on day 11 through day 12","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 12","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [trader] day 12 · HEAD Phones fly at the Docks
+      story: 2 hot phones sold for $386.
+      required: {"title":"Operation Winkle","meta":"Scheduled in Old Town · days 13–14","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"E-bikes shortage on the Strip","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are higher and stock is tighter."}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [trader] day 13 · HEAD The one that got away
+      story: You ran from a police stop and got away.
+      required: {"title":"Operation Winkle","meta":"Underway in Old Town · days 13–14","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+  [trader] day 14 · HEAD Operation Winkle went cold
+      story: Operation Winkle went cold on day 14. Lenny’s story moved the operation from the Strip to Old Town. It ended without an arrest or seizure in the operation.
+      required: {"title":"Eau d’Alibi glut at the Docks","meta":"Confirmed · From 10:00 on day 15 through day 16","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Watches glut in Old Town","meta":"Confirmed · From 16:00 on day 14 through day 15","body":"Prices are lower and stock is more plentiful."}
+  [trader] day 15 · HEAD The Crown has a new landlord
+      story: You bought the Crown & Anchor for $2,500. Chapter one is complete. Keep trading locally, collect $75 each night and buy any remaining upgrades. “The Guv’nor,” says Lenny. “Success stories sell too.”
+      required: {"title":"Eau d’Alibi glut at the Docks","meta":"Confirmed · From 10:00 on day 15 through day 16","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Fireworks shortage in Uptown","meta":"Confirmed · From 16:00 on day 15 through day 16","body":"Prices are higher and stock is tighter."}
+  [trader] day 17 · HEAD Pinch made Inspector
+      story: After the Crown & Anchor sale made the news, Pinch was promoted to Detective Inspector. New operations cover two neighbourhoods. Pinch cited the coverage. “Public house. Public interest.”
+      required: {"title":"Operation Teapot","meta":"Scheduled on the Strip and in Old Town · days 19–20","body":"You bought the Crown & Anchor. Pinch calls it a new headquarters. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Trainers glut in Uptown","meta":"Confirmed · From 10:00 on day 18 through day 19","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Smokes glut in Old Town","meta":"Confirmed · From 10:00 on day 17 through day 18","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 18","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [trader] day 18 · HEAD Bubblegum flies on the Strip
+      story: 17 packets of gum sold for $306.
+      required: {"title":"Operation Teapot","meta":"Scheduled on the Strip and in Old Town · days 19–20","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Trainers glut in Uptown","meta":"Confirmed · From 10:00 on day 18 through day 19","body":"Prices are lower and stock is more plentiful."}
+  [trader] day 19 · HEAD Bubblegum runs short in Old Town
+      story: Confirmed · From 10:00 on day 20 through day 21. Prices are higher and stock is tighter.
+      required: {"title":"Operation Teapot","meta":"Underway on the Strip and in Old Town · days 19–20","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 20","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [trader] day 20 · HEAD Nicked on the Strip
+      story: Operation Teapot closed on day 20. Pinch stopped you on the Strip. You tried to run and were arrested. The police took 15 cartons of smokes, 4 watches, 2 boxes of fireworks and fined you $356.
+      required: {"title":"Watches glut on the Strip","meta":"Confirmed · From 10:00 on day 21 through day 22","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Bubblegum shortage in Old Town","meta":"Confirmed · From 10:00 on day 20 through day 21","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · At the Docks · through 22:00 on day 21","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [trader] day 23 · HEAD Pinch sets his sights on the Crown
+      story: You bought the Crown & Anchor. Pinch calls it a new headquarters. Operation Bowler runs on the Strip and at the Docks on days 25–26. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Trainers glut on the Strip","meta":"Confirmed · From 16:00 on day 23 through day 24","body":"Prices are lower and stock is more plentiful."}
+  [trader] day 24 · HEAD Trainers fly uptown
+      story: 8 pairs of trainers sold for $984.
+      required: {"title":"Operation Bowler","meta":"Scheduled on the Strip and at the Docks · days 25–26","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+  [trader] day 25 · HEAD Eau d’Alibi flies at the Docks
+      story: 9 bottles of Eau d’Alibi sold for $378.
+      required: {"title":"Operation Bowler","meta":"Underway on the Strip and at the Docks · days 25–26","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+  [trader] day 26 · HEAD Operation Bowler went cold
+      story: Operation Bowler went cold on day 26. It ended without an arrest or seizure in the operation.
+      required: {"title":"Fireworks shortage on the Strip","meta":"Confirmed · From 16:00 on day 26 through day 27","body":"Prices are higher and stock is tighter."}
+  [trader] day 29 · HEAD Pinch investigates a quiet spell
+      story: You kept your head down on the Strip. Pinch calls the quiet suspicious. Operation Crumpet runs on the Strip and at the Docks on days 31–32. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Police sweep","meta":"Confirmed · At the Docks · through 22:00 on day 30","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [trader] day 30 · HEAD Phones run short at the Docks
+      story: Confirmed · From 10:00 on day 31 through day 32. Prices are higher and stock is tighter.
+      required: {"title":"Operation Crumpet","meta":"Scheduled on the Strip and at the Docks · days 31–32","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+  end: day 30 cash $6422 crown 15 promoted true
+  cases: [[1,"fireworks","oldtown","cold",8,[]],[2,"lieLow","strip","cold",14,[]],[3,"drink","strip","closed",20,[]],[4,"drink","strip","cold",26,[]]]
+  cast: [{"who":"lenny","name":"Lenny Scoop, The Crown Courier","line":"“Guv’nor. Has a ring to it, doesn’t it?”"},{"who":"mags","name":"Mags, the news kiosk","line":"“Heard something? Course I have. Ask.”"},{"who":"reg","name":"Old Reg, the Crown & Anchor","line":"“Greetings from Margate. Someone else opens up in the morning.”"}]
+
+### dailyJob seed 15838
+  [dailyJob] day 1 · HEAD Nicked!
+      story: The police fined you $50. You start day 2 at 14:00.
+      required: {"title":"Fireworks shortage in Old Town","meta":"Confirmed · From 10:00 on day 2 through day 3","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 2","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [dailyJob] day 3 · HEAD New on the beat
+      story: Detective Sergeant Percy Pinch is watching who turns up where and what they do there. “The regulars are usually good for a story,” says Lenny Scoop.
+      required: {"title":"Smokes shortage in Old Town","meta":"Confirmed · From 10:00 on day 3 through day 4","body":"Prices are higher and stock is tighter."}
+      brief: Pigeons have taken the town hall. Nobody is arresting them.
+  [dailyJob] day 4 · HEAD Job done
+      story: Your first successful risky job is in the books.
+      required: {"title":"Bingo balls glut in Old Town","meta":"Confirmed · From 10:00 on day 5 through day 6","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 5","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [dailyJob] day 5 · HEAD A grand in the hand
+      story: You reached $1,000 in cash for the first time.
+      required: {"title":"Operation Kipper","meta":"Scheduled on the Strip · days 7–8","body":"You kept your head down on the Strip. Pinch calls the quiet suspicious. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Bingo balls glut in Old Town","meta":"Confirmed · From 10:00 on day 5 through day 6","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"E-bikes glut on the Strip","meta":"Confirmed · From 16:00 on day 5 through day 6","body":"Prices are lower and stock is more plentiful."}
+  [dailyJob] day 6 · HEAD Big coat, bigger plans
+      story: You bought a big coat with room for 15 more units.
+      required: {"title":"Operation Kipper","meta":"Scheduled in Old Town · days 7–8","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Phones glut on the Strip","meta":"Confirmed · From 16:00 on day 6 through day 7","body":"Prices are lower and stock is more plentiful."}
+  [dailyJob] day 7 · HEAD Bingo balls fly at the Docks
+      story: 1 set of bingo balls sold for $387.
+      required: {"title":"Operation Kipper","meta":"Underway in Old Town · days 7–8","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Brie shortage at the Docks","meta":"Confirmed · From 16:00 on day 7 through day 8","body":"Prices are higher and stock is tighter."}
+  [dailyJob] day 8 · HEAD Operation Kipper went cold
+      story: Operation Kipper went cold on day 8. Lenny’s story moved the operation from the Strip to Old Town. It ended without an arrest or seizure in the operation.
+      required: {"title":"Nicked!","body":"The police fined you $124. You start day 9 at 14:00."}
+      required: {"title":"Soda glut in Uptown","meta":"Confirmed · From 10:00 on day 9 through day 10","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 9","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: Pinch claims the collar: “All part of the plan.”
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [dailyJob] day 10 · HEAD Nicked!
+      story: The police fined you $151. You start day 11 at 14:00.
+      required: {"title":"Brie glut on the Strip","meta":"Confirmed · From 10:00 on day 11 through day 12","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Tapes glut on the Strip","meta":"Confirmed · From 10:00 on day 10 through day 11","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 11","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: Pinch claims the collar: “All part of the plan.”
+  [dailyJob] day 11 · HEAD Pinch sees a plot in your bubblegum sales
+      story: You sold bubblegum in Uptown. Pinch calls it organised crime. Operation Winkle runs in Uptown on days 13–14. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Phones glut in Old Town","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Brie glut on the Strip","meta":"Confirmed · From 10:00 on day 11 through day 12","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · At the Docks · through 22:00 on day 12","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [dailyJob] day 12 · HEAD Smokes run short in Old Town
+      story: Confirmed · From 10:00 on day 13 through day 14. Prices are higher and stock is tighter.
+      required: {"title":"Operation Winkle","meta":"Scheduled in Uptown · days 13–14","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Phones glut in Old Town","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are lower and stock is more plentiful."}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [dailyJob] day 13 · HEAD Tapes run short uptown
+      story: Confirmed · From 10:00 on day 14 through day 15. Prices are higher and stock is tighter.
+      required: {"title":"Operation Winkle","meta":"Underway in Uptown · days 13–14","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Smokes shortage in Old Town","meta":"Confirmed · From 10:00 on day 13 through day 14","body":"Prices are higher and stock is tighter."}
+  [dailyJob] day 14 · HEAD Operation Winkle went cold
+      story: Operation Winkle went cold on day 14. It ended without an arrest or seizure in the operation.
+      required: {"title":"Tapes shortage in Uptown","meta":"Confirmed · From 10:00 on day 14 through day 15","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Fireworks shortage in Old Town","meta":"Confirmed · From 16:00 on day 14 through day 15","body":"Prices are higher and stock is tighter."}
+  [dailyJob] day 16 · HEAD Hello, who's this?
+      story: You bought a burner phone. Call around from City to check prices. Each call adds heat.
+      required: {"title":"Soda shortage at the Docks","meta":"Confirmed · From 10:00 on day 17 through day 18","body":"Prices are higher and stock is tighter."}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [dailyJob] day 17 · HEAD Pinch looks into a risky job in Uptown
+      story: You took on risky work in Uptown. Pinch calls it a bigger scheme. Operation Teapot runs in Uptown on days 19–20. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Soda shortage at the Docks","meta":"Confirmed · From 10:00 on day 17 through day 18","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 18","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [dailyJob] day 18 · HEAD Nicked!
+      story: The police fined you $186. You start day 19 at 14:00.
+      required: {"title":"Operation Teapot","meta":"Scheduled in Old Town · days 19–20","body":"Lenny’s story moved the operation from Uptown to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Police sweep","meta":"Confirmed · At the Docks · through 22:00 on day 19","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: Pinch claims the collar: “All part of the plan.”
+  [dailyJob] day 19 · HEAD E-bikes flood at the Docks
+      story: Confirmed · From 10:00 on day 20 through day 21. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Teapot","meta":"Underway in Old Town · days 19–20","body":"Lenny’s story moved the operation from Uptown to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Watches glut in Old Town","meta":"Confirmed · From 16:00 on day 19 through day 20","body":"Prices are lower and stock is more plentiful."}
+  [dailyJob] day 20 · HEAD Operation Teapot went cold
+      story: Operation Teapot went cold on day 20. Lenny’s story moved the operation from Uptown to Old Town. It ended without an arrest or seizure in the operation.
+      required: {"title":"E-bikes glut at the Docks","meta":"Confirmed · From 10:00 on day 20 through day 21","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 21","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [dailyJob] day 23 · HEAD Pinch sees a plot in your e-bike sales
+      story: You sold e-bikes on the Strip. Pinch calls it organised crime. Operation Bowler runs on the Strip on days 25–26. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Smokes glut in Old Town","meta":"Confirmed · From 10:00 on day 24 through day 25","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Phones glut at the Docks","meta":"Confirmed · From 10:00 on day 23 through day 24","body":"Prices are lower and stock is more plentiful."}
+  [dailyJob] day 24 · HEAD Tapes flood uptown
+      story: Confirmed · From 10:00 on day 25 through day 26. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Bowler","meta":"Scheduled at the Docks · days 25–26","body":"Lenny’s story moved the operation from the Strip to the Docks. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Smokes glut in Old Town","meta":"Confirmed · From 10:00 on day 24 through day 25","body":"Prices are lower and stock is more plentiful."}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [dailyJob] day 25 · HEAD Job goes sideways
+      story: You were hurt on a risky job.
+      required: {"title":"Operation Bowler","meta":"Underway at the Docks · days 25–26","body":"Lenny’s story moved the operation from the Strip to the Docks. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Tapes glut in Uptown","meta":"Confirmed · From 10:00 on day 25 through day 26","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 26","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [dailyJob] day 26 · HEAD Operation Bowler went cold
+      story: Operation Bowler went cold on day 26. Lenny’s story moved the operation from the Strip to the Docks. It ended without an arrest or seizure in the operation.
+      required: {"title":"Smokes shortage in Uptown","meta":"Confirmed · From 16:00 on day 26 through day 27","body":"Prices are higher and stock is tighter."}
+  [dailyJob] day 27 · HEAD The Crown has a new landlord
+      story: You bought the Crown & Anchor for $2,500. Chapter one is complete. Keep trading locally, collect $75 each night and buy any remaining upgrades. “The Guv’nor,” says Lenny. “Success stories sell too.”
+  [dailyJob] day 29 · HEAD Pinch made Inspector
+      story: After the Crown & Anchor sale made the news, Pinch was promoted to Detective Inspector. New operations cover two neighbourhoods. Pinch cited the coverage. “Public house. Public interest.”
+      required: {"title":"Operation Crumpet","meta":"Scheduled at the Docks and on the Strip · days 31–32","body":"You took on risky work at the Docks. Pinch calls it a bigger scheme. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Soda glut on the Strip","meta":"Confirmed · From 10:00 on day 29 through day 30","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Bingo balls shortage at the Docks","meta":"Confirmed · From 16:00 on day 29 through day 30","body":"Prices are higher and stock is tighter."}
+  [dailyJob] day 30 · HEAD Bingo balls fly at the Docks
+      story: 1 set of bingo balls sold for $531.
+      required: {"title":"Operation Crumpet","meta":"Scheduled in Old Town and in Uptown · days 31–32","body":"Lenny’s story moved the operation from the Docks and the Strip to Old Town and Uptown. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Watches shortage on the Strip","meta":"Confirmed · From 16:00 on day 30 through day 31","body":"Prices are higher and stock is tighter."}
+  end: day 30 cash $1635 crown 27 promoted true
+  cases: [[1,"lieLow","strip","cold",8,[]],[2,"gum","uptown","cold",14,[]],[3,"job","uptown","cold",20,[]],[4,"ebikes","strip","cold",26,[]]]
+  cast: [{"who":"lenny","name":"Lenny Scoop, The Crown Courier","line":"“Guv’nor. Has a ring to it, doesn’t it?”"},{"who":"mags","name":"Mags, the news kiosk","line":"“Heard something? Course I have. Ask.”"},{"who":"reg","name":"Old Reg, the Crown & Anchor","line":"“Greetings from Margate. Someone else opens up in the morning.”"}]
+
+### oddJobsOnly seed 7919
+  [oddJobsOnly] day 3 · HEAD New on the beat
+      story: Detective Sergeant Percy Pinch is watching who turns up where and what they do there. “The regulars are usually good for a story,” says Lenny Scoop.
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 4","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 4 · HEAD Eau d’Alibi floods in Old Town
+      story: Confirmed · From 10:00 on day 5 through day 6. Prices are lower and stock is more plentiful.
+      required: {"title":"Trainers glut in Uptown","meta":"Confirmed · From 16:00 on day 4 through day 5","body":"Prices are lower and stock is more plentiful."}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [oddJobsOnly] day 5 · HEAD Pinch investigates your dock shifts
+      story: You worked odd jobs at the Docks. Pinch calls the regular hours suspicious. Operation Kipper runs at the Docks on days 7–8. Sales and risky jobs face higher stop risk. Pinch refuses bribes. Odd jobs still pay as usual.
+      required: {"title":"Brie glut in Old Town","meta":"Confirmed · From 10:00 on day 6 through day 7","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Eau d’Alibi glut in Old Town","meta":"Confirmed · From 10:00 on day 5 through day 6","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Fireworks glut on the Strip","meta":"Confirmed · From 16:00 on day 5 through day 6","body":"Prices are lower and stock is more plentiful."}
+  [oddJobsOnly] day 6 · HEAD E-bikes flood uptown
+      story: Confirmed · From 10:00 on day 7 through day 8. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Kipper","meta":"Scheduled at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Brie glut in Old Town","meta":"Confirmed · From 10:00 on day 6 through day 7","body":"Prices are lower and stock is more plentiful."}
+  [oddJobsOnly] day 7 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"Operation Kipper","meta":"Underway at the Docks · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"E-bikes glut in Uptown","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 8","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 8 · HEAD A grand in the hand
+      story: You reached $1,000 in cash for the first time.
+      required: {"title":"Operation Kipper went cold","body":"Operation Kipper went cold on day 8. It ended without an arrest or seizure in the operation."}
+      required: {"title":"Watches shortage in Uptown","meta":"Confirmed · From 16:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [oddJobsOnly] day 11 · HEAD Tapes flood in Old Town
+      story: Confirmed · From 10:00 on day 12 through day 13. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Winkle","meta":"Scheduled at the Docks · days 13–14","body":"You worked odd jobs at the Docks. Pinch calls the regular hours suspicious. Sales and risky jobs face higher stop risk. Pinch refuses bribes. Odd jobs still pay as usual."}
+      required: {"title":"Brie shortage on the Strip","meta":"Confirmed · From 10:00 on day 11 through day 12","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 12","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 12 · HEAD E-bikes run short on the Strip
+      story: Confirmed · From 10:00 on day 13 through day 14. Prices are higher and stock is tighter.
+      required: {"title":"Operation Winkle","meta":"Scheduled on the Strip · days 13–14","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Tapes glut in Old Town","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 13","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [oddJobsOnly] day 13 · HEAD Phones flood in Old Town
+      story: Confirmed · From 10:00 on day 14 through day 15. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Winkle","meta":"Underway on the Strip · days 13–14","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"E-bikes shortage on the Strip","meta":"Confirmed · From 10:00 on day 13 through day 14","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 14","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 14 · HEAD Operation Winkle went cold
+      story: Operation Winkle went cold on day 14. Lenny’s story moved the operation from the Docks to the Strip. It ended without an arrest or seizure in the operation.
+      required: {"title":"Trainers shortage in Old Town","meta":"Confirmed · From 10:00 on day 15 through day 16","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Phones glut in Old Town","meta":"Confirmed · From 10:00 on day 14 through day 15","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 15","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 16 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"E-bikes shortage at the Docks","meta":"Confirmed · From 10:00 on day 16 through day 17","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 17","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [oddJobsOnly] day 17 · HEAD Tapes run short at the Docks
+      story: Confirmed · From 10:00 on day 18 through day 19. Prices are higher and stock is tighter.
+      required: {"title":"Operation Teapot","meta":"Scheduled at the Docks · days 19–20","body":"You worked odd jobs at the Docks. Pinch calls the regular hours suspicious. Sales and risky jobs face higher stop risk. Pinch refuses bribes. Odd jobs still pay as usual."}
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 18","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 18 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"Operation Teapot","meta":"Scheduled on the Strip · days 19–20","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Tapes shortage at the Docks","meta":"Confirmed · From 10:00 on day 18 through day 19","body":"Prices are higher and stock is tighter."}
+  [oddJobsOnly] day 19 · HEAD Smokes run short at the Docks
+      story: Confirmed · From 10:00 on day 20 through day 21. Prices are higher and stock is tighter.
+      required: {"title":"Operation Teapot","meta":"Underway on the Strip · days 19–20","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Bubblegum glut on the Strip","meta":"Confirmed · From 16:00 on day 19 through day 20","body":"Prices are lower and stock is more plentiful."}
+  [oddJobsOnly] day 20 · HEAD Operation Teapot went cold
+      story: Operation Teapot went cold on day 20. Lenny’s story moved the operation from the Docks to the Strip. It ended without an arrest or seizure in the operation.
+      required: {"title":"Smokes shortage at the Docks","meta":"Confirmed · From 10:00 on day 20 through day 21","body":"Prices are higher and stock is tighter."}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [oddJobsOnly] day 23 · HEAD Tapes flood at the Docks
+      story: Confirmed · From 10:00 on day 24 through day 25. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Bowler","meta":"Scheduled at the Docks · days 25–26","body":"You worked odd jobs at the Docks. Pinch calls the regular hours suspicious. Sales and risky jobs face higher stop risk. Pinch refuses bribes. Odd jobs still pay as usual."}
+      required: {"title":"Eau d’Alibi glut in Old Town","meta":"Confirmed · From 16:00 on day 23 through day 24","body":"Prices are lower and stock is more plentiful."}
+  [oddJobsOnly] day 24 · HEAD Eau d’Alibi floods in Old Town
+      story: Confirmed · From 10:00 on day 25 through day 26. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Bowler","meta":"Scheduled on the Strip · days 25–26","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Tapes glut at the Docks","meta":"Confirmed · From 10:00 on day 24 through day 25","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Smokes glut in Uptown","meta":"Confirmed · From 16:00 on day 24 through day 25","body":"Prices are lower and stock is more plentiful."}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [oddJobsOnly] day 25 · HEAD Bingo balls flood at the Docks
+      story: Confirmed · From 10:00 on day 26 through day 27. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Bowler","meta":"Underway on the Strip · days 25–26","body":"Lenny’s story moved the operation from the Docks to the Strip. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Eau d’Alibi glut in Old Town","meta":"Confirmed · From 10:00 on day 25 through day 26","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 26","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [oddJobsOnly] day 26 · HEAD Operation Bowler went cold
+      story: Operation Bowler went cold on day 26. Lenny’s story moved the operation from the Docks to the Strip. It ended without an arrest or seizure in the operation.
+      required: {"title":"Bingo balls glut at the Docks","meta":"Confirmed · From 10:00 on day 26 through day 27","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Brie shortage on the Strip","meta":"Confirmed · From 16:00 on day 26 through day 27","body":"Prices are higher and stock is tighter."}
+  [oddJobsOnly] day 28 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"E-bikes glut at the Docks","meta":"Confirmed · From 10:00 on day 28 through day 29","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Eau d’Alibi glut in Old Town","meta":"Confirmed · From 16:00 on day 28 through day 29","body":"Prices are lower and stock is more plentiful."}
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [oddJobsOnly] day 29 · HEAD Quiet night on the streets
+      story: The city sleeps with one eye open.
+      required: {"title":"Operation Crumpet","meta":"Scheduled at the Docks · days 31–32","body":"You worked odd jobs at the Docks. Pinch calls the regular hours suspicious. Sales and risky jobs face higher stop risk. Pinch refuses bribes. Odd jobs still pay as usual."}
+  [oddJobsOnly] day 30 · HEAD Tapes flood at the Docks
+      story: Confirmed · From 10:00 on day 31 through day 32. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Crumpet","meta":"Scheduled in Old Town · days 31–32","body":"Lenny’s story moved the operation from the Docks to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 31","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  end: day 30 cash $3060 crown no promoted false
+  cases: [[1,"oddJob","docks","cold",8,[]],[2,"oddJob","docks","cold",14,[]],[3,"oddJob","docks","cold",20,[]],[4,"oddJob","docks","cold",26,[]]]
+  cast: [{"who":"lenny","name":"Lenny Scoop, The Crown Courier","line":"“Anything for a story, pal.”"},{"who":"mags","name":"Mags, the news kiosk","line":"“Heard something? Course I have. Ask.”"},{"who":"reg","name":"Old Reg, the Crown & Anchor","line":"“The pub’s yours for $2,500. I’ve already packed.”"}]
+
+### handOver seed 7919
+  [handOver] day 3 · HEAD A grand in the hand
+      story: You reached $1,000 in cash for the first time.
+      required: {"title":"New on the beat","body":"Detective Sergeant Percy Pinch is watching who turns up where and what they do there. “The regulars are usually good for a story,” says Lenny Scoop."}
+      required: {"title":"Bubblegum shortage in Old Town","meta":"Confirmed · From 10:00 on day 3 through day 4","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Tapes glut in Uptown","meta":"Confirmed · From 16:00 on day 3 through day 4","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 4 · HEAD Bingo balls fly at the Docks
+      story: 1 set of bingo balls sold for $403.
+      brief: The Crown & Anchor on the Strip is for sale for $2,500. “I’ve been trying to retire since the last time I painted that sign,” says Old Reg.
+  [handOver] day 5 · HEAD Pinch investigates a quiet spell
+      story: You kept your head down on the Strip. Pinch calls the quiet suspicious. Operation Kipper runs on the Strip on days 7–8. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Bubblegum shortage in Uptown","meta":"Confirmed · From 16:00 on day 5 through day 6","body":"Prices are higher and stock is tighter."}
+  [handOver] day 6 · HEAD Brie floods on the Strip
+      story: Confirmed · From 10:00 on day 7 through day 8. Prices are lower and stock is more plentiful.
+      required: {"title":"Operation Kipper","meta":"Scheduled on the Strip · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Trainers shortage in Uptown","meta":"Confirmed · From 16:00 on day 6 through day 7","body":"Prices are higher and stock is tighter."}
+  [handOver] day 7 · HEAD Phones fly at the Docks
+      story: 2 hot phones sold for $412.
+      required: {"title":"Operation Kipper","meta":"Underway on the Strip · days 7–8","body":"Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Brie glut on the Strip","meta":"Confirmed · From 10:00 on day 7 through day 8","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Phones glut on the Strip","meta":"Confirmed · From 16:00 on day 7 through day 8","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 8 · HEAD Hello, who's this?
+      story: You bought a burner phone. Call around from City to check prices. Each call adds heat.
+      required: {"title":"Operation Kipper went cold","body":"Operation Kipper went cold on day 8. It ended without an arrest or seizure in the operation."}
+      required: {"title":"Bingo balls glut at the Docks","meta":"Confirmed · From 10:00 on day 9 through day 10","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Bingo balls shortage in Uptown","meta":"Confirmed · From 16:00 on day 8 through day 9","body":"Prices are higher and stock is tighter."}
+      brief: The Crown & Anchor's ceiling fell in again. Old Reg wants out.
+  [handOver] day 11 · HEAD Pinch sees a plot in your soda sales
+      story: You sold soda on the Strip. Pinch calls it organised crime. Operation Winkle runs on the Strip on days 13–14. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Bubblegum glut in Uptown","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 12 · HEAD Smokes run short at the Docks
+      story: Confirmed · From 10:00 on day 13 through day 14. Prices are higher and stock is tighter.
+      required: {"title":"Operation Winkle","meta":"Scheduled in Old Town · days 13–14","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Bubblegum glut in Uptown","meta":"Confirmed · From 10:00 on day 12 through day 13","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Tapes shortage on the Strip","meta":"Confirmed · From 16:00 on day 12 through day 13","body":"Prices are higher and stock is tighter."}
+      brief: Old Reg seen reading seaside brochures behind the bar.
+  [handOver] day 13 · HEAD Trainers fly uptown
+      story: 3 pairs of trainers sold for $294.
+      required: {"title":"Operation Winkle","meta":"Underway in Old Town · days 13–14","body":"Lenny’s story moved the operation from the Strip to Old Town. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Smokes shortage at the Docks","meta":"Confirmed · From 10:00 on day 13 through day 14","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Bubblegum shortage on the Strip","meta":"Confirmed · From 16:00 on day 13 through day 14","body":"Prices are higher and stock is tighter."}
+  [handOver] day 14 · HEAD The Crown has a new landlord
+      story: You bought the Crown & Anchor for $2,500. Chapter one is complete. Keep trading locally, collect $75 each night and buy any remaining upgrades. “The Guv’nor,” says Lenny. “Success stories sell too.”
+      required: {"title":"Operation Winkle went cold","body":"Operation Winkle went cold on day 14. Lenny’s story moved the operation from the Strip to Old Town. It ended without an arrest or seizure in the operation."}
+      required: {"title":"Smokes glut on the Strip","meta":"Confirmed · From 10:00 on day 15 through day 16","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 16 · HEAD Pinch made Inspector
+      story: After the Crown & Anchor sale made the news, Pinch was promoted to Detective Inspector. New operations cover two neighbourhoods. Pinch cited the coverage. “Public house. Public interest.”
+      required: {"title":"Tapes shortage on the Strip","meta":"Confirmed · From 16:00 on day 16 through day 17","body":"Prices are higher and stock is tighter."}
+  [handOver] day 17 · HEAD Pinch sets his sights on the Crown
+      story: You bought the Crown & Anchor. Pinch calls it a new headquarters. Operation Teapot runs on the Strip and at the Docks on days 19–20. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Bubblegum glut in Uptown","meta":"Confirmed · From 10:00 on day 18 through day 19","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Brie glut on the Strip","meta":"Confirmed · From 16:00 on day 17 through day 18","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 18 · HEAD Brie flies at the Docks
+      story: 3 wheels of brie sold for $792.
+      required: {"title":"Operation Teapot","meta":"Scheduled in Old Town and in Uptown · days 19–20","body":"Lenny’s story moved the operation from the Strip and the Docks to Old Town and Uptown. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Bubblegum glut in Uptown","meta":"Confirmed · From 10:00 on day 18 through day 19","body":"Prices are lower and stock is more plentiful."}
+      required: {"title":"Fireworks shortage at the Docks","meta":"Confirmed · From 16:00 on day 18 through day 19","body":"Prices are higher and stock is tighter."}
+  [handOver] day 19 · HEAD Bingo balls fly at the Docks
+      story: 1 set of bingo balls sold for $531.
+      required: {"title":"Operation Teapot","meta":"Underway in Old Town and in Uptown · days 19–20","body":"Lenny’s story moved the operation from the Strip and the Docks to Old Town and Uptown. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+  [handOver] day 20 · HEAD Operation Teapot went cold
+      story: Operation Teapot went cold on day 20. Lenny’s story moved the operation from the Strip and the Docks to Old Town and Uptown. It ended without an arrest or seizure in the operation.
+      required: {"title":"Police sweep","meta":"Confirmed · On the Strip · through 22:00 on day 21","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [handOver] day 23 · HEAD Pinch sees a plot in your Eau d’Alibi sales
+      story: You sold Eau d’Alibi in Uptown. Pinch calls it organised crime. Operation Bowler runs in Uptown and on the Strip on days 25–26. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Eau d’Alibi glut in Old Town","meta":"Confirmed · From 16:00 on day 23 through day 24","body":"Prices are lower and stock is more plentiful."}
+  [handOver] day 24 · HEAD Bubblegum runs short on the Strip
+      story: Confirmed · From 10:00 on day 25 through day 26. Prices are higher and stock is tighter.
+      required: {"title":"Operation Bowler","meta":"Scheduled at the Docks and on the Strip · days 25–26","body":"Lenny’s story moved the operation from Uptown to the Docks. The Strip stays on the list. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Old Town · through 22:00 on day 25","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [handOver] day 25 · HEAD Bingo balls fly in Old Town
+      story: 1 set of bingo balls sold for $377.
+      required: {"title":"Operation Bowler","meta":"Underway at the Docks and on the Strip · days 25–26","body":"Lenny’s story moved the operation from Uptown to the Docks. The Strip stays on the list. Sales and risky jobs face higher stop risk. Pinch refuses bribes.","warning":true}
+      required: {"title":"Bubblegum shortage on the Strip","meta":"Confirmed · From 10:00 on day 25 through day 26","body":"Prices are higher and stock is tighter."}
+  [handOver] day 26 · HEAD Operation Bowler went cold
+      story: Operation Bowler went cold on day 26. Lenny’s story moved the operation from Uptown to the Docks. The Strip stayed on the list. It ended without an arrest or seizure in the operation.
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 27","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  [handOver] day 29 · HEAD Pinch sets his sights on the Crown
+      story: You bought the Crown & Anchor. Pinch calls it a new headquarters. Operation Crumpet runs on the Strip and at the Docks on days 31–32. Sales and risky jobs face higher stop risk. Pinch refuses bribes.
+      required: {"title":"Trainers shortage in Old Town","meta":"Confirmed · From 10:00 on day 29 through day 30","body":"Prices are higher and stock is tighter."}
+      required: {"title":"Brie shortage at the Docks","meta":"Confirmed · From 16:00 on day 29 through day 30","body":"Prices are higher and stock is tighter."}
+  [handOver] day 30 · HEAD Smokes run short at the Docks
+      story: Confirmed · From 10:00 on day 31 through day 32. Prices are higher and stock is tighter.
+      required: {"title":"Operation Crumpet","meta":"Scheduled in Old Town and at the Docks · days 31–32","body":"Lenny’s story moved the operation from the Strip to Old Town. The Docks stays on the list. Sales and risky jobs face higher stop risk. Pinch refuses bribes."}
+      required: {"title":"Police sweep","meta":"Confirmed · In Uptown · through 22:00 on day 31","body":"Sales and risky jobs face higher stop risk. Ordinary bribe rules apply.","warning":true}
+  end: day 30 cash $8664 crown 14 promoted true
+  cases: [[1,"lieLow","strip","cold",8,[]],[2,"soda","strip","cold",14,[]],[3,"drink","strip","cold",20,[]],[4,"alibi","uptown","cold",26,[]]]
+  cast: [{"who":"lenny","name":"Lenny Scoop, The Crown Courier","line":"“Guv’nor. Has a ring to it, doesn’t it?”"},{"who":"mags","name":"Mags, the news kiosk","line":"“Heard something? Course I have. Ask.”"},{"who":"reg","name":"Old Reg, the Crown & Anchor","line":"“Greetings from Margate. Someone else opens up in the morning.”"}]
+
+1479 actions, 165 save round-trips.

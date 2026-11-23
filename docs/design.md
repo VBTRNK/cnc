@@ -149,19 +149,19 @@ the same: what is the best use of my next few hours?
 - **Stops.** Only when a sale or a job is committed, with p per hour = (0.3% + 0.07% × heat) ×
   police factor, for the action 1 − (1 − p)^hours. A stop takes no time and is a saved card
   holding the action and its quote:
-  - **Slip him something:** $40 + a quarter of the carried goods' current value (a good not
+  - **Offer a bribe:** $40 + a quarter of the carried goods' current value (a good not
     dealt here at the city's usual price) + 2 × heat;
     not offered at wanted or when unaffordable. Heat +10 either way. He takes it at 80% + 5
     points per Nerve − 0.3 points per heat, clamped 10-90%, and the action runs. Otherwise
-    he is honest: no money changes hands and every carried good is taken, as in *Hand it
-    over*.
+    he is honest: no money changes hands and every carried good is taken, as in *Hand over
+    all carried goods*.
   - **Leg it:** 50% + 5 points per Nerve − 0.3 points per heat, clamped 10-90%. Success: heat
     +10 and the action runs. Failure: arrest; the action is cancelled.
-  - **Hand it over:** certain, every carried good is taken. A sale is called off with no time
-    spent; a job still runs.
+  - **Hand over all carried goods:** certain, every carried good is taken. A sale is called
+    off with no time spent; a job still runs.
 
   The odds are frozen with the stop. The action that follows a stop is never checked again. With empty pockets (only possible
-  before a job) there is no card, just "Patted down. Nothing on you."
+  before a job) there is no card, just "The officer checked your pockets and let the job go ahead."
 - **Jobs.** Success chance s = 60% + 5 points per Nerve − 0.3 points per heat, clamped
   10-90%. Every outcome takes the job's 4 h and gives Nerve +2.
 
@@ -416,7 +416,8 @@ tally, and what people feel is in their authored lines.
   Street: the place name and any local warning, then the market with each good on two
   lines, Call it a day, the timed moves in one column, and the optional tips and local line.
   City: any route warnings, the price table, then Call around. Me: the Form stacks.
-  Type never shrinks to fit; the layout changes instead. With
+  Type never shrinks to fit; the layout changes instead. The exception is the Courier's
+  masthead and headline, which cap at the paper's width (ADR-021). With
   very large text on a small phone, portraits go above their lines, the trade stepper's
   controls narrow to 48 px each, and the tabs sit two by two.
 - **Section break.** A 4 px double ink rule with a Courier kicker, a real heading naming the
