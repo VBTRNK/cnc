@@ -86,11 +86,42 @@ const evaluate = async (expr, ss = s) => {
   return r.result.value;
 };
 const go = async (url = URL0, ss = s) => { await ss("Page.navigate", { url }); await sleep(1200); };
-const reload = async () => { await s("Page.reload", {}); await sleep(1200); };
+let reloads = 0;
+const reload = async () => { await s("Page.reload", {}); await sleep(1200); await fitCheck(`after reload ${++reloads}`); };
+/** What spills sideways right now: the page, and each open dialog or paper with anything
+ *  reaching past its edges (content inside its own sideways scroller excepted). */
+const SPILLS = `(() => {
+  const bad = [], root = document.documentElement;
+  if (root.scrollWidth > root.clientWidth + 1) bad.push("page " + root.scrollWidth + " > " + root.clientWidth);
+  const scrolls = (e, box) => { for (let a = e.parentElement; a && a !== box; a = a.parentElement) if (/auto|scroll/.test(getComputedStyle(a).overflowX)) return true; return false; };
+  for (const box of document.querySelectorAll("dialog[open], .paper")) {
+    if (!box.getClientRects().length) continue;
+    const kind = box.matches("dialog") ? "dialog" : "paper", r = box.getBoundingClientRect();
+    if (box.scrollWidth > box.clientWidth + 1) bad.push(kind + " " + box.scrollWidth + " > " + box.clientWidth);
+    for (const e of box.querySelectorAll("*")) {
+      const er = e.getBoundingClientRect();
+      if (!er.width || scrolls(e, box) || (er.left >= r.left - 1 && er.right <= r.right + 1)) continue;
+      bad.push(kind + " child ." + (e.className || e.tagName).toString().split(" ")[0] + " " + Math.round(er.left) + "-" + Math.round(er.right) + " outside " + Math.round(r.left) + "-" + Math.round(r.right));
+      break;
+    }
+  }
+  return { bad, boxes: document.querySelectorAll("dialog[open]").length };
+})()`;
+const spills = [];
+let fits = 0, dialogFits = 0;
+/** Runs at every capture and after every tap, whatever the viewport and text size; the summary
+ *  check near the end reports each state where something spilled sideways. */
+const fitCheck = async (name) => {
+  const fit = await evaluate(SPILLS);
+  fits++;
+  if (fit.boxes) dialogFits++;
+  if (fit.bad.length) spills.push(`${name}: ${fit.bad.join(", ")}`);
+};
 let shot = 0;
 const snap = async (name) => {
   const { data } = await s("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   writeFileSync(join(OUT, `${String(++shot).padStart(2, "0")}-${name}.png`), Buffer.from(data, "base64"));
+  await fitCheck(name);
 };
 /** Taps the visible element matching the selector whose text contains `text`. */
 const tap = async (selector, text = "") => {
@@ -106,6 +137,7 @@ const tap = async (selector, text = "") => {
   await s("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box.x, y: box.y }] });
   await s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await sleep(250);
+  await fitCheck(`after tapping ${selector} "${text}"`);
   return box;
 };
 const key = async (k, code = k, keyCode = 0) => {
@@ -1016,6 +1048,7 @@ try {
       const chips = document.querySelector(".paper-chips");
       return chips.textContent.includes("Crown takings $75") && chips.scrollWidth <= chips.clientWidth;
     })()`));
+    await snap("s6-crown-edition-320-large");
     // City: no room for a whole place column beside the pinned goods column and the fade, so
     // the goods column scrolls too and the fade goes; each Go is shown whole when focused.
     await store(day9);
@@ -1281,6 +1314,8 @@ try {
     await evaluate(`document.querySelector(".status").getBoundingClientRect().bottom + " / " + document.querySelector(".strip").getBoundingClientRect().top`));
   await evaluate(`window.scrollTo(0, 0)`);
   await snap("zoom-200");
+  check(`every capture and tap fits sideways, open dialogs and papers included (${fits} states, ${dialogFits} with a dialog)`,
+    spills.length === 0 && dialogFits > 0, [...new Set(spills)].join("; "));
 } catch (e) {
   log.push(`ERROR ${e.stack}`);
 } finally {

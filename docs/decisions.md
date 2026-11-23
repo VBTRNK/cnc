@@ -573,3 +573,16 @@ they start a new day. The purchase milestone and nightly paper already carry
 the chapter facts. A new flag or save migration would duplicate that state.
 The promotion reports the practical effect even when it runs as a brief.
 See [the first-chapter design](design.md#the-detective-events-and-cast).
+
+## ADR-021 — Display type caps at the paper's width
+
+Date: 2026-11-23. Found by the browser check's new sideways-fit audit.
+
+The type rule says type never shrinks to fit and the layout changes instead.
+At 320 px with 200% text the Courier's column is 158 px wide, while single
+words in the 2.25rem display face run to about 270 px ("COURIER",
+"LANDLORD"), so no layout change can hold them and every edition spilled off
+the paper. The masthead and headline now take `min(2.25rem, 26cqi)` of the
+paper's width, with a word break as the last resort. They stay larger than
+body text (about 41 px against 32 px), and the cap never applies at the
+reviewed sizes up to 356 px with 150% text. Body and UI text still never shrink.
